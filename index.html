@@ -1285,7 +1285,7 @@ function renderFee(){const c=curClass(),board=document.getElementById('feeBoard'
     if((st.classIds||[]).length>1)sub+=' · 겸반';
     if(feeScope==='all')sub=(esc(clsNames(st))||'반 미지정')+' · '+sub;
     const row=document.createElement('div');row.className='srow st-'+s;
-    row.innerHTML=`<span class="nm">${esc(st.name)}</span><span class="sub">${sub}</span><span class="pill">${pill}</span>`;
+    row.innerHTML=`<span class="nm">${esc(st.name)}${st.code?`<small style="display:block;font-weight:400;color:var(--jade-deep);font-size:11px;margin-top:2px">코드 ${st.code}</small>`:'<small style="display:block;font-weight:400;color:var(--verm);font-size:11px;margin-top:2px">코드 미발급</small>'}</span><span class="sub">${sub}</span><span class="pill">${pill}</span>`;
     row.onclick=()=>studentSheet(st);list.appendChild(row);});}
 
 function renderRoster(){const c=curClass(),box=document.getElementById('rosterList');
