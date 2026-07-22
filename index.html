@@ -2304,8 +2304,9 @@ document.getElementById('markLogSeen').onclick=markLogSeen;
 document.getElementById('adminLogout').onclick=()=>confirmSheet('로그아웃 할까요?',()=>auth.signOut(),'로그아웃');
 document.getElementById('adminRefresh').onclick=async()=>{
   const btn=document.getElementById('adminRefresh');btn.textContent='⏳';
-  await enterAdmin();
-  toast('새로고침했어요.');
+  try{await enterAdmin();toast('새로고침했어요.');}
+  catch(e){console.error(e);toast('새로고침 실패 — 인터넷 연결을 확인해주세요.');}
+  finally{if(document.body.contains(btn))btn.textContent='🔄';}
 };
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
 
@@ -2574,8 +2575,9 @@ function renderStudentApp(){
   const stuRefreshBtn=document.getElementById('stuRefresh');
   if(stuRefreshBtn)stuRefreshBtn.onclick=async()=>{
     stuRefreshBtn.textContent='⏳';
-    await enterStudent(auth.currentUser.uid);
-    toast('새로고침했어요.');
+    try{await enterStudent(auth.currentUser.uid);toast('새로고침했어요.');}
+    catch(e){console.error(e);toast('새로고침 실패 — 인터넷 연결을 확인해주세요.');}
+    finally{if(document.body.contains(stuRefreshBtn))stuRefreshBtn.textContent='🔄';}
   };
   root.querySelectorAll('button[data-sid]').forEach(b=>b.onclick=()=>reportAbsence(b.dataset.cid,b.dataset.sid,b.dataset.iso));
   root.querySelectorAll('button[data-msid]').forEach(b=>b.onclick=()=>bookMakeup(b.dataset.mcid,b.dataset.msid,b.dataset.miso,b.dataset.mlabel,b.dataset.mcname));
