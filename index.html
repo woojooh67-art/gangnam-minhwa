@@ -539,23 +539,24 @@ function buildTimetableGrid(){
   });
   return {rowLabels,dayLabels,blocks};
 }
-function timetableGridHTML(tt,editable){
+function timetableGridHTML(tt,editable,big){
   const cellBg=item=>item.extra?'var(--ochre-tint)':(item.type==='연구'?'var(--verm-tint)':'var(--jade-tint)');
   const cellFg=item=>item.extra?'var(--ochre)':(item.type==='연구'?'var(--verm)':'var(--jade-deep)');
-  let html='<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:540px;font-size:12px">';
-  html+='<tr><th style="width:44px"></th>'+tt.dayLabels.map(d=>`<th style="padding:5px 3px;font-weight:700;color:var(--ink-soft);font-size:12.5px">${d}</th>`).join('')+'</tr>';
+  const baseFs=big?13.5:12,hdFs=big?14:12.5,rlFs=big?13:11.5,colW=big?76:62;
+  let html=`<div style="overflow-x:auto" id="ttGridScroll"><table style="border-collapse:collapse;width:100%;min-width:540px;font-size:${baseFs}px">`;
+  html+='<tr><th style="width:44px"></th>'+tt.dayLabels.map((d,i)=>`<th data-day="${i}" style="padding:5px 3px;font-weight:700;color:var(--ink-soft);font-size:${hdFs}px">${d}</th>`).join('')+'</tr>';
   const covered=tt.dayLabels.map(()=>[false,false,false]);
   const blocksByDay=tt.dayLabels.map((_,d)=>(tt.blocks||[]).filter(b=>b.day===d));
   tt.rowLabels.forEach((rl,r)=>{
-    html+=`<tr><td style="font-weight:700;color:var(--ink-soft);white-space:nowrap;padding:3px 4px;font-size:11.5px">${rl}</td>`;
+    html+=`<tr><td style="font-weight:700;color:var(--ink-soft);white-space:nowrap;padding:3px 4px;font-size:${rlFs}px">${rl}</td>`;
     blocksByDay.forEach((dayBlocks,d)=>{
       if(covered[d][r])return;
       const startingHere=dayBlocks.filter(b=>b.rowStart===r);
-      if(!startingHere.length){html+=`<td style="border:1px solid var(--line);padding:2px;min-width:62px"></td>`;return;}
+      if(!startingHere.length){html+=`<td style="border:1px solid var(--line);padding:2px;min-width:${colW}px"></td>`;return;}
       const maxSpan=Math.max(...startingHere.map(b=>b.rowSpan));
       for(let rr=r+1;rr<r+maxSpan&&rr<3;rr++)covered[d][rr]=true;
-      const inner=startingHere.map(item=>`<div style="background:${cellBg(item)};color:${cellFg(item)};border-radius:6px;padding:5px 3px;margin-bottom:3px;font-weight:700;position:relative;text-align:center">${esc(item.label)}${item.sched?`<div style="font-weight:400;font-size:10px;opacity:.85">${esc(item.sched.replace(/^\S+\s*/,''))}</div>`:''}${editable&&item.extra?`<span class="ttdel" data-exid="${item.id}" style="position:absolute;top:1px;right:3px;cursor:pointer;font-size:11px">✕</span>`:''}</div>`).join('');
-      html+=`<td rowspan="${maxSpan}" style="border:1px solid var(--line);vertical-align:middle;padding:2px;min-width:62px">${inner}</td>`;
+      const inner=startingHere.map(item=>`<div style="background:${cellBg(item)};color:${cellFg(item)};border-radius:6px;padding:5px 3px;margin-bottom:3px;font-weight:700;position:relative;text-align:center">${esc(item.label)}${item.sched?`<div style="font-weight:400;font-size:${big?11:10}px;opacity:.85">${esc(item.sched.replace(/^\S+\s*/,''))}</div>`:''}${editable&&item.extra?`<span class="ttdel" data-exid="${item.id}" style="position:absolute;top:1px;right:3px;cursor:pointer;font-size:11px">✕</span>`:''}</div>`).join('');
+      html+=`<td rowspan="${maxSpan}" style="border:1px solid var(--line);vertical-align:middle;padding:2px;min-width:${colW}px">${inner}</td>`;
     });
     html+='</tr>';
   });
@@ -2349,16 +2350,6 @@ function calFloorMonth(regDateStr){
   const rm=regDateStr.slice(0,7);
   return rm>ARCHIVE_MIN?rm:ARCHIVE_MIN;
 }
-function reorderTimetableForStudent(tt,myDows){
-  if(!myDows||!myDows.size)return tt;
-  const dowOf=dl=>({'월':1,'화':2,'수':3,'목':4,'금':5,'토':6,'일':0})[dl];
-  const order=tt.dayLabels.map((dl,i)=>({dl,i,mine:myDows.has(dowOf(dl))}));
-  const newOrder=[...order.filter(o=>o.mine),...order.filter(o=>!o.mine)];
-  const dayLabels=newOrder.map(o=>o.dl);
-  const oldToNew={};newOrder.forEach((o,newIdx)=>{oldToNew[o.i]=newIdx;});
-  const blocks=(tt.blocks||[]).map(b=>({...b,day:oldToNew[b.day]}));
-  return {rowLabels:tt.rowLabels,dayLabels,blocks};
-}
 function renderStudentApp(){
   const root=document.getElementById('studentApp');
   if(!stuData){root.innerHTML=`<div class="stuwrap"><div class="stucard"><h3>아직 준비된 정보가 없어요</h3>
@@ -2475,11 +2466,12 @@ function renderStudentApp(){
     }).join('');
     myMakeupSection=`<div class="stucard"><h3>예약된 보강</h3>${rows}<div class="note">수업 하루 전까지는 직접 취소하실 수 있어요. 취소 후 다시 원하는 날짜로 예약해 주세요.</div></div>`;
   }
-  let timetableSection='';
+  let timetableSection='';let stuTtScrollDay=-1;
   if(stuData.timetableGrid&&stuData.timetableGrid.blocks){
+    const dowOf=dl=>({'월':1,'화':2,'수':3,'목':4,'금':5,'토':6,'일':0})[dl];
     const myDows=new Set((stuData.classes||[]).map(c=>classWeekday(c)).filter(d=>d!==null));
-    const myTt=reorderTimetableForStudent(stuData.timetableGrid,myDows);
-    timetableSection=`<div class="stucard"><h3>🗓 화실 시간표</h3>${timetableGridHTML(myTt,false)}<div class="note">결석·보강 날짜 고르실 때 참고하세요.</div></div>`;
+    stuTtScrollDay=stuData.timetableGrid.dayLabels.findIndex(dl=>myDows.has(dowOf(dl)));
+    timetableSection=`<div class="stucard"><h3>🗓 화실 시간표</h3>${timetableGridHTML(stuData.timetableGrid,false,true)}<div class="note">결석·보강 날짜 고르실 때 참고하세요. 좌우로 밀어서 다른 요일도 볼 수 있어요.</div></div>`;
   }
   let skippedNotice='';
   {
@@ -2540,6 +2532,10 @@ function renderStudentApp(){
       })()}</details></div>
     ${stuData.studioRules?`<div class="stucard"><h3>📜 화실 이용 안내</h3><div style="font-size:13.5px;line-height:1.7;white-space:pre-wrap">${esc(stuData.studioRules)}</div></div>`:''}
   </div>`;
+  if(stuTtScrollDay>=0){
+    const th=document.querySelector(`#ttGridScroll th[data-day="${stuTtScrollDay}"]`);
+    if(th)th.scrollIntoView({inline:'start',block:'nearest'});
+  }
   document.getElementById('stuLogout').onclick=()=>confirmSheet2();
   root.querySelectorAll('button[data-sid]').forEach(b=>b.onclick=()=>reportAbsence(b.dataset.cid,b.dataset.sid,b.dataset.iso));
   root.querySelectorAll('button[data-msid]').forEach(b=>b.onclick=()=>bookMakeup(b.dataset.mcid,b.dataset.msid,b.dataset.miso,b.dataset.mlabel,b.dataset.mcname));
