@@ -2453,20 +2453,16 @@ function renderStudentApp(){
   const payRows=(stuData.payments||[]).slice().sort((a,b)=>a.date<b.date?1:-1).slice(0,6).map(p=>`<div class="stuhist"><span>${shortDate(p.date)} · ${p.plan||p.sessions||''}회권</span><b>${won(p.amount)}</b></div>`).join('')||'<div class="note">결제 내역이 없어요.</div>';
   let makeupSection='';
   if(quotaTotal>0){
-    const slots=(stuData.allUpcoming||[]).filter(u=>u.iso>=t);
-    const rows=slots.map(u=>{
-      const already=pendingMakeup.indexOf(u.sessionId)>=0;
-      const avail=u.avail!==undefined?u.avail:99;
-      if(already)return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span style="display:flex;align-items:center;gap:8px"><span style="color:var(--blue);font-size:12.5px;font-weight:700">예약 반영대기</span><button class="minibtn" style="color:var(--verm);padding:4px 2px;font-size:12px" data-cancel-msid="${u.sessionId}">취소</button></span></div>`;
-      if(quotaLeft<=0)return `<div class="stuhist" style="opacity:.5"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span style="color:var(--ink-soft);font-size:12px">예약 가능 회차 소진</span></div>`;
-      if(avail<=0)return `<div class="stuhist" style="opacity:.5"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span style="color:var(--verm);font-size:12px">정원 마감</span></div>`;
-      return `<div class="stuhist"><span>${esc(u.className)}${u.afternoonOnly?' <small style="color:var(--blue)">(2~5시)</small>':''} · ${mkDateLabel(u)} <small style="color:var(--ink-soft)">· 잔여 ${avail}석</small></span><button class="checkbtn" style="width:auto;padding:8px 14px;margin:0;font-size:12.5px" data-mcid="${u.classId}" data-msid="${u.sessionId}" data-miso="${u.iso}" data-mlabel="${esc(u.label||'')}" data-mcname="${esc(u.className)}">보강 예약</button></div>`;
+    const pendingRows=pendingMakeup.map(sid=>{
+      const u=(stuData.allUpcoming||[]).find(x=>x.sessionId===sid);if(!u)return '';
+      return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span style="display:flex;align-items:center;gap:8px"><span style="color:var(--blue);font-size:12.5px;font-weight:700">예약 반영대기</span><button class="minibtn" style="color:var(--verm);padding:4px 2px;font-size:12px" data-cancel-msid="${u.sessionId}">취소</button></span></div>`;
     }).join('');
     const hd=`보강 예약 (예약 가능 ${quotaLeft}회${pendingMakeup.length>0?' · 예약중 '+pendingMakeup.length+'회':''})`;
     let pendingNote='';
     if(pendingMakeupCancel.length>0)pendingNote='<div class="note">취소 신청하신 만큼 바로 다른 날짜로 예약하실 수 있어요. 원장님이 확인하시면 정식 반영돼요.</div>';
     else if(pendingAbsent.length>0&&pendingMakeup.length===0)pendingNote='<div class="note">결석 알림을 드린 만큼 바로 예약하실 수 있어요. 원장님이 확인하시면 정식 반영돼요.</div>';
-    makeupSection=`<div class="stucard"><h3>${hd}</h3>${rows||'<div class="note">예약 가능한 수업이 아직 없어요.</div>'}${pendingNote}</div>`;
+    const actionBtn=quotaLeft>0?`<button class="checkbtn" id="openMakeupPickerBtn">📅 보강 날짜 고르기</button>`:(pendingRows?'':'<div class="note">지금은 예약 가능한 보강이 없어요.</div>');
+    makeupSection=`<div class="stucard"><h3>${hd}</h3>${pendingRows}${actionBtn}${pendingNote}</div>`;
   }
   let myMakeupSection='';
   const myMakeups=stuData.myMakeups||[];
@@ -2553,6 +2549,7 @@ function renderStudentApp(){
   document.getElementById('stuLogout').onclick=()=>confirmSheet2();
   root.querySelectorAll('button[data-sid]').forEach(b=>b.onclick=()=>reportAbsence(b.dataset.cid,b.dataset.sid,b.dataset.iso));
   root.querySelectorAll('button[data-msid]').forEach(b=>b.onclick=()=>bookMakeup(b.dataset.mcid,b.dataset.msid,b.dataset.miso,b.dataset.mlabel,b.dataset.mcname));
+  {const opb=document.getElementById('openMakeupPickerBtn');if(opb)opb.onclick=()=>openMakeupPicker();}
   root.querySelectorAll('button[data-cancel-msid]').forEach(b=>b.onclick=()=>cancelMakeup(b.dataset.cancelMsid));
   root.querySelectorAll('button[data-dsid]').forEach(b=>b.onclick=()=>bookDropin(b.dataset.dcid,b.dataset.dsid,b.dataset.diso,b.dataset.dlabel,b.dataset.dcname));
   root.querySelectorAll('button[data-cancel-dsid]').forEach(b=>b.onclick=()=>cancelDropin(b.dataset.cancelDsid));
