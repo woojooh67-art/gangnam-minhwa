@@ -407,6 +407,14 @@ async function mergeAllStudentActivity(showToast){
           pushLog('makeup',msg);msgs.push(msg);
           total++;}}});
     if(!q4.empty){const b4=db.batch();q4.forEach(doc=>b4.delete(doc.ref));await b4.commit();}
+    const q5=await db.collection('absentCancelRequests').get();
+    q5.forEach(doc=>{const d=doc.data();const c=classById(d.classId);const st=studentById(d.studentId);
+      if(c&&st){const k=d.sessionId+':'+st.id;
+        if(c.records[k]==='absent'){delete c.records[k];
+          const msg=`${st.name}님이 ${c.name} · ${d.label||shortDate(d.iso)} 결석 취소를 신청했어요.`;
+          pushLog('absent',msg);msgs.push(msg);
+          total++;}}});
+    if(!q5.empty){const b5=db.batch();q5.forEach(doc=>b5.delete(doc.ref));await b5.commit();}
     if(total>0){await save();render();}
     if(showToast)toast(total>0?(total+'건 반영했어요.'):'새로 반영할 게 없어요.');
     return {total,msgs};
@@ -2370,7 +2378,7 @@ function renderStudentApp(){
     <div style="font-size:13.5px;line-height:1.6">원장님이 반 배정을 마치면 정보가 보여요. 잠시 후 다시 접속해 주세요.</div>
     <button class="logoutbtn" style="margin-top:14px" onclick="auth.signOut()">로그아웃</button></div></div>`;return;}
   const t=todayISO();const pendingAbsent=stuData._pendingAbsent||[];const pendingMakeup=stuData._pendingMakeup||[];
-  const pendingMakeupCancel=stuData._pendingMakeupCancel||[];
+  const pendingMakeupCancel=stuData._pendingMakeupCancel||[];const pendingAbsentCancel=stuData._pendingAbsentCancel||[];
   const approvedMakeup=stuData.makeupLeft||0;
   const preBookAllowance=1; // 결석 전에 미리 보강받는 경우를 위한 여유분
   const quotaTotal=approvedMakeup+pendingAbsent.length+pendingMakeupCancel.length+preBookAllowance;
@@ -2383,7 +2391,11 @@ function renderStudentApp(){
       const v=c.records[s.id];
       let right;
       if(pendingAbsent.indexOf(s.id)>=0)right=`<span style="display:flex;align-items:center;gap:8px"><span style="color:var(--verm);font-size:12.5px;font-weight:700">결석 알림 반영대기</span><button class="minibtn" style="color:var(--verm);padding:4px 2px;font-size:12px" data-cancel-asid="${s.id}">취소</button></span>`;
-      else if(v==='absent')right=`<span class="c-a" style="font-weight:700">결석 처리됨</span>`;
+      else if(v==='absent'){
+        if(pendingAbsentCancel.indexOf(s.id)>=0)right=`<span style="color:var(--blue);font-size:12.5px;font-weight:700">취소 요청 반영대기</span>`;
+        else if(s.iso>t)right=`<span style="display:flex;align-items:center;gap:8px"><span class="c-a" style="font-weight:700">결석 처리됨</span><button class="minibtn" style="color:var(--verm);padding:4px 2px;font-size:12px" data-racid="${s.id}" data-racclassid="${c.id}" data-raciso="${s.iso}" data-raclabel="${esc(s.label||'')}" data-racname="${esc(c.name)}">취소 요청</button></span>`;
+        else right=`<span class="c-a" style="font-weight:700">결석 처리됨 <small style="color:var(--ink-soft);font-weight:400">· 당일이라 취소 불가</small></span>`;
+      }
       else if(v==='makeup')right=`<span class="c-m" style="font-weight:700">보강</span>`;
       else right=`<button class="checkbtn" style="width:auto;padding:8px 14px;margin:0;font-size:12.5px" data-cid="${c.id}" data-sid="${s.id}" data-iso="${s.iso}">결석 예정 알리기</button>`;
       upcomingRows+=`<div class="stuhist"><span>${esc(c.name)} · ${esc(s.label||'')} (${shortDate(s.iso)})</span>${right}</div>`;
@@ -2554,6 +2566,7 @@ function renderStudentApp(){
   root.querySelectorAll('button[data-dsid]').forEach(b=>b.onclick=()=>bookDropin(b.dataset.dcid,b.dataset.dsid,b.dataset.diso,b.dataset.dlabel,b.dataset.dcname));
   root.querySelectorAll('button[data-cancel-dsid]').forEach(b=>b.onclick=()=>cancelDropin(b.dataset.cancelDsid));
   root.querySelectorAll('button[data-msxid]').forEach(b=>b.onclick=()=>requestMakeupCancel(b.dataset.mcxid,b.dataset.msxid,b.dataset.mxiso,b.dataset.mxlabel,b.dataset.mxcname));
+  root.querySelectorAll('button[data-racid]').forEach(b=>b.onclick=()=>requestAbsenceCancel(b.dataset.racclassid,b.dataset.racid,b.dataset.raciso,b.dataset.raclabel,b.dataset.racname));
   root.querySelectorAll('button[data-cancel-asid]').forEach(b=>b.onclick=()=>cancelAbsenceReport(b.dataset.cancelAsid));
   function bindStuCalNav(){
     document.querySelectorAll('#stuHistCal .calnav').forEach(b=>b.onclick=()=>{
@@ -2643,6 +2656,14 @@ async function requestMakeupCancel(classId,sessionId,iso,label,className){
     if(!stuData._pendingMakeupCancel)stuData._pendingMakeupCancel=[];
     stuData._pendingMakeupCancel.push(sessionId);renderStudentApp();
     toast('보강 예약 취소를 신청했어요. 원장님이 확인하면 정식 반영돼요.');
+  }catch(e){console.error(e);toast('전송 실패 — 인터넷 연결을 확인해주세요.');}
+}
+async function requestAbsenceCancel(classId,sessionId,iso,label,className){
+  try{
+    await db.collection('absentCancelRequests').add({uid:auth.currentUser.uid,studentId:stuData.studentId,studentName:stuData.name,classId,sessionId,iso,label,className,createdAt:Date.now()});
+    if(!stuData._pendingAbsentCancel)stuData._pendingAbsentCancel=[];
+    stuData._pendingAbsentCancel.push(sessionId);renderStudentApp();
+    toast('결석 취소를 신청했어요. 원장님이 확인하면 정식 반영돼요.');
   }catch(e){console.error(e);toast('전송 실패 — 인터넷 연결을 확인해주세요.');}
 }
 async function cancelAbsenceReport(sessionId){
