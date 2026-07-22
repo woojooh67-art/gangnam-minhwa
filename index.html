@@ -860,7 +860,12 @@ function getTempClass(){
   return c;
 }
 function curClass(){return classById(data.activeClass)||data.classes[0];}
-function curSession(){const c=curClass();if(activeSess[c.id]==='__none__')return null;return c.sessions.find(s=>s.id===activeSess[c.id])||c.sessions[c.sessions.length-1]||null;}
+function curSession(){
+  const c=curClass();
+  if(activeSess[c.id]==='__none__')return null;
+  if(activeSess[c.id]){const found=c.sessions.find(s=>s.id===activeSess[c.id]);if(found)return found;}
+  return c.sessions.find(s=>s.iso===todayISO())||null;
+}
 function studentsInClass(cid){return data.students.filter(s=>(s.classIds||[]).indexOf(cid)>=0);}
 function activeIn(cid){return studentsInClass(cid).filter(s=>s.status!=='paused'&&s.status!=='ended');}
 function regDate(st){
@@ -1007,6 +1012,9 @@ function renderAllClassesCal(){
   function jumpToClass(cid,iso){
     const [jy,jm]=iso.split('-').map(Number);
     checkCalYM[cid]={y:jy,m:jm};
+    const cc=classById(cid);
+    const sessForDate=cc?cc.sessions.find(s=>s.iso===iso):null;
+    activeSess[cid]=sessForDate?sessForDate.id:'__none__';
     data.activeClass=cid;checkMode='single';save();render();
   }
   box.querySelectorAll('.calcell[data-iso]').forEach(cell=>cell.onclick=()=>{
@@ -1132,7 +1140,10 @@ function renderCheckCal(){
     if(cw!==null&&dow!==cw){
       const matches=data.classes.filter(x=>classWeekday(x)===dow);
       if(matches.length===1){
-        data.activeClass=matches[0].id;checkMode='single';save();render();return;
+        const targetC=matches[0];
+        const sessForDate=targetC.sessions.find(s=>s.iso===iso);
+        activeSess[targetC.id]=sessForDate?sessForDate.id:'__none__';
+        data.activeClass=targetC.id;checkMode='single';save();render();return;
       }
       if(matches.length>1){
         oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>${shortDate(iso)} · 어느 반이에요?</h3>
@@ -1141,6 +1152,9 @@ function renderCheckCal(){
           <div class="actions" style="margin-top:10px"><button class="btn-ghost" id="jcNo" style="flex:1">취소</button></div></div></div>`;
         oroot().querySelector('#jcNo').onclick=closeOverlay;
         oroot().querySelectorAll('.srow[data-jc]').forEach(row=>row.onclick=()=>{
+          const targetC=classById(row.dataset.jc);
+          const sessForDate=targetC?targetC.sessions.find(s=>s.iso===iso):null;
+          activeSess[row.dataset.jc]=sessForDate?sessForDate.id:'__none__';
           closeOverlay();data.activeClass=row.dataset.jc;checkMode='single';save();render();});
         return;
       }
@@ -1187,7 +1201,10 @@ function renderCheck(){
     list=document.getElementById('checkList'),tally=document.getElementById('tally');
   document.getElementById('editSess').style.visibility=sess?'visible':'hidden';
   if(!sess){title.textContent='회차 없음';date.textContent='';tally.innerHTML='';
-    list.innerHTML='<div class="empty"><b>이 반은 오늘 요일이 아니에요.</b><br>위 달력에서 원하는 날짜를 탭하면 바로 회차가 만들어져요.</div>';return;}
+    const isTodayClass=classWeekday(c)===new Date().getDay();
+    list.innerHTML=isTodayClass
+      ?'<div class="empty"><b>선택된 회차가 없어요.</b><br>위 달력에서 원하는 날짜를 탭해보세요.</div>'
+      :'<div class="empty"><b>이 반은 오늘 요일이 아니에요.</b><br>위 달력에서 원하는 날짜를 탭하면 바로 회차가 만들어져요.</div>';return;}
   const shortD=shortDate(sess.iso);
   title.textContent=sess.label;date.textContent=(sess.label===shortD)?'':(' · '+shortD);
   const studioClosed=(data.studioClosedDates||[]).find(x=>x.iso===sess.iso);
