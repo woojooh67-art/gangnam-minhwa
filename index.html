@@ -1150,6 +1150,14 @@ function renderCheckCal(){
       },'임시수업 만들기');
       return;
     }
+    if(iso>todayISO()){
+      confirmSheet(`${shortDate(iso)}는 아직 안 온 날짜예요.<br>이 날 <b>휴강</b> 처리할까요? (그냥 두면 그날이 됐을 때 자동으로 회차가 열려요)`,()=>{
+        if(!c.skippedDates)c.skippedDates=[];
+        if(c.skippedDates.indexOf(iso)<0)c.skippedDates.push(iso);
+        save();closeOverlay();renderCheck();toast('휴강 처리했어요.');
+      },'휴강 처리');
+      return;
+    }
     const s={id:uid(),label:shortDate(iso),iso};c.sessions.push(s);
     if(iso===todayISO())activeIn(c.id).forEach(st=>{c.records[s.id+':'+st.id]='present';});
     activeSess[c.id]=s.id;save();renderCheck();toast('회차를 만들었어요.');
@@ -1169,7 +1177,7 @@ function renderCheck(){
   }
   if(toggleBtn)toggleBtn.style.display='inline-block';
   if(detailBox)detailBox.style.display='';
-  if(noteBox)noteBox.innerHTML='💡 <span style="color:var(--jade-deep);font-weight:700">초록</span>: 이미 회차 있음 · <span style="border:1.5px dashed var(--ink-soft);border-radius:4px;padding:0 3px">점선</span>: 이 반 정규 요일(탭하면 새로 만들어져요) · <span style="background:var(--verm-tint);color:var(--verm);font-weight:700;border-radius:4px;padding:0 4px">분홍</span>: 원장님 휴강 · 위 <b>요일을 다시 누르면</b> 그 요일의 다음 반으로 넘어가요';
+  if(noteBox)noteBox.innerHTML='💡 <span style="color:var(--jade-deep);font-weight:700">초록</span>: 이미 회차 있음 · <span style="border:1.5px dashed var(--ink-soft);border-radius:4px;padding:0 3px">점선</span>: 이 반 정규 요일(미래 날짜를 누르면 휴강 여부만 물어봐요, 회차는 그날 자동 생성) · <span style="background:var(--verm-tint);color:var(--verm);font-weight:700;border-radius:4px;padding:0 4px">분홍</span>: 원장님 휴강 · 위 <b>요일을 다시 누르면</b> 그 요일의 다음 반으로 넘어가요';
   const c=curClass();renderCheckCal();
   const ttBox=document.getElementById('ttAlways');if(ttBox)ttBox.innerHTML=timetableGridHTML(buildTimetableGrid(),false)+'<div class="note" style="margin-top:6px">고치시려면 "수업료" 탭 → "🗓 화실 시간표 관리"</div>';
   const sess=curSession(),title=document.getElementById('sessTitle'),date=document.getElementById('sessDate'),
