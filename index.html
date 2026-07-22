@@ -1115,6 +1115,7 @@ function renderCheckCal(){
     if(sessObj){activeSess[c.id]=sessObj.id;renderCheck();return;}
     const dow=new Date(iso+'T00:00:00').getDay();
     if(skipped.indexOf(iso)>=0){
+      activeSess[c.id]='__none__';renderCheck();
       oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>${shortDate(iso)} 휴강 처리됨</h3>
         <div class="subt">다시 수업을 여실지, 휴강 표시만 지우고 그대로 둘지 고르세요.</div>
         <div class="actions" style="flex-direction:column;gap:8px"><button class="btn-primary" id="reOpen" style="width:100%">다시 수업 열기</button><button class="btn-ghost" id="justClear" style="width:100%">휴강 표시만 지우기</button><button class="btn-ghost" id="skNo" style="width:100%">취소</button></div></div></div>`;
@@ -1152,6 +1153,7 @@ function renderCheckCal(){
       return;
     }
     if(iso>todayISO()){
+      activeSess[c.id]='__none__';renderCheck();
       confirmSheet(`${shortDate(iso)}는 아직 안 온 날짜예요.<br>이 날 <b>휴강</b> 처리할까요? (그냥 두면 그날이 됐을 때 자동으로 회차가 열려요)`,()=>{
         if(!c.skippedDates)c.skippedDates=[];
         if(c.skippedDates.indexOf(iso)<0)c.skippedDates.push(iso);
