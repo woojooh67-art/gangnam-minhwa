@@ -2204,13 +2204,17 @@ async function openAutoBackups(){
     <div class="subt">불러오는 중...</div></div></div>`;
   try{
     const all=await db.collection('autoBackups').get();
-    const ids=all.docs.map(d=>d.id).sort((a,b)=>a<b?1:-1);
+    const items=all.docs.map(d=>({id:d.id,savedAt:d.data().savedAt||''})).sort((a,b)=>a.id<b.id?1:-1);
+    const ids=items.map(x=>x.id);
     if(!ids.length){oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>☁️ 자동 백업 목록</h3>
       <div class="note">아직 자동 백업이 없어요. 관리자로 한 번 더 접속하시면 오늘 날짜로 생겨요.</div>
       <div class="actions" style="margin-top:14px"><button class="btn-ghost" id="abNo" style="flex:1">닫기</button></div></div></div>`;
       oroot().querySelector('#abNo').onclick=closeOverlay;return;}
-    const rows=ids.map(id=>`<div class="srow" style="margin-bottom:8px;cursor:pointer" data-bid="${id}">
-      <span class="nm" style="font-size:15px">${id}</span><span class="pill" style="background:var(--blue-tint);color:var(--blue)">불러오기</span></div>`).join('');
+    const timeLabel=iso=>{if(!iso)return '';const d=new Date(iso);if(isNaN(d))return '';
+      let h=d.getHours();const m=String(d.getMinutes()).padStart(2,'0');const ap=h<12?'오전':'오후';h=h%12;if(h===0)h=12;
+      return ` <small style="color:var(--ink-soft);font-weight:400">${ap} ${h}:${m}</small>`;};
+    const rows=items.map(it=>`<div class="srow" style="margin-bottom:8px;cursor:pointer" data-bid="${it.id}">
+      <span class="nm" style="font-size:15px">${it.id}${timeLabel(it.savedAt)}</span><span class="pill" style="background:var(--blue-tint);color:var(--blue)">불러오기</span></div>`).join('');
     oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>☁️ 자동 백업 목록</h3>
       <div class="subt">최근 ${ids.length}일치가 보관되어 있어요. 날짜를 누르면 그 시점으로 되돌려요.</div>
       <div style="max-height:52vh;overflow:auto">${rows}</div>
