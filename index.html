@@ -193,10 +193,18 @@
   .stutop small{color:var(--ink-soft);font-size:12px}
   .logoutbtn{border:1px solid var(--line);background:var(--card);color:var(--ink-soft);border-radius:10px;padding:8px 12px;font-family:inherit;font-size:12.5px;cursor:pointer}
   .stucard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:var(--shadow)}
-  .stucard h3{font-family:'Noto Serif KR',serif;font-size:15px;margin:0 0 10px}
-  .checkbtn{width:100%;border:none;background:var(--jade);color:#fff;border-radius:12px;padding:15px;font-family:inherit;font-size:15.5px;font-weight:700;cursor:pointer;margin-top:8px}
+  .stucard h3{font-family:'Noto Serif KR',serif;font-size:16px;margin:0 0 10px}
+  .stucard summary{font-family:'Noto Serif KR',serif;font-size:16px;font-weight:700;margin:0 0 10px;cursor:pointer;color:var(--ink);list-style:revert}
+  .stucard summary::marker{color:var(--jade-deep)}
+  .stucard details[open] summary{margin-bottom:12px}
+  .stuwrap .note{font-size:12.5px}
+  .stuwrap .tally{font-size:13.5px}
+  .stuwrap .calcell{font-size:14.5px;width:33px;height:33px}
+  .stutop h2{font-size:20px !important}
+  .stutop small{font-size:13px !important}
+  .checkbtn{width:100%;border:none;background:var(--jade);color:#fff;border-radius:12px;padding:15px;font-family:inherit;font-size:16.5px;font-weight:700;cursor:pointer;margin-top:8px}
   .checkbtn:disabled{background:var(--gray-tint);color:var(--gray);cursor:default}
-  .stuhist{display:flex;justify-content:space-between;padding:8px 2px;font-size:13px;border-bottom:1px solid var(--line-soft)}
+  .stuhist{display:flex;justify-content:space-between;padding:8px 2px;font-size:14px;border-bottom:1px solid var(--line-soft)}
   .stuhist:last-child{border-bottom:none}
 </style>
 </head>
@@ -2341,6 +2349,16 @@ function calFloorMonth(regDateStr){
   const rm=regDateStr.slice(0,7);
   return rm>ARCHIVE_MIN?rm:ARCHIVE_MIN;
 }
+function reorderTimetableForStudent(tt,myDows){
+  if(!myDows||!myDows.size)return tt;
+  const dowOf=dl=>({'월':1,'화':2,'수':3,'목':4,'금':5,'토':6,'일':0})[dl];
+  const order=tt.dayLabels.map((dl,i)=>({dl,i,mine:myDows.has(dowOf(dl))}));
+  const newOrder=[...order.filter(o=>o.mine),...order.filter(o=>!o.mine)];
+  const dayLabels=newOrder.map(o=>o.dl);
+  const oldToNew={};newOrder.forEach((o,newIdx)=>{oldToNew[o.i]=newIdx;});
+  const blocks=(tt.blocks||[]).map(b=>({...b,day:oldToNew[b.day]}));
+  return {rowLabels:tt.rowLabels,dayLabels,blocks};
+}
 function renderStudentApp(){
   const root=document.getElementById('studentApp');
   if(!stuData){root.innerHTML=`<div class="stuwrap"><div class="stucard"><h3>아직 준비된 정보가 없어요</h3>
@@ -2459,7 +2477,9 @@ function renderStudentApp(){
   }
   let timetableSection='';
   if(stuData.timetableGrid&&stuData.timetableGrid.blocks){
-    timetableSection=`<div class="stucard"><h3>🗓 화실 시간표</h3>${timetableGridHTML(stuData.timetableGrid,false)}<div class="note">결석·보강 날짜 고르실 때 참고하세요.</div></div>`;
+    const myDows=new Set((stuData.classes||[]).map(c=>classWeekday(c)).filter(d=>d!==null));
+    const myTt=reorderTimetableForStudent(stuData.timetableGrid,myDows);
+    timetableSection=`<div class="stucard"><h3>🗓 화실 시간표</h3>${timetableGridHTML(myTt,false)}<div class="note">결석·보강 날짜 고르실 때 참고하세요.</div></div>`;
   }
   let skippedNotice='';
   {
@@ -2511,13 +2531,13 @@ function renderStudentApp(){
     ${makeupSection}
     ${myMakeupSection}
     ${dropinSection}
-    <div class="stucard"><h3>최근 출석 이력</h3><div id="stuHistCal">${stuCalGrid()}</div></div>
-    <div class="stucard"><h3>수강료 납부 내역</h3>${payRows}${(stuData.payments||[]).length>6?'<div class="note" style="margin-top:6px">최근 6건까지만 표시돼요. 이전 내역은 원장님께 문의해주세요.</div>':''}
+    <div class="stucard"><details><summary>최근 출석 이력</summary><div id="stuHistCal">${stuCalGrid()}</div></details></div>
+    <div class="stucard"><details><summary>수강료 납부 내역</summary>${payRows}${(stuData.payments||[]).length>6?'<div class="note" style="margin-top:6px">최근 6건까지만 표시돼요. 이전 내역은 원장님께 문의해주세요.</div>':''}
       ${(()=>{
         const rd=(stuData.payments||[]).map(p=>p.date).filter(Boolean).sort()[0];
         const hasOldHistory=(rd&&rd<'2026-07-01')||Object.keys(stuData.archiveMarks||{}).length>0;
         return hasOldHistory?'<div class="note" style="margin-top:6px">📌 결제·출석 기록은 전체 이력이 다 보여요. 다만 <b>잔여 회차는 가장 최근 결제하신 회차권 기준으로만</b> 계산돼요 (예전 결제 건은 이미 사용 완료된 걸로 기록되어 있어, 잔여 계산에는 포함되지 않아요).</div>':'';
-      })()}</div>
+      })()}</details></div>
     ${stuData.studioRules?`<div class="stucard"><h3>📜 화실 이용 안내</h3><div style="font-size:13.5px;line-height:1.7;white-space:pre-wrap">${esc(stuData.studioRules)}</div></div>`:''}
   </div>`;
   document.getElementById('stuLogout').onclick=()=>confirmSheet2();
