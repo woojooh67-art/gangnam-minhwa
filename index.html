@@ -2519,7 +2519,7 @@ function renderStudentApp(){
   }
   root.innerHTML=`<div class="stuwrap">
     <div class="stutop"><div style="display:flex;align-items:center;gap:10px"><img src="${LOGO_URI}" style="width:52px;height:52px;border-radius:50%;flex:0 0 auto"><div><h2>${esc(stuData.name)}님</h2><small>${esc((stuData.classes||[]).map(c=>c.name).join(' · '))}</small></div></div>
-      <button class="logoutbtn" id="stuLogout">로그아웃</button></div>
+      <div style="display:flex;gap:6px"><button class="logoutbtn" id="stuRefresh" title="새로고침">🔄</button><button class="logoutbtn" id="stuLogout">로그아웃</button></div></div>
     ${stuData.status==='paused'?`<div class="stucard" style="background:var(--ochre-tint);border-color:var(--ochre)"><h3>🌱 현재 휴강중이에요</h3><div class="note" style="color:var(--ink)">언제든 다시 오세요! 재등록해주시면 잔여 회차·보강기한 모두 그날부터 다시 이어져요. 재등록은 원장님께 말씀해주세요.</div></div>`:''}
     ${stuData.status==='ended'?`<div class="stucard" style="background:var(--line-soft)"><h3>수강이 종료된 상태예요</h3><div class="note">다시 다니고 싶으시면 언제든 원장님께 연락 주세요.</div></div>`:''}
     <div class="stucard"><h3>출석 · 잔여 회차</h3>
@@ -2559,6 +2559,12 @@ function renderStudentApp(){
     if(th)th.scrollIntoView({inline:'start',block:'nearest'});
   }
   document.getElementById('stuLogout').onclick=()=>confirmSheet2();
+  const stuRefreshBtn=document.getElementById('stuRefresh');
+  if(stuRefreshBtn)stuRefreshBtn.onclick=async()=>{
+    stuRefreshBtn.textContent='⏳';
+    await enterStudent(auth.currentUser.uid);
+    toast('새로고침했어요.');
+  };
   root.querySelectorAll('button[data-sid]').forEach(b=>b.onclick=()=>reportAbsence(b.dataset.cid,b.dataset.sid,b.dataset.iso));
   root.querySelectorAll('button[data-msid]').forEach(b=>b.onclick=()=>bookMakeup(b.dataset.mcid,b.dataset.msid,b.dataset.miso,b.dataset.mlabel,b.dataset.mcname));
   {const opb=document.getElementById('openMakeupPickerBtn');if(opb)opb.onclick=()=>openMakeupPicker();}
@@ -2694,6 +2700,9 @@ async function enterStudent(u){
     try{const q4=await db.collection('makeupCancelRequests').where('uid','==',u).get();
       stuData._pendingMakeupCancel=q4.docs.map(d=>d.data().sessionId);}
     catch(e){console.error(e);stuData._pendingMakeupCancel=[];}
+    try{const q5=await db.collection('absentCancelRequests').where('uid','==',u).get();
+      stuData._pendingAbsentCancel=q5.docs.map(d=>d.data().sessionId);}
+    catch(e){console.error(e);stuData._pendingAbsentCancel=[];}
   }
   renderStudentApp();
 }
