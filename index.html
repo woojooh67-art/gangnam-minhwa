@@ -246,7 +246,7 @@
       <div id="checkCalBox" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px"></div>
       <div class="note" id="checkCalNote" style="margin:-2px 3px 10px"></div>
       <div id="checkDetail">
-        <div class="sesshead" style="justify-content:flex-end"><span class="t" id="sessTitle">회차</span><span class="d" id="sessDate"></span></div>
+        <div class="sesshead" style="justify-content:flex-start"><span class="t" id="sessTitle">회차</span><span class="d" id="sessDate"></span></div>
         <div class="tally" id="tally"></div>
         <div class="rowlist" id="checkList"></div>
       </div>
@@ -268,7 +268,7 @@
 
     <section id="view-roster" class="hidden">
       <div class="filters" id="rosterScope"></div>
-      <div class="addrow"><input id="nameInput" placeholder="학생 이름 (쉼표로 여러 명)" autocomplete="off"><input id="phoneInput" placeholder="전화번호(선택)" autocomplete="off" style="flex:0 0 130px"><button id="addStudent">추가</button></div>
+      <div class="addrow"><input id="nameInput" placeholder="이름 (여러 명은 쉼표로, 뒤에 전화번호도: 홍길동 01012345678)" autocomplete="off"><input id="phoneInput" placeholder="전화번호(선택)" autocomplete="off" style="flex:0 0 130px"><button id="addStudent">추가</button></div>
       <div class="note" style="margin:-4px 3px 10px">1명만 등록할 때 전화번호를 적으면 그 뒷자리가 로그인 코드로 자동 발급돼요. 여러 명을 한 번에 등록할 땐 전화번호 칸은 무시되고 무작위 코드가 발급돼요.</div>
       <input class="search" id="rosterSearch" placeholder="이름 검색" autocomplete="off">
       <div id="rosterList"></div>
@@ -1769,9 +1769,9 @@ function studentSheet(st){const fee=feeFor(st);let sess=4,amt=planAmount(fee,4),
         <div><div class="v c-a">${absentCount(st)}</div><div class="t">결석</div></div>
         <div><div class="v c-m">${ml}</div><div class="t">보강 가능</div></div>
       </div>
-      <div class="field" style="margin-top:2px"><label>잔여 회차 보정 <small style="color:var(--ink-soft)">(결제·출결은 안 건드리고, 숫자 맞추고 "적용"을 눌러야 저장돼요)</small></label><span class="stepwrap">
+      <div class="field" style="margin-top:2px"><label>실제 잔여 회차 <small style="color:var(--ink-soft)">(결제·출결 기록은 안 건드리고, 지금 맞는 숫자로 바로 맞춰요)</small></label><span class="stepwrap">
         <button class="stpRA" data-d="-1">－</button>
-        <input type="number" id="raInput" inputmode="numeric" value="${st.remainAdjust||0}">
+        <input type="number" id="raInput" inputmode="numeric" value="${remainSessions(st)}">
         <button class="stpRA" data-d="1">＋</button>
         <button class="btn-primary" id="raApply" style="margin-left:8px;padding:9px 16px">적용</button></span></div>
       ${ml>0&&due?`<div class="note" style="background:${dueExpired(st)?'var(--verm-tint)':'var(--blue-tint)'};color:${dueExpired(st)?'var(--verm)':'var(--blue)'};padding:9px 11px;border-radius:9px;margin:-6px 0 12px">보강 기한 ${due}${dueExpired(st)?' · 기한이 지났습니다':''}</div>`:''}
@@ -1811,8 +1811,9 @@ function studentSheet(st){const fee=feeFor(st);let sess=4,amt=planAmount(fee,4),
     });
     const raApply=oroot().querySelector('#raApply');
     if(raApply)raApply.onclick=()=>{
-      let v=parseInt(raInput.value);if(!Number.isFinite(v))v=0;
-      st.remainAdjust=v;save();renderFee();renderReport();draw();toast('잔여 회차를 적용했어요.');
+      let target=parseInt(raInput.value);if(!Number.isFinite(target))target=0;
+      const raw=paidSessions(st)-consumedSessions(st);
+      st.remainAdjust=target-raw;save();renderFee();renderReport();draw();toast('잔여 회차를 '+target+'회로 맞췄어요.');
     };
     oroot().querySelectorAll('.plan').forEach(pl=>pl.onclick=()=>{sess=+pl.dataset.s;amt=planAmount(fee,sess);draw();});
     const rmNow=remainSessions(st);
@@ -2131,12 +2132,14 @@ async function createStudentLogin(code){
 }
 async function addStudent(){const inp=document.getElementById('nameInput');const v=inp.value.trim();if(!v)return;const cid=curClass().id;
   const phoneInp=document.getElementById('phoneInput');const phoneRaw=phoneInp?phoneInp.value.trim():'';
-  const names=v.split(/[\n,]/).map(x=>x.trim()).filter(Boolean);
-  const singlePhoneMemo=(names.length===1)?phoneRaw:'';
+  const rawNames=v.split(/[\n,]/).map(x=>x.trim()).filter(Boolean);
+  const parseEntry=str=>{const m=str.match(/^(.+?)\s+(\d[\d\-]{6,})$/);return m?{name:m[1].trim(),phone:m[2].trim()}:{name:str,phone:''};};
+  const entries=rawNames.map(parseEntry);
   inp.value='';if(phoneInp)phoneInp.value='';
   toast('학생 로그인 계정 생성 중...');
-  for(const name of names){
-    const memo=singlePhoneMemo;
+  for(const entry of entries){
+    const name=entry.name;
+    const memo=entry.phone||((entries.length===1)?phoneRaw:'');
     const st={id:uid(),name,rate:0,status:'active',classIds:[cid],payments:[],extend:0,memo,code:'',uid:''};
     const suggested=extractPhoneLast4(memo);
     const code=(suggested&&!data.students.some(x=>x.code===suggested))?suggested:genStudentCode();
