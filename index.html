@@ -372,21 +372,22 @@ async function save(){
 
 /* ---------- student self-check merge ---------- */
 async function mergeAllStudentActivity(showToast){
-  let total=0;
+  let total=0;const msgs=[];
   try{
     const q1=await db.collection('selfChecks').get();
     q1.forEach(doc=>{const d=doc.data();const c=classById(d.classId);
       if(c){const k=d.sessionId+':'+d.studentId;const status=d.status||'present';c.records[k]=status;
         const stName=(studentById(d.studentId)||{}).name||'학생';
-        pushLog(status==='absent'?'absent':'selfcheck',
-          status==='absent'?`${stName}님이 ${shortDate(d.iso)} 결석 예정을 알렸어요 (${c.name})`
-                           :`${stName}님이 ${shortDate(d.iso)} 출석을 체크했어요 (${c.name})`);
+        const msg=status==='absent'?`${stName}님이 ${shortDate(d.iso)} 결석 예정을 알렸어요 (${c.name})`
+                           :`${stName}님이 ${shortDate(d.iso)} 출석을 체크했어요 (${c.name})`;
+        pushLog(status==='absent'?'absent':'selfcheck',msg);msgs.push(msg);
         total++;}});
     if(!q1.empty){const b1=db.batch();q1.forEach(doc=>b1.delete(doc.ref));await b1.commit();}
     const q2=await db.collection('makeupRequests').get();
     q2.forEach(doc=>{const d=doc.data();const c=classById(d.toClassId);
       if(c){const k=d.toSessionId+':'+d.studentId;c.records[k]='makeup';
-        pushLog('makeup',`${d.studentName||'학생'}님이 ${c.name} · ${d.label||shortDate(d.iso)} 보강을 예약했어요.`);total++;}});
+        const msg=`${d.studentName||'학생'}님이 ${c.name} · ${d.label||shortDate(d.iso)} 보강을 예약했어요.`;
+        pushLog('makeup',msg);msgs.push(msg);total++;}});
     if(!q2.empty){const b2=db.batch();q2.forEach(doc=>b2.delete(doc.ref));await b2.commit();}
     const q3=await db.collection('dropinRequests').get();
     q3.forEach(doc=>{const d=doc.data();const c=classById(d.classId);const st=studentById(d.studentId);
@@ -394,19 +395,31 @@ async function mergeAllStudentActivity(showToast){
         if(!st.payments)st.payments=[];
         st.payments.push({id:uid(),sessions:1,amount:d.amount||(data.rates.daily||60000),date:d.iso,plan:1});
         if(st.dropinOnce&&!st.dropin)st.dropinOnce=false;
-        pushLog('dropin',`${st.name}님이 ${c.name} · ${d.label||shortDate(d.iso)} 일일 수업을 예약했어요 (${won(d.amount||(data.rates.daily||60000))} 입금 예정).`);
+        const msg=`${st.name}님이 ${c.name} · ${d.label||shortDate(d.iso)} 일일 수업을 예약했어요 (${won(d.amount||(data.rates.daily||60000))} 입금 예정).`;
+        pushLog('dropin',msg);msgs.push(msg);
         total++;}});
     if(!q3.empty){const b3=db.batch();q3.forEach(doc=>b3.delete(doc.ref));await b3.commit();}
     const q4=await db.collection('makeupCancelRequests').get();
     q4.forEach(doc=>{const d=doc.data();const c=classById(d.classId);const st=studentById(d.studentId);
       if(c&&st){const k=d.sessionId+':'+st.id;
         if(c.records[k]==='makeup'){delete c.records[k];
-          pushLog('makeup',`${st.name}님이 ${c.name} · ${d.label||shortDate(d.iso)} 보강 예약을 취소했어요.`);
+          const msg=`${st.name}님이 ${c.name} · ${d.label||shortDate(d.iso)} 보강 예약을 취소했어요.`;
+          pushLog('makeup',msg);msgs.push(msg);
           total++;}}});
     if(!q4.empty){const b4=db.batch();q4.forEach(doc=>b4.delete(doc.ref));await b4.commit();}
     if(total>0){await save();render();}
     if(showToast)toast(total>0?(total+'건 반영했어요.'):'새로 반영할 게 없어요.');
-  }catch(e){console.error(e);if(showToast)toast('불러오기 실패했어요.');}
+    return {total,msgs};
+  }catch(e){console.error(e);if(showToast)toast('불러오기 실패했어요.');return {total:0,msgs:[]};}
+}
+function newActivitySheet(msgs){
+  oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button>
+    <h3>📋 새로운 학생 활동 ${msgs.length}건</h3>
+    <div class="subt">로그인하시는 동안 새로 들어온 내용이에요.</div>
+    <div class="rowlist">${msgs.map(m=>`<div class="stuhist" style="font-size:13.5px">${esc(m)}</div>`).join('')}</div>
+    <div class="actions" style="margin-top:14px"><button class="btn-primary" id="naOk" style="flex:none;width:100%">확인</button></div>
+    </div></div>`;
+  oroot().querySelector('#naOk').onclick=closeOverlay;
 }
 
 /* ---------- student view generation (admin writes, students read only their own) ---------- */
@@ -2335,8 +2348,9 @@ async function enterAdmin(){
   document.getElementById('studentApp').classList.add('hidden');
   document.getElementById('adminApp').classList.remove('hidden');
   let d=await load();d=migrate(d);if(!d||!d.classes||!d.classes.length)d=seed();
-  data=d;const made=autoCreateUpcomingSessions();await mergeAllStudentActivity(false);await save();render();
+  data=d;const made=autoCreateUpcomingSessions();const merged=await mergeAllStudentActivity(false);await save();render();
   if(made>0)toast(`앞으로 7일치 수업 회차 ${made}개를 자동으로 만들었어요.`);
+  if(merged.total>0)newActivitySheet(merged.msgs);
   autoBackupIfNeeded();
 }
 
