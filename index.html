@@ -2030,7 +2030,8 @@ async function issueStudentCode(st,code){
 }
 function editStudent(st){
   const suggestedCode=extractPhoneLast4(st.memo);
-  oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>학생 정보</h3>
+  oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>${esc(st.name)} · 정보 수정</h3>
+    <button class="minibtn" id="esGoDetail" style="width:100%;margin-bottom:14px;border-color:var(--blue);color:var(--blue)">📅 출결·수업료 상세 보기</button>
     <div class="fgroup"><label>이름</label><input id="esName" class="selin" value="${esc(st.name)}"></div>
     <div class="fgroup"><label>특별 월요금(4회 기준, 원) · 비우면 반 기본요금</label><input id="esRate" type="number" class="selin" value="${st.rate||''}" placeholder="예: 200000"></div>
     <div class="fgroup"><label>상태</label><select id="esStat" class="selin">
@@ -2064,6 +2065,7 @@ function editStudent(st){
     </div>
     <div class="actions"><button class="btn-danger" id="esDel">삭제</button><button class="btn-ghost" id="esNo">취소</button><button class="btn-primary" id="esOk">저장</button></div></div></div>`;
   const q=s=>oroot().querySelector(s);
+  q('#esGoDetail').onclick=()=>studentSheet(st);
   let lastSuggested=suggestedCode;
   if(q('#esMemo')&&q('#esCodeIn')){
     q('#esMemo').addEventListener('input',()=>{
