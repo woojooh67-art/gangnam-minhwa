@@ -2325,10 +2325,16 @@ async function pickStudentsFromBackup(id){
       const idxs=[...oroot().querySelectorAll('[data-pidx]:checked')].map(el=>parseInt(el.dataset.pidx));
       if(!idxs.length){toast('학생을 선택해주세요.');return;}
       const picked=idxs.map(i=>d.students[i]);
-      confirmSheet(`선택한 ${picked.length}명을 ${id} 백업 상태로 복구할까요? (현재 데이터에 있으면 그 학생 정보만 이걸로 덮어씁니다)`,()=>{
+      confirmSheet(`선택한 ${picked.length}명을 ${id} 백업 상태로 복구할까요? (전화번호·로그인코드는 백업에 없으면 지금 값을 그대로 유지해요)`,()=>{
         picked.forEach(ps=>{
           const idx=data.students.findIndex(s=>s.id===ps.id);
-          if(idx>=0)data.students[idx]=ps;else data.students.push(ps);
+          if(idx>=0){
+            const cur=data.students[idx];
+            if(!ps.memo&&cur.memo)ps.memo=cur.memo; // 전화번호는 백업에 없으면 지금 값 유지
+            if(!ps.notes&&cur.notes)ps.notes=cur.notes; // 특이사항 메모도 마찬가지
+            if(!ps.code&&cur.code){ps.code=cur.code;ps.uid=cur.uid;} // 로그인 코드도 유지
+            data.students[idx]=ps;
+          }else data.students.push(ps);
         });
         save();closeOverlay();render();toast(`${picked.length}명을 복구했어요.`);
       },'복구');
