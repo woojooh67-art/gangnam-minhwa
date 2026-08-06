@@ -383,14 +383,14 @@ async function mergeAllStudentActivity(showToast){
         const stName=(studentById(d.studentId)||{}).name||'학생';
         const msg=status==='absent'?`${stName}님이 ${shortDate(d.iso)} 결석 예정을 알렸어요 (${c.name})`
                            :`${stName}님이 ${shortDate(d.iso)} 출석을 체크했어요 (${c.name})`;
-        pushLog(status==='absent'?'absent':'selfcheck',msg);msgs.push(msg);
+        pushLog(status==='absent'?'absent':'selfcheck',msg,d.iso);msgs.push(msg);
         total++;}});
     if(!q1.empty){const b1=db.batch();q1.forEach(doc=>b1.delete(doc.ref));await b1.commit();}
     const q2=await db.collection('makeupRequests').get();
     q2.forEach(doc=>{const d=doc.data();const c=classById(d.toClassId);
       if(c){const k=d.toSessionId+':'+d.studentId;c.records[k]='makeup';
         const msg=`${d.studentName||'학생'}님이 ${c.name} · ${d.label||shortDate(d.iso)} 보강을 예약했어요.`;
-        pushLog('makeup',msg);msgs.push(msg);total++;}});
+        pushLog('makeup',msg,d.iso);msgs.push(msg);total++;}});
     if(!q2.empty){const b2=db.batch();q2.forEach(doc=>b2.delete(doc.ref));await b2.commit();}
     const q3=await db.collection('dropinRequests').get();
     q3.forEach(doc=>{const d=doc.data();const c=classById(d.classId);const st=studentById(d.studentId);
@@ -399,7 +399,7 @@ async function mergeAllStudentActivity(showToast){
         st.payments.push({id:uid(),sessions:1,amount:d.amount||(data.rates.daily||60000),date:d.iso,plan:1});
         if(st.dropinOnce&&!st.dropin)st.dropinOnce=false;
         const msg=`${st.name}님이 ${c.name} · ${d.label||shortDate(d.iso)} 일일 수업을 예약했어요 (${won(d.amount||(data.rates.daily||60000))} 입금 예정).`;
-        pushLog('dropin',msg);msgs.push(msg);
+        pushLog('dropin',msg,d.iso);msgs.push(msg);
         total++;}});
     if(!q3.empty){const b3=db.batch();q3.forEach(doc=>b3.delete(doc.ref));await b3.commit();}
     const q4=await db.collection('makeupCancelRequests').get();
@@ -407,7 +407,7 @@ async function mergeAllStudentActivity(showToast){
       if(c&&st){const k=d.sessionId+':'+st.id;
         if(c.records[k]==='makeup'){delete c.records[k];
           const msg=`${st.name}님이 ${c.name} · ${d.label||shortDate(d.iso)} 보강 예약을 취소했어요.`;
-          pushLog('makeup',msg);msgs.push(msg);
+          pushLog('makeup',msg,d.iso);msgs.push(msg);
           total++;}}});
     if(!q4.empty){const b4=db.batch();q4.forEach(doc=>b4.delete(doc.ref));await b4.commit();}
     const q5=await db.collection('absentCancelRequests').get();
@@ -415,7 +415,7 @@ async function mergeAllStudentActivity(showToast){
       if(c&&st){const k=d.sessionId+':'+st.id;
         if(c.records[k]==='absent'){delete c.records[k];
           const msg=`${st.name}님이 ${c.name} · ${d.label||shortDate(d.iso)} 결석 취소를 신청했어요.`;
-          pushLog('absent',msg);msgs.push(msg);
+          pushLog('absent',msg,d.iso);msgs.push(msg);
           total++;}}});
     if(!q5.empty){const b5=db.batch();q5.forEach(doc=>b5.delete(doc.ref));await b5.commit();}
     if(total>0){await save();render();}
@@ -459,7 +459,8 @@ async function regenerateStudentViews(){
           official:(st.classIds||[]).indexOf(cid)>=0,
           upcomingSkipped:(c.skippedDates||[]).filter(iso=>iso>=t).sort(),
           skippedDates:(c.skippedDates||[]).slice(),
-          records:Object.fromEntries(Object.entries(c.records||{}).filter(([k])=>k.endsWith(':'+st.id)).map(([k,v])=>[k.split(':')[0],v]))};
+          records:Object.fromEntries(Object.entries(c.records||{}).filter(([k])=>k.endsWith(':'+st.id)).map(([k,v])=>[k.split(':')[0],v])),
+          recMemos:Object.fromEntries(Object.entries(c.recMemos||{}).filter(([k])=>k.endsWith(':'+st.id)).map(([k,v])=>[k.split(':')[0],v]))};
       }).filter(Boolean);
       const isResearchStudent=(st.classIds||[]).some(cid=>{const c=classById(cid);return c&&c.type==='연구';});
       const upcomingForStu=allUpcoming.map(u=>u.classType==='연구'&&!isResearchStudent?{...u,afternoonOnly:true}:u);
@@ -504,6 +505,7 @@ function migrate(d){
     (s.payments||[]).forEach(p=>{if(!p.date)p.date=todayISO();});});
   d.classes.forEach(c=>{(c.sessions||[]).forEach(s=>{if(!s.iso){ // old sessions stored only "7/2"
       s.iso=todayISO();}});});
+  d.classes.forEach(c=>{if(!c.recMemos)c.recMemos={};});
   {const t=todayISO(); // 아직 오지 않은 미래 날짜에 잘못 남아있는 '출석' 기록 정리 (미리 회차를 만들 때 자동으로 출석 처리되던 예전 버그 교정)
     d.classes.forEach(c=>{(c.sessions||[]).forEach(s=>{if(s.iso>t){
       Object.keys(c.records||{}).forEach(k=>{if(k.indexOf(s.id+':')===0&&c.records[k]==='present')delete c.records[k];});
@@ -527,6 +529,23 @@ function confirmSheet(msg,onYes,yesLabel){yesLabel=yesLabel||'삭제';
     <div class="actions"><button class="btn-ghost" id="cNo">취소</button><button class="btn-danger" id="cYes">${yesLabel}</button></div></div></div>`;
   oroot().querySelector('#cNo').onclick=closeOverlay;
   oroot().querySelector('#cYes').onclick=()=>{closeOverlay();onYes();};}
+function editAbsenceReason(c,key,current,onDone){
+  const presets=['개인 사정','병원','여행','업무'];
+  oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>결석 사유</h3>
+    <div class="subt">입력해두면 "결석" 옆에 같이 표시돼요. 비워두고 저장하면 그냥 "결석"으로만 보여요.</div>
+    <input type="text" id="reasonInput" value="${esc(current||'')}" placeholder="예: 개인 사정" style="width:100%;box-sizing:border-box;padding:11px;border:1px solid var(--line);border-radius:10px;font-family:inherit;font-size:14px;margin:10px 0">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">${presets.map(t=>`<button class="minibtn rsnbtn" type="button" data-t="${esc(t)}" style="padding:5px 10px;font-size:12px">${t}</button>`).join('')}</div>
+    <div class="actions"><button class="btn-ghost" id="rsnClose">취소</button><button class="btn-primary" id="rsnSave">저장</button></div></div></div>`;
+  const inp=oroot().querySelector('#reasonInput');
+  oroot().querySelectorAll('.rsnbtn').forEach(b=>b.onclick=()=>{inp.value=b.dataset.t;});
+  oroot().querySelector('#rsnClose').onclick=()=>onDone();
+  oroot().querySelector('#rsnSave').onclick=()=>{
+    const v=inp.value.trim();
+    if(!c.recMemos)c.recMemos={};
+    if(v)c.recMemos[key]=v;else delete c.recMemos[key];
+    onDone();
+  };
+}
 
 /* ---------- model ---------- */
 /* ---------- auto session by weekday ---------- */
@@ -844,12 +863,13 @@ function finalizePastSessions(){
   return filled;
 }
 function studentById(id){return data.students.find(s=>s.id===id);}
-function pushLog(type,text){
+function pushLog(type,text,relIso){
   if(!data.activityLog)data.activityLog=[];
-  data.activityLog.unshift({id:uid(),type,text,ts:Date.now(),seen:false});
+  data.activityLog.unshift({id:uid(),type,text,ts:Date.now(),seen:false,relIso:relIso||null});
   if(data.activityLog.length>50)data.activityLog.length=50;
 }
-function unseenLogCount(){return (data.activityLog||[]).filter(e=>!e.seen).length;}
+function logIsExpired(e){return !!(e.relIso&&e.relIso<todayISO());}
+function unseenLogCount(){return (data.activityLog||[]).filter(e=>!e.seen&&!logIsExpired(e)).length;}
 function markLogSeen(){(data.activityLog||[]).forEach(e=>e.seen=true);save();render();}
 function updateReportBadge(){const b=document.getElementById('reportBadge');if(!b)return;
   const n=unseenLogCount();b.textContent=n>0?String(n):'';b.classList.toggle('hidden',n<=0);}
@@ -1496,7 +1516,7 @@ function renderReport(){const c=curClass();
     const ago=Math.max(0,Math.round((Date.now()-e.ts)/60000));
     const when=ago<60?ago+'분 전':ago<1440?Math.round(ago/60)+'시간 전':Math.round(ago/1440)+'일 전';
     const icon=e.type==='absent'?'🔺':e.type==='makeup'?'🔁':'✓';
-    return `<div class="hrow" style="${e.seen?'':'font-weight:700'}"><span>${icon} ${esc(e.text)}</span><span style="color:var(--ink-soft);font-size:11px">${when}</span></div>`;
+    return `<div class="hrow" style="${(e.seen||logIsExpired(e))?'':'font-weight:700'}"><span>${icon} ${esc(e.text)}</span><span style="color:var(--ink-soft);font-size:11px">${when}</span></div>`;
   }).join('');}}
 function showKpiList(kind){
   const titles={all:'재적 학생',out:'재결제 대상',makeup:'보강 대상'};
@@ -1644,7 +1664,9 @@ function sessionSheet(sess){const c=curClass();const isNew=!sess;
   };
 }
 
-function stuAdminMarkMapOf(st){const mm={};marksOf(st).forEach(m=>{if(!mm[m.iso])mm[m.iso]=[];mm[m.iso].push({mark:m.mark,cls:m.cls,classId:m.classId,sessionId:m.sessionId});});return mm;}
+function stuAdminMarkMapOf(st){const mm={};marksOf(st).forEach(m=>{if(!mm[m.iso])mm[m.iso]=[];
+  const cc=classById(m.classId);const memo=(cc&&cc.recMemos)?cc.recMemos[m.sessionId+':'+st.id]:'';
+  mm[m.iso].push({mark:m.mark,cls:m.cls,classId:m.classId,sessionId:m.sessionId,memo});});return mm;}
 function stuAdminCalHTML(st){
   const markMap=stuAdminMarkMapOf(st);
   const archMap=st.archiveMarks||{};
@@ -1686,7 +1708,8 @@ function stuAdminCalHTML(st){
     }
     if(recs&&recs.length===1){
       const rec=recs[0];
-      return `<div class="calcell" data-mci="${iso}" style="background:${mColor[rec.mark]};color:#fff;font-weight:700;cursor:pointer;position:relative" title="${esc(rec.cls)}">${d}<span data-mdel="${iso}" style="position:absolute;top:-4px;right:-2px;background:#fff;color:var(--verm);border-radius:50%;width:14px;height:14px;font-size:10px;line-height:14px;text-align:center;cursor:pointer;box-shadow:0 0 0 1px var(--verm)">✕</span></div>`;
+      const memoIcon=(rec.mark==='absent')?`<span data-mmemo="${iso}" style="position:absolute;bottom:-4px;left:-2px;background:#fff;color:var(--verm);border-radius:50%;width:14px;height:14px;font-size:9px;line-height:14px;text-align:center;cursor:pointer;box-shadow:0 0 0 1px var(--verm)">${rec.memo?'✓':'📝'}</span>`:'';
+      return `<div class="calcell" data-mci="${iso}" style="background:${mColor[rec.mark]};color:#fff;font-weight:700;cursor:pointer;position:relative" title="${esc(rec.cls)}${rec.memo?' · '+esc(rec.memo):''}">${d}<span data-mdel="${iso}" style="position:absolute;top:-4px;right:-2px;background:#fff;color:var(--verm);border-radius:50%;width:14px;height:14px;font-size:10px;line-height:14px;text-align:center;cursor:pointer;box-shadow:0 0 0 1px var(--verm)">✕</span>${memoIcon}</div>`;
     }
     if(recs&&recs.length>1){
       const rec=recs[0];
@@ -1752,6 +1775,15 @@ function bindStuAdminCal(st,fullRedraw){
       delete c.records[rec.sessionId+':'+st.id];
       save();renderFee();renderReport();fullRedraw();toast('기록을 지웠어요.');
     });
+  });
+  box.querySelectorAll('[data-mmemo]').forEach(el=>el.onclick=(e)=>{
+    e.stopPropagation();
+    const iso=el.dataset.mmemo;const arr=stuAdminMarkMap[iso];if(!arr||!arr[0])return;
+    const rec=arr[0];
+    const c=classById(rec.classId);if(!c)return;
+    if(!c.recMemos)c.recMemos={};
+    const k=rec.sessionId+':'+st.id;
+    editAbsenceReason(c,k,c.recMemos[k],()=>{save();rerenderBoxOnly();});
   });
   box.querySelectorAll('[data-mnew]').forEach(el=>el.onclick=()=>{
     const iso=el.dataset.mnew;
@@ -2189,7 +2221,9 @@ function exportCsv(){const c=curClass(),studs=studentsInClass(c.id);
   const head=['번호','이름',...ss.map(s=>s.label+'('+shortDate(s.iso)+')'),'출석','결석','보강','잔여회차'];
   const lines=[head.join(',')];
   studs.forEach((st,i)=>{let p=0,a=0,m=0;const cells=[i+1,'"'+st.name.replace(/"/g,'""')+'"'];
-    ss.forEach(s=>{const v=c.records[s.id+':'+st.id];if(!v)cells.push('');else{cells.push(LABEL[v]);
+    ss.forEach(s=>{const v=c.records[s.id+':'+st.id];if(!v)cells.push('');else{
+      const memo=(v==='absent'&&c.recMemos)?c.recMemos[s.id+':'+st.id]:'';
+      cells.push('"'+(LABEL[v]+(memo?'('+memo+')':'')).replace(/"/g,'""')+'"');
       if(v==='present'||v==='late')p++;else if(v==='makeup')m++;else a++;}});
     cells.push(p,a,m,remainSessions(st));lines.push(cells.join(','));});
   dl(c.name+'_출석부.csv','\uFEFF'+lines.join('\r\n'),'text/csv;charset=utf-8;');}
@@ -2439,19 +2473,28 @@ function renderStudentApp(){
   const realEntitlement=approvedMakeup+pendingAbsent.length+pendingMakeupCancel.length;
   const borrowed=Math.max(0,pendingMakeup.length-realEntitlement);
   let upcomingRows='';
+  const _lastPaidSorted=[];
+  (stuData.classes||[]).filter(c=>c.official!==false).forEach(c=>{
+    (c.sessions||[]).filter(s=>s.iso>=t&&c.records[s.id]===undefined).forEach(s=>_lastPaidSorted.push({id:s.id,iso:s.iso}));
+  });
+  _lastPaidSorted.sort((a,b)=>a.iso<b.iso?-1:1);
+  const remainNow=stuData.remain||0;
+  const lastPaidSessionId=(remainNow>0&&remainNow<=_lastPaidSorted.length)?_lastPaidSorted[remainNow-1].id:null;
   (stuData.classes||[]).filter(c=>c.official!==false).forEach(c=>{
     (c.sessions||[]).filter(s=>s.iso>=t).sort((a,b)=>a.iso<b.iso?-1:1).forEach(s=>{
+      const isLastPaid=(s.id===lastPaidSessionId);
       const v=c.records[s.id];
+      const rmemo=(c.recMemos||{})[s.id];
       let right;
       if(pendingAbsent.indexOf(s.id)>=0)right=`<span style="display:flex;align-items:center;gap:8px"><span style="color:var(--verm);font-size:12.5px;font-weight:700">결석 알림 반영대기</span><button class="minibtn" style="color:var(--verm);padding:4px 2px;font-size:12px" data-cancel-asid="${s.id}">취소</button></span>`;
       else if(v==='absent'){
         if(pendingAbsentCancel.indexOf(s.id)>=0)right=`<span style="color:var(--blue);font-size:12.5px;font-weight:700">취소 요청 반영대기</span>`;
-        else if(s.iso>t)right=`<span style="display:flex;align-items:center;gap:8px"><span class="c-a" style="font-weight:700">결석 처리됨</span><button class="minibtn" style="color:var(--verm);padding:4px 2px;font-size:12px" data-racid="${s.id}" data-racclassid="${c.id}" data-raciso="${s.iso}" data-raclabel="${esc(s.label||'')}" data-racname="${esc(c.name)}">취소 요청</button></span>`;
-        else right=`<span class="c-a" style="font-weight:700">결석 처리됨 <small style="color:var(--ink-soft);font-weight:400">· 당일이라 취소 불가</small></span>`;
+        else if(s.iso>t)right=`<span style="display:flex;align-items:center;gap:8px"><span class="c-a" style="font-weight:700">결석 처리됨${rmemo?` <small style="color:var(--ink-soft);font-weight:400">· ${esc(rmemo)}</small>`:''}</span><button class="minibtn" style="color:var(--verm);padding:4px 2px;font-size:12px" data-racid="${s.id}" data-racclassid="${c.id}" data-raciso="${s.iso}" data-raclabel="${esc(s.label||'')}" data-racname="${esc(c.name)}">취소 요청</button></span>`;
+        else right=`<span class="c-a" style="font-weight:700">결석 처리됨${rmemo?` <small style="color:var(--ink-soft);font-weight:400">· ${esc(rmemo)}</small>`:''} <small style="color:var(--ink-soft);font-weight:400">· 당일이라 취소 불가</small></span>`;
       }
       else if(v==='makeup')right=`<span class="c-m" style="font-weight:700">보강</span>`;
       else right=`<button class="checkbtn" style="width:auto;padding:8px 14px;margin:0;font-size:12.5px" data-cid="${c.id}" data-sid="${s.id}" data-iso="${s.iso}">결석 예정 알리기</button>`;
-      upcomingRows+=`<div class="stuhist"><span>${esc(c.name)} · ${esc(s.label||'')} (${shortDate(s.iso)})</span>${right}</div>`;
+      upcomingRows+=`<div class="stuhist"><span>${esc(c.name)} · ${esc(s.label||'')} (${shortDate(s.iso)})${isLastPaid?' <b style="color:var(--verm)">· 마지막 수업일</b>':''}</span>${right}</div>`;
     });
   });
   const histMap={};
