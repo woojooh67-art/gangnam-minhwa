@@ -936,6 +936,14 @@ function makeupLeft(st){return Math.max(0,absentCount(st)-makeupUsed(st));}
 function isDropinPackExpired(st){return !!(st.dropinPack&&st.dropinPack.expiry&&st.dropinPack.expiry<todayISO());}
 function dropinPackActive(st){return !!(st.dropinPack&&!isDropinPackExpired(st)&&st.dropinPack.used<st.dropinPack.total);}
 function dropinPackRemain(st){return st.dropinPack?Math.max(0,st.dropinPack.total-st.dropinPack.used):0;}
+function recomputeDropinPack(st){
+  const pays=(st.payments||[]).filter(p=>p.plan==='dropin8');
+  if(!pays.length){delete st.dropinPack;return;}
+  let expiry=null;
+  pays.forEach(p=>{const exp=addDays(p.date,90);if(!expiry||exp>expiry)expiry=exp;});
+  const usedBefore=st.dropinPack?st.dropinPack.used:0;
+  st.dropinPack={total:pays.length*8,used:usedBefore,expiry};
+}
 /* 보강기한: 4·12·24회권 모두 동일한 공식 — 그 패키지의 '마지막 수업일'(출석이든 결석이든 순서대로 다 채운 날) + 4주(28일).
    즉 패키지 기간 내내 아무 때나 보강 가능하고, 마지막 회차가 끝난 뒤에도 4주 여유를 더 줌. */
 function lastCoveredClassDate(st){
@@ -1981,7 +1989,7 @@ function studentSheet(st){const fee=feeFor(st);let sess=4,amt=planAmount(fee,4),
     q('#stGuide').onclick=()=>appGuideSheet(st);
     oroot().querySelectorAll('.hx').forEach(b=>b.onclick=()=>{delId=b.dataset.id;draw();});
     oroot().querySelectorAll('.hno').forEach(b=>b.onclick=()=>{delId=null;draw();});
-    oroot().querySelectorAll('.hyes').forEach(b=>b.onclick=()=>{st.payments=st.payments.filter(x=>x.id!==b.dataset.id);save();delId=null;draw();renderFee();toast('결제 기록을 삭제했습니다.');});
+    oroot().querySelectorAll('.hyes').forEach(b=>b.onclick=()=>{st.payments=st.payments.filter(x=>x.id!==b.dataset.id);recomputeDropinPack(st);save();delId=null;draw();renderFee();toast('결제 기록을 삭제했습니다.');});
     const newSheet=oroot().querySelector('.sheet');if(newSheet)newSheet.scrollTop=savedScroll;
   }
   draw();}
