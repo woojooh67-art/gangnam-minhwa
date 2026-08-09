@@ -2572,7 +2572,7 @@ function renderStudentApp(){
       else if(v==='makeup')right=`<span class="c-m" style="font-weight:700">보강</span>`;
       else if(v==='present'||v==='late'||v==='dropin')right=`<span class="c-p" style="font-weight:700">${v==='dropin'?'일일권 출석':v==='late'?'지각 출석':'출석 완료'}</span>`;
       else right=`<button class="checkbtn" style="width:auto;padding:8px 14px;margin:0;font-size:12.5px" data-cid="${c.id}" data-sid="${s.id}" data-iso="${s.iso}">결석 예정 알리기</button>`;
-      upcomingRows+=`<div class="stuhist"><span>${esc(c.name)} · ${esc(s.label||'')} (${shortDate(s.iso)})${isLastPaid?' <b style="color:var(--verm)">· 마지막 수업일</b>':''}</span>${right}</div>`;
+      upcomingRows+=`<div class="stuhist"><span>${esc(c.name)} · ${mkDateLabel(s)}${isLastPaid?' <b style="color:var(--verm)">· 마지막 수업일</b>':''}</span>${right}</div>`;
     });
   });
   const histMap={};
