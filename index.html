@@ -3007,8 +3007,17 @@ async function cancelMakeup(sessionId){
       renderStudentApp();
       toast('보강 예약을 취소했어요.');
     }else{
-      /* 원장님이 이미 확인·반영해서 확정된 상태 — 정식 취소 신청으로 전환 */
-      const m=(stuData.myMakeups||[]).find(x=>x.sessionId===sessionId);
+      /* 원장님이 이미 확인·반영해서 확정된 상태일 수 있음 — 최신 정보로 다시 확인 */
+      let m=(stuData.myMakeups||[]).find(x=>x.sessionId===sessionId);
+      if(!m){
+        try{
+          const snap=await db.collection('studentViews').doc(auth.currentUser.uid).get();
+          if(snap.exists){
+            stuData.myMakeups=snap.data().myMakeups||stuData.myMakeups;
+            m=(stuData.myMakeups||[]).find(x=>x.sessionId===sessionId);
+          }
+        }catch(e){console.error(e);}
+      }
       stuData._pendingMakeup=(stuData._pendingMakeup||[]).filter(id=>id!==sessionId);
       if(m)await requestMakeupCancel(m.classId,m.sessionId,m.iso,m.label,m.className);
       else{renderStudentApp();toast('보강 예약을 취소했어요.');}
@@ -3033,8 +3042,17 @@ async function cancelDropin(sessionId){
       renderStudentApp();
       toast('예약을 취소했어요.');
     }else{
-      /* 원장님이 이미 확인·반영해서 확정된 상태 — 정식 취소 신청으로 전환 */
-      const m=(stuData.myDropins||[]).find(x=>x.sessionId===sessionId);
+      /* 원장님이 이미 확인·반영해서 확정된 상태일 수 있음 — 최신 정보로 다시 확인 */
+      let m=(stuData.myDropins||[]).find(x=>x.sessionId===sessionId);
+      if(!m){
+        try{
+          const snap=await db.collection('studentViews').doc(auth.currentUser.uid).get();
+          if(snap.exists){
+            stuData.myDropins=snap.data().myDropins||stuData.myDropins;
+            m=(stuData.myDropins||[]).find(x=>x.sessionId===sessionId);
+          }
+        }catch(e){console.error(e);}
+      }
       stuData._pendingDropin=(stuData._pendingDropin||[]).filter(p=>p.sessionId!==sessionId);
       if(m)await requestDropinCancel(m.classId,m.sessionId,m.iso,m.label,m.className);
       else{renderStudentApp();toast('예약을 취소했어요.');}
