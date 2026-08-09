@@ -2706,19 +2706,21 @@ function renderStudentApp(){
   {
     const pendingDropin=stuData._pendingDropin||[];
     const slots=(stuData.allUpcoming||[]).filter(u=>u.iso>=t);
-    const rateFor=u=>(u.classType==='연구')?(stuData.dailyRateResearch||90000):(stuData.dailyRate||60000);
+    const rateFor=u=>(u.classType==='연구'&&!u.afternoonOnly)?(stuData.dailyRateResearch||90000):(stuData.dailyRate||60000);
+    const clsLabel=u=>`${esc(u.className)}${u.afternoonOnly?' <small style="color:var(--blue);font-weight:600">(2~5시만)</small>':''}`;
     const rowFor=u=>{
       const rate=rateFor(u);
       const already=pendingDropin.indexOf(u.sessionId)>=0;
       const avail=u.avail!==undefined?u.avail:99;
-      if(already)return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span style="display:flex;align-items:center;gap:8px"><span style="color:var(--blue);font-size:12.5px;font-weight:700">${won(rate)} 입금 예정</span><button class="minibtn" style="color:var(--verm);padding:4px 2px;font-size:12px" data-cancel-dsid="${u.sessionId}">취소</button></span></div>`;
-      if(avail<=0)return `<div class="stuhist" style="opacity:.5"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span style="color:var(--verm);font-size:12px">정원 마감</span></div>`;
-      return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)} <small style="color:var(--ink-soft)">· ${won(rate)} · 잔여 ${avail}석</small></span><button class="checkbtn" style="width:auto;padding:8px 14px;margin:0;font-size:12.5px" data-dcid="${u.classId}" data-dsid="${u.sessionId}" data-diso="${u.iso}" data-dlabel="${esc(u.label||'')}" data-dcname="${esc(u.className)}" data-drate="${rate}">신청</button></div>`;
+      if(already)return `<div class="stuhist"><span>${clsLabel(u)} · ${mkDateLabel(u)}</span><span style="display:flex;align-items:center;gap:8px"><span style="color:var(--blue);font-size:12.5px;font-weight:700">${won(rate)} 입금 예정</span><button class="minibtn" style="color:var(--verm);padding:4px 2px;font-size:12px" data-cancel-dsid="${u.sessionId}">취소</button></span></div>`;
+      if(avail<=0)return `<div class="stuhist" style="opacity:.5"><span>${clsLabel(u)} · ${mkDateLabel(u)}</span><span style="color:var(--verm);font-size:12px">정원 마감</span></div>`;
+      return `<div class="stuhist"><span>${clsLabel(u)} · ${mkDateLabel(u)} <small style="color:var(--ink-soft)">· ${won(rate)} · 잔여 ${avail}석</small></span><button class="checkbtn" style="width:auto;padding:8px 14px;margin:0;font-size:12.5px" data-dcid="${u.classId}" data-dsid="${u.sessionId}" data-diso="${u.iso}" data-dlabel="${esc(u.label||'')}" data-dcname="${esc(u.className)}" data-drate="${rate}">신청</button></div>`;
     };
     const regularSlots=slots.filter(u=>u.classType!=='연구');
     const researchSlots=slots.filter(u=>u.classType==='연구');
     const regularRows=regularSlots.map(rowFor).join('')||'<div class="note">신청 가능한 날짜가 아직 없어요.</div>';
-    const researchRows=researchSlots.length?`<div class="note" style="margin:12px 3px 6px"><b>🔬 연구반 (요금 다름)</b></div>${researchSlots.map(rowFor).join('')}`:'';
+    const researchAfternoonOnly=researchSlots.length&&researchSlots[0].afternoonOnly;
+    const researchRows=researchSlots.length?`<div class="note" style="margin:12px 3px 6px"><b>🔬 연구반${researchAfternoonOnly?' (오후 2~5시만 참여 · 정규 요금)':' (요금 다름)'}</b></div>${researchSlots.map(rowFor).join('')}`:'';
     let packBar='';
     if(stuData.dropinPack){
       const pk=stuData.dropinPack;
