@@ -61,6 +61,8 @@
   .calcell.skipped{background:var(--verm-tint);color:var(--verm);font-weight:700;text-decoration:line-through}
   .calcell.readonly{cursor:default}
   .calcell.readonly:hover{background:inherit}
+  .calcell{position:relative}
+  .calcell.pubhol::after{content:'';position:absolute;top:2px;right:2px;width:5px;height:5px;border-radius:50%;background:#C9720A}
   .chips::-webkit-scrollbar{display:none}
   .chip{flex:0 0 auto;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:8px 14px;font-size:13.5px;font-weight:500;color:var(--ink-soft);white-space:nowrap;cursor:pointer}
   .chip.active{background:var(--jade);border-color:var(--jade);color:#fff}
@@ -320,6 +322,20 @@ let mem=null,data=null,tab='check',activeSess={},feeFilter='all',feeQuery='',fee
 /* ---------- utils ---------- */
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
 function pad(n){return String(n).padStart(2,'0')}
+/* 국가 공휴일: 매년 날짜가 고정된 양력 공휴일 + 음력 기반(설날/추석) 연휴는 연도별로 직접 지정.
+   설날·추석은 음력이라 매해 날짜가 바뀌므로, 새해가 되면 그 해 날짜를 이 목록에 추가해야 정확해요. */
+const KR_FIXED_HOLIDAYS={'01-01':'신정','03-01':'삼일절','05-05':'어린이날','06-06':'현충일','08-15':'광복절','10-03':'개천절','10-09':'한글날','12-25':'성탄절'};
+const KR_LUNAR_HOLIDAYS={
+  '2025-01-28':'설날 연휴','2025-01-29':'설날','2025-01-30':'설날 연휴',
+  '2025-10-05':'추석 연휴','2025-10-06':'추석','2025-10-07':'추석 연휴','2025-10-08':'추석 연휴(대체)',
+  '2026-02-16':'설날 연휴','2026-02-17':'설날','2026-02-18':'설날 연휴',
+  '2026-09-24':'추석 연휴','2026-09-25':'추석','2026-09-26':'추석 연휴'
+};
+function publicHolidayLabel(iso){
+  if(KR_LUNAR_HOLIDAYS[iso])return KR_LUNAR_HOLIDAYS[iso];
+  const md=iso.slice(5);
+  return KR_FIXED_HOLIDAYS[md]||null;
+}
 function todayISO(){const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
 function shortDate(iso){if(!iso)return '';const p=iso.split('-');return p.length===3?(+p[1])+'/'+(+p[2]):iso}
 function mkDateLabel(u){const sd=shortDate(u.iso);return(u.label&&u.label!==sd)?`${esc(u.label)} (${sd})`:sd;}
@@ -1023,7 +1039,9 @@ function renderAllClassesCal(){
     const cls=['calcell'];
     if(st==='has')cls.push('has');else if(st==='temp')cls.push('temp');else if(st==='skipped')cls.push('skipped');else if(st==='expected')cls.push('expected');
     if(iso===todayIso)cls.push('today');
-    return `<div class="${cls.join(' ')}" data-iso="${iso}">${d}</div>`;
+    const holLabel=publicHolidayLabel(iso);
+    if(holLabel)cls.push('pubhol');
+    return `<div class="${cls.join(' ')}" data-iso="${iso}"${holLabel?` title="${esc(holLabel)}"`:''}>${d}</div>`;
   });
   const wd=['일','월','화','수','목','금','토'];
   const box=document.getElementById('checkCalBox');
@@ -1119,7 +1137,9 @@ function renderCheckCal(){
     else if(cw!==null&&new Date(y,m-1,d).getDay()===cw)cls.push('expected');
     if(sessObj&&curSession()&&sessObj.id===curSession().id)cls.push('sel');
     if(iso===todayIso&&cls.indexOf('sel')<0)cls.push('today');
-    return `<div class="${cls.join(' ')}" data-iso="${iso}">${d}</div>`;
+    const holLabel=publicHolidayLabel(iso);
+    if(holLabel)cls.push('pubhol');
+    return `<div class="${cls.join(' ')}" data-iso="${iso}"${holLabel?` title="${esc(holLabel)}"`:''}>${d}</div>`;
   });
   const wd=['일','월','화','수','목','금','토'];
   const box=document.getElementById('checkCalBox');
@@ -1209,13 +1229,13 @@ function renderCheck(){
     renderAllClassesCal();
     if(toggleBtn)toggleBtn.style.display='none';
     if(detailBox)detailBox.style.display='none';
-    if(noteBox)noteBox.innerHTML='💡 <span style="color:var(--jade-deep);font-weight:700">초록</span>: 수업 있음 · <span style="border:1.5px dashed var(--ink-soft);border-radius:4px;padding:0 3px">점선</span>: 정규 요일(아직 체크 전) · <span style="background:var(--verm-tint);color:var(--verm);font-weight:700;border-radius:4px;padding:0 4px">분홍</span>: 휴강 있음 · 위 <b>요일을 누르면</b> 그 반으로 들어가요';
+    if(noteBox)noteBox.innerHTML='💡 <span style="color:var(--jade-deep);font-weight:700">초록</span>: 수업 있음 · <span style="border:1.5px dashed var(--ink-soft);border-radius:4px;padding:0 3px">점선</span>: 정규 요일(아직 체크 전) · <span style="background:var(--verm-tint);color:var(--verm);font-weight:700;border-radius:4px;padding:0 4px">분홍</span>: 휴강 있음 · <span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:#C9720A;vertical-align:middle"></span> 점: 국가 공휴일 · 위 <b>요일을 누르면</b> 그 반으로 들어가요';
     const ttBox=document.getElementById('ttAlways');if(ttBox)ttBox.innerHTML=timetableGridHTML(buildTimetableGrid(),false)+'<div class="note" style="margin-top:6px">고치시려면 "수업료" 탭 → "🗓 화실 시간표 관리"</div>';
     return;
   }
   if(toggleBtn)toggleBtn.style.display='inline-block';
   if(detailBox)detailBox.style.display='';
-  if(noteBox)noteBox.innerHTML='💡 <span style="color:var(--jade-deep);font-weight:700">초록</span>: 이미 회차 있음 · <span style="border:1.5px dashed var(--ink-soft);border-radius:4px;padding:0 3px">점선</span>: 이 반 정규 요일(미래 날짜를 누르면 휴강 여부만 물어봐요, 회차는 그날 자동 생성) · <span style="background:var(--verm-tint);color:var(--verm);font-weight:700;border-radius:4px;padding:0 4px">분홍</span>: 원장님 휴강 · 위 <b>요일을 다시 누르면</b> 그 요일의 다음 반으로 넘어가요';
+  if(noteBox)noteBox.innerHTML='💡 <span style="color:var(--jade-deep);font-weight:700">초록</span>: 이미 회차 있음 · <span style="border:1.5px dashed var(--ink-soft);border-radius:4px;padding:0 3px">점선</span>: 이 반 정규 요일(미래 날짜를 누르면 휴강 여부만 물어봐요, 회차는 그날 자동 생성) · <span style="background:var(--verm-tint);color:var(--verm);font-weight:700;border-radius:4px;padding:0 4px">분홍</span>: 원장님 휴강 · <span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:#C9720A;vertical-align:middle"></span> 점: 국가 공휴일 · 위 <b>요일을 다시 누르면</b> 그 요일의 다음 반으로 넘어가요';
   const c=curClass();renderCheckCal();
   const ttBox=document.getElementById('ttAlways');if(ttBox)ttBox.innerHTML=timetableGridHTML(buildTimetableGrid(),false)+'<div class="note" style="margin-top:6px">고치시려면 "수업료" 탭 → "🗓 화실 시간표 관리"</div>';
   const sess=curSession(),title=document.getElementById('sessTitle'),date=document.getElementById('sessDate'),
@@ -1602,7 +1622,9 @@ function calGridHTML(y,m,selIso){
   const rowsHtml=calRowsHTML(startDow,dim,d=>{
     const iso=`${y}-${pad(m)}-${pad(d)}`;
     const cls=['calcell'];if(iso===selIso)cls.push('sel');else if(iso===todayIso)cls.push('today');
-    return `<div class="${cls.join(' ')}" data-iso="${iso}">${d}</div>`;
+    const holLabel=publicHolidayLabel(iso);
+    if(holLabel)cls.push('pubhol');
+    return `<div class="${cls.join(' ')}" data-iso="${iso}"${holLabel?` title="${esc(holLabel)}"`:''}>${d}</div>`;
   });
   const wd=['일','월','화','수','목','금','토'];
   return `<div class="calhead"><button class="calnav" type="button" data-nav="-1">‹</button><div class="calmonth">${y}년 ${m}월</div><button class="calnav" type="button" data-nav="1">›</button></div>
