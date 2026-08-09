@@ -1872,7 +1872,18 @@ function bindStuAdminCal(st,fullRedraw){
   });
 }
 /* ---------- student detail ---------- */
-function studentSheet(st){const fee=feeFor(st);let sess=4,amt=planAmount(fee,4),selKey='4',delId=null;
+function studentSheet(st){const fee=feeFor(st);
+  const isResearchSt=(st.classIds||[]).some(cid=>{const c=classById(cid);return c&&c.type==='연구';});
+  const hasRealClassSt=(st.classIds||[]).some(cid=>{const c=classById(cid);return c&&classWeekday(c);});
+  const mismatchOf=key=>{
+    if(!hasRealClassSt)return key!=='dropin8';
+    if(key==='1')return isResearchSt;
+    if(key==='1r')return !isResearchSt;
+    return false;
+  };
+  let sess=4,amt=planAmount(fee,4),selKey=(!hasRealClassSt?'dropin8':isResearchSt?'1r':'4'),delId=null;
+  if(selKey==='1r'){sess=1;amt=data.rates.dailyResearch||90000;}
+  if(selKey==='dropin8'){sess=0;amt=440000;}
   function draw(){
     const prevSheet=oroot().querySelector('.sheet');const savedScroll=prevSheet?prevSheet.scrollTop:0;
     const opts=[['1','일일(정규)','1회',1,data.rates.daily||60000],['1r','일일(연구)','1회',1,data.rates.dailyResearch||90000],['4','4회','정가',4,planAmount(fee,4)],['12','12회',data.rates.d3+'%↓',12,planAmount(fee,12)],['24','24회',data.rates.d6+'%↓',24,planAmount(fee,24)],['dropin8','하루수업 8회 선결제','90일 이내 자유 이용',0,440000]];
@@ -1882,6 +1893,7 @@ function studentSheet(st){const fee=feeFor(st);let sess=4,amt=planAmount(fee,4),
     const ml=makeupLeft(st),due=makeupDue(st);
     oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button>
       <h3>${esc(st.name)}</h3><div class="subt">${esc(clsNames(st))} · 기준 월요금(4회) ${won(fee)}${st.rate?' · 특별요금':''}${st.status==='paused'?' · 휴강중':''}${st.code?` · <b style="color:var(--jade-deep)">코드 ${st.code}</b>`:' · <span style="color:var(--verm)">코드 미발급</span>'}</div>
+      ${!hasRealClassSt?`<div class="note" style="background:var(--purple-tint);color:var(--purple);padding:8px 11px;border-radius:9px;margin:6px 0 2px;font-weight:600">🎫 정규 요일이 없는 쿠폰 전용 학생이에요 — 하루수업 8회 선결제 외 옵션은 흐리게 표시돼요.</div>`:''}
       ${st.notes?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:8px 11px;border-radius:9px;margin:6px 0 2px;font-weight:600">📌 ${esc(st.notes)}</div>`:''}
       <div class="kpi">
         <div><div class="v ${remainSessions(st)<=0?'c-a':''}">${remainSessions(st)}</div><div class="t">${remainSessions(st)<0?'미리 사용':'잔여 회차'}</div></div>
@@ -1902,7 +1914,8 @@ function studentSheet(st){const fee=feeFor(st);let sess=4,amt=planAmount(fee,4),
       <div class="barbtns"><button id="stClearHist" style="border-color:var(--verm);color:var(--verm)">🧹 이 학생 기록만 기간별 초기화</button></div>
 
       <div class="sechead" style="margin-top:6px">수업료 결제</div>
-      <div class="planopts">${opts.map(o=>`<div class="plan ${o[0]===selKey?'sel':''}" data-s="${o[0]}"><div class="pn">${o[1]}</div><div class="pd">${o[2]}</div><div class="pp">${won(o[4])}</div></div>`).join('')}</div>
+      <div class="planopts">${opts.map(o=>`<div class="plan ${o[0]===selKey?'sel':''}" data-s="${o[0]}" style="${mismatchOf(o[0])?'opacity:.4':''}"><div class="pn">${o[1]}${mismatchOf(o[0])?' ⚠':''}</div><div class="pd">${o[2]}</div><div class="pp">${won(o[4])}</div></div>`).join('')}</div>
+      ${opts.some(o=>mismatchOf(o[0]))?'<div class="note" style="margin:-8px 2px 10px">⚠ 표시된 옵션은 이 학생의 소속 반과 안 맞을 수 있어요. 특별한 사정이 아니면 피해주세요.</div>':''}
       <div class="field"><label>등록 회차 <small style="color:var(--ink-soft)">(선택한 권종 그대로 · 특별한 경우만 직접 고치세요)</small></label><span class="stepwrap"><button class="stp" data-d="-1">－</button><input type="number" id="pSess" inputmode="numeric" value="${sess}"><button class="stp" data-d="1">＋</button></span></div>
       <div class="field"><label>금액 <small style="color:var(--ink-soft)">(±1만원)</small></label><span class="stepwrap"><button class="stpA" data-d="-10000">－</button><input type="number" id="pAmt" inputmode="numeric" value="${amt}" style="width:120px!important"><button class="stpA" data-d="10000">＋</button></span></div>
       <div class="field"><label>결제일</label><input type="date" id="pDate" value="${todayISO()}"></div>
