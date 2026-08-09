@@ -487,7 +487,7 @@ async function regenerateStudentViews(){
           recMemos:Object.fromEntries(Object.entries(c.recMemos||{}).filter(([k])=>k.endsWith(':'+st.id)).map(([k,v])=>[k.split(':')[0],v]))};
       }).filter(Boolean);
       const isResearchStudent=(st.classIds||[]).some(cid=>{const c=classById(cid);return c&&c.type==='연구';});
-      const hasRealClass=(st.classIds||[]).some(cid=>{const c=classById(cid);return c&&classWeekday(c);});
+      const hasRealClass=(st.classIds||[]).some(cid=>{const c=classById(cid);return c&&classWeekday(c)!==null;});
       const upcomingForStu=allUpcoming.map(u=>u.classType==='연구'&&!isResearchStudent?{...u,afternoonOnly:true}:u);
       const myMakeups=[];
       data.classes.forEach(cc=>(cc.sessions||[]).forEach(s=>{
@@ -1874,7 +1874,7 @@ function bindStuAdminCal(st,fullRedraw){
 /* ---------- student detail ---------- */
 function studentSheet(st){const fee=feeFor(st);
   const isResearchSt=(st.classIds||[]).some(cid=>{const c=classById(cid);return c&&c.type==='연구';});
-  const hasRealClassSt=(st.classIds||[]).some(cid=>{const c=classById(cid);return c&&classWeekday(c);});
+  const hasRealClassSt=(st.classIds||[]).some(cid=>{const c=classById(cid);return c&&classWeekday(c)!==null;});
   const mismatchOf=key=>{
     if(!hasRealClassSt)return key!=='dropin8';
     if(key==='1')return isResearchSt;
