@@ -2625,11 +2625,19 @@ function renderStudentApp(){
       return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span style="display:flex;align-items:center;gap:8px"><span style="color:var(--blue);font-size:12.5px;font-weight:700">예약 반영대기</span><button class="minibtn" style="color:var(--verm);padding:4px 2px;font-size:12px" data-cancel-msid="${u.sessionId}">취소</button></span></div>`;
     }).join('');
     const hd=pendingMakeup.length>0?`보강 예약 (예약중 ${pendingMakeup.length}회)`:'보강 예약';
+    let dueBadge='';
+    if(stuData.makeupDue&&!stuData.makeupDueExtended){
+      if(stuData.makeupDueExpired&&stuData.status!=='paused')dueBadge=`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;font-weight:700;margin-bottom:8px">⚠ 보강기한(${stuData.makeupDue})이 지나 보강이 소멸됐어요.</div>`;
+      else if(stuData.makeupDueSoon&&!stuData.makeupDueExpired)dueBadge=`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin-bottom:8px">⚠ 보강기한이 곧 만료돼요 (${stuData.makeupDue}까지)</div>`;
+      else if(!stuData.makeupDueExpired)dueBadge=`<div class="note" style="margin-bottom:8px">보강기한: ${stuData.makeupDue}까지</div>`;
+    }else if(stuData.makeupDue&&stuData.makeupDueExtended){
+      dueBadge=`<div class="note" style="background:var(--jade-tint);color:var(--jade-deep);padding:9px 11px;border-radius:9px;font-weight:700;margin-bottom:8px">💚 ${stuData.makeupDue}까지 보강 가능해요.</div>`;
+    }
     let pendingNote='';
     if(pendingMakeupCancel.length>0)pendingNote='<div class="note">취소 신청하신 만큼 바로 다른 날짜로 예약하실 수 있어요. 원장님이 확인하시면 정식 반영돼요.</div>';
     else if(pendingAbsent.length>0&&pendingMakeup.length===0)pendingNote='<div class="note">결석 알림을 드린 만큼 바로 예약하실 수 있어요. 원장님이 확인하시면 정식 반영돼요.</div>';
     const actionBtn=quotaLeft>0?`<button class="checkbtn" id="openMakeupPickerBtn">📅 보강 날짜 고르기</button>`:(pendingRows?'':'<div class="note">지금은 예약 가능한 보강이 없어요.</div>');
-    makeupSection=`<div class="stucard"><h3>${hd}</h3>${pendingRows}${actionBtn}${pendingNote}</div>`;
+    makeupSection=`<div class="stucard"><h3>${hd}</h3>${dueBadge}${pendingRows}${actionBtn}${pendingNote}</div>`;
   }
   let myMakeupSection='';
   const myMakeups=stuData.myMakeups||[];
@@ -2692,13 +2700,13 @@ function renderStudentApp(){
       <div class="note" style="margin:-6px 2px 10px">보강은 언제든 미리 예약하실 수 있어요.</div>
       ${borrowed>0?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;margin:-2px 0 12px;font-weight:700">⚠ <b>-${borrowed}회</b> · 출석 ${borrowed}회 전에 미리 보강하셨어요.</div>`:''}
       ${(stuData.makeupDue&&approvedMakeup>0)?(stuData.makeupDueExtended
-        ?`<div class="note" style="color:var(--jade-deep);font-weight:700">💚 원장님께서 배려해주셔서 ${stuData.makeupDue}까지 보강 가능해요. 꼭 이 안에 완료해주세요.</div>`
+        ?`<div class="note" style="background:var(--jade-tint);color:var(--jade-deep);padding:9px 11px;border-radius:9px;font-weight:700">💚 원장님께서 배려해주셔서 ${stuData.makeupDue}까지 보강 가능해요. 꼭 이 안에 완료해주세요.</div>`
         :stuData.makeupDueExpired
           ?(stuData.status==='paused'
-            ?`<div class="note" style="color:var(--ochre);font-weight:700">⏳ 보강기한(${stuData.makeupDue})이 지났지만, 휴강중이시니 재등록하시면 그날 기준으로 새로 연장돼요.</div>`
-            :`<div class="note" style="color:var(--verm);font-weight:700">⚠ 보강기한(${stuData.makeupDue})이 지나 보강이 소멸됐어요.</div>`)
+            ?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700">⏳ 보강기한(${stuData.makeupDue})이 지났지만, 휴강중이시니 재등록하시면 그날 기준으로 새로 연장돼요.</div>`
+            :`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;font-weight:700">⚠ 보강기한(${stuData.makeupDue})이 지나 보강이 소멸됐어요.</div>`)
           :stuData.makeupDueSoon
-            ?`<div class="note" style="color:var(--ochre);font-weight:700">⚠ 보강기한이 곧 만료돼요 (${stuData.makeupDue}까지)</div>`
+            ?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700">⚠ 보강기한이 곧 만료돼요 (${stuData.makeupDue}까지)</div>`
             :`<div class="note">보강기한: ${stuData.makeupDue}</div>`)
       :''}
       ${stuData.delayedUsage?`<div class="note" style="color:var(--ochre)">⏰ 정상 수업 종료일은 지났습니다. 남은 회차 수강 중입니다.</div>`:''}</div>
