@@ -317,7 +317,7 @@ const KEY='ggmh_v22';
 const STATUSES=['present','absent','makeup','dropin'];
 const LABEL={present:'출석',late:'지각',absent:'결석',makeup:'보강',dropin:'일일권 출석',none:'재결제 필요'};
 const CLS={present:'st-present',late:'st-late',absent:'st-absent',makeup:'st-makeup',dropin:'st-dropin',none:'st-none'};
-let mem=null,data=null,tab='check',activeSess={},feeFilter='all',feeQuery='',feeScope='all',rosterScope='all',rosterQuery='',repMonth=null,checkCalYM={},checkMode='all';
+let mem=null,data=null,tab='check',activeSess={},feeFilter='all',feeQuery='',feeScope='all',rosterScope='all',rosterQuery='',repMonth=null,checkCalYM={},checkMode='all',dropinOpen=false;
 
 /* ---------- utils ---------- */
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
@@ -2656,15 +2656,22 @@ function renderStudentApp(){
     const pendingDropin=stuData._pendingDropin||[];
     const slots=(stuData.allUpcoming||[]).filter(u=>u.iso>=t);
     const rateFor=u=>(u.classType==='연구')?(stuData.dailyRateResearch||90000):(stuData.dailyRate||60000);
-    const rows=slots.map(u=>{
+    const rowFor=u=>{
       const rate=rateFor(u);
       const already=pendingDropin.indexOf(u.sessionId)>=0;
       const avail=u.avail!==undefined?u.avail:99;
       if(already)return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span style="display:flex;align-items:center;gap:8px"><span style="color:var(--blue);font-size:12.5px;font-weight:700">${won(rate)} 입금 예정</span><button class="minibtn" style="color:var(--verm);padding:4px 2px;font-size:12px" data-cancel-dsid="${u.sessionId}">취소</button></span></div>`;
       if(avail<=0)return `<div class="stuhist" style="opacity:.5"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span style="color:var(--verm);font-size:12px">정원 마감</span></div>`;
       return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)} <small style="color:var(--ink-soft)">· ${won(rate)} · 잔여 ${avail}석</small></span><button class="checkbtn" style="width:auto;padding:8px 14px;margin:0;font-size:12.5px" data-dcid="${u.classId}" data-dsid="${u.sessionId}" data-diso="${u.iso}" data-dlabel="${esc(u.label||'')}" data-dcname="${esc(u.className)}" data-drate="${rate}">신청</button></div>`;
-    }).join('');
-    dropinSection=`<div class="stucard"><h3>일일 수업 신청</h3>${rows||'<div class="note">신청 가능한 날짜가 아직 없어요.</div>'}<div class="note">신청하시면 원장님 확인 후 정식 반영돼요. 수업 오시는 날 회비를 결제해주세요.</div></div>`;
+    };
+    const regularSlots=slots.filter(u=>u.classType!=='연구');
+    const researchSlots=slots.filter(u=>u.classType==='연구');
+    const regularRows=regularSlots.map(rowFor).join('')||'<div class="note">신청 가능한 날짜가 아직 없어요.</div>';
+    const researchRows=researchSlots.length?`<div class="note" style="margin:12px 3px 6px"><b>🔬 연구반 (요금 다름)</b></div>${researchSlots.map(rowFor).join('')}`:'';
+    dropinSection=`<div class="stucard">
+      <h3 style="cursor:pointer;display:flex;justify-content:space-between;align-items:center" id="dropinToggle">일일 수업 신청 <span style="font-size:13px;color:var(--ink-soft)">${dropinOpen?'▲ 접기':'▼ 펼치기'}</span></h3>
+      ${dropinOpen?`${regularRows}${researchRows}<div class="note">신청하시면 원장님 확인 후 정식 반영돼요. 수업 오시는 날 회비를 결제해주세요.</div>`:''}
+    </div>`;
   }
   root.innerHTML=`<div class="stuwrap">
     <div class="stutop"><div style="display:flex;align-items:center;gap:10px"><img src="${LOGO_URI}" style="width:52px;height:52px;border-radius:50%;flex:0 0 auto"><div><h2>${esc(stuData.name)}님</h2><small>${esc((stuData.classes||[]).map(c=>c.name).join(' · '))}</small></div></div>
@@ -2708,6 +2715,8 @@ function renderStudentApp(){
     if(th)th.scrollIntoView({inline:'start',block:'nearest'});
   }
   document.getElementById('stuLogout').onclick=()=>confirmSheet2();
+  const dropinToggleEl=document.getElementById('dropinToggle');
+  if(dropinToggleEl)dropinToggleEl.onclick=()=>{dropinOpen=!dropinOpen;renderStudentApp();};
   const stuRefreshBtn=document.getElementById('stuRefresh');
   if(stuRefreshBtn)stuRefreshBtn.onclick=async()=>{
     stuRefreshBtn.textContent='⏳';
