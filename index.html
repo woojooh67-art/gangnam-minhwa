@@ -2198,7 +2198,8 @@ function editStudent(st){
         if(s.iso>=t&&c.records[k]!==undefined){delete c.records[k];cleared++;}}));}
     save();closeOverlay();render();
     toast(cleared?`휴강 처리 · 오늘 이후 ${cleared}건 출석기록 정리`:'저장되었습니다.');};
-  q('#esDel').onclick=()=>confirmSheet(`'${esc(st.name)}' 학생을 <b>완전히 삭제</b>할까요?<br>출석·결제·수납 기록이 모두 사라지고 되돌릴 수 없습니다.<br><br>그만둔 학생이라면 삭제 대신 <b>상태를 '종료'</b>로 바꾸세요. 기록이 보존됩니다.`,()=>{
+  q('#esDel').onclick=()=>confirmSheet(`'${esc(st.name)}' 학생을 <b>완전히 삭제</b>할까요?<br>출석·결제·수납 기록이 모두 사라지고 되돌릴 수 없습니다.<br><br>그만둔 학생이라면 삭제 대신 <b>상태를 '종료'</b>로 바꾸세요. 기록이 보존됩니다.`,async()=>{
+    await releaseStudentLogin(st);
     data.students=data.students.filter(x=>x.id!==st.id);save();closeOverlay();render();toast('삭제되었습니다.');});}
 
 function classMoveSheet(st){
@@ -2280,6 +2281,17 @@ async function createStudentLogin(code){
   const sa=secondaryAuth();const email=code+'@'+STUDENT_DOMAIN;
   const cred=await sa.createUserWithEmailAndPassword(email,codeToPassword(code));
   await sa.signOut();return cred.user.uid;
+}
+async function releaseStudentLogin(st){
+  try{if(st.uid)await db.collection('studentViews').doc(st.uid).delete();}catch(e){console.error(e);}
+  if(st.code){
+    try{
+      const sa=secondaryAuth();
+      await sa.signInWithEmailAndPassword(st.code+'@'+STUDENT_DOMAIN,codeToPassword(st.code));
+      if(sa.currentUser)await sa.currentUser.delete();
+      await sa.signOut();
+    }catch(e){console.error(e);}
+  }
 }
 async function addStudent(){const inp=document.getElementById('nameInput');const v=inp.value.trim();if(!v)return;const cid=curClass().id;
   const phoneInp=document.getElementById('phoneInput');const phoneRaw=phoneInp?phoneInp.value.trim():'';
