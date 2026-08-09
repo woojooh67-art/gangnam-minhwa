@@ -1873,14 +1873,14 @@ function studentSheet(st){const fee=feeFor(st);let sess=4,amt=planAmount(fee,4),
 
       <div class="sechead" style="margin-top:6px">수업료 결제</div>
       <div class="planopts">${opts.map(o=>`<div class="plan ${o[0]===sess?'sel':''}" data-s="${o[0]}"><div class="pn">${o[1]}</div><div class="pd">${o[2]}</div><div class="pp">${won(planAmount(fee,o[0]))}</div></div>`).join('')}</div>
-      <div class="field"><label>등록 회차 <small style="color:var(--ink-soft)">(남은 횟수 · 다 썼으면 0)</small></label><span class="stepwrap"><button class="stp" data-d="-1">－</button><input type="number" id="pSess" inputmode="numeric" value="${sess}"><button class="stp" data-d="1">＋</button></span></div>
+      <div class="field"><label>등록 회차 <small style="color:var(--ink-soft)">(선택한 권종 그대로 · 특별한 경우만 직접 고치세요)</small></label><span class="stepwrap"><button class="stp" data-d="-1">－</button><input type="number" id="pSess" inputmode="numeric" value="${sess}"><button class="stp" data-d="1">＋</button></span></div>
       <div class="field"><label>금액 <small style="color:var(--ink-soft)">(±1만원)</small></label><span class="stepwrap"><button class="stpA" data-d="-10000">－</button><input type="number" id="pAmt" inputmode="numeric" value="${amt}" style="width:120px!important"><button class="stpA" data-d="10000">＋</button></span></div>
       <div class="field"><label>결제일</label><input type="date" id="pDate" value="${todayISO()}"></div>
       <div class="field"><label>메모 <small style="color:var(--ink-soft)">(선택, 직접 입력 또는 아래 버튼)</small></label><input id="pMemo" placeholder="메모 없음">
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
           ${['1회차 늦게 결제','2회차 늦게 결제','3회차 늦게 결제','미리 결제'].map(t=>`<button class="minibtn pmemobtn" type="button" data-t="${esc(t)}" style="padding:5px 10px;font-size:12px">${t}</button>`).join('')}
         </div></div>
-      <div class="note" style="margin:-6px 2px 10px" id="pHint">· 회차에는 <b>앞으로 남은 횟수</b>를 넣습니다.<br>· 이미 다 쓴 지난 결제는 회차에 <b>0</b>을 넣으면 금액·날짜만 기록됩니다.<br>· 특별 패키지는 회차·금액을 직접 고쳐 저장하세요.</div>
+      <div class="note" style="margin:-6px 2px 10px" id="pHint">· 회차는 위에서 고르신 권종 그대로 등록돼요.<br>· 예전 기록을 계산에서 빼고 새로 시작하고 싶으면, [정보 수정] → "회차 리셋 기준일"에 이 결제일을 넣어주세요.</div>
       <div class="actions"><button class="btn-ghost" id="pClose">닫기</button><button class="btn-primary" id="pSave">결제 저장</button></div>
 
       ${hist.length?`<div class="hist"><div class="h">결제 내역 · 총 ${paidSessions(st)}회 구매 / ${usedSessions(st)}회 사용</div>${hist.map(p=>{
