@@ -965,19 +965,24 @@ function enrolled(){return data.students.filter(s=>s.status!=='ended');}
 function clsNames(st){return (st.classIds||[]).map(id=>{const c=classById(id);return c?c.name:'';}).filter(Boolean).join(' / ');}
 function feeFor(st){if(st.rate&&st.rate>0)return st.rate;const c=classById((st.classIds||[])[0]);return c?c.fee:200000;}
 function planAmount(fee,sess){if(sess===1)return (data.rates&&data.rates.daily)||60000;if(sess===4)return fee;if(sess===12)return Math.round(fee*3*(1-data.rates.d3/100));if(sess===24)return Math.round(fee*6*(1-data.rates.d6/100));return Math.round(fee/4*sess);}
-function paidSessions(st){return (st.payments||[]).reduce((a,p)=>a+(p.sessions||0),0);}
+function paidSessions(st){
+  const ps=(st.payments||[]);
+  const scoped=st.cycleStart?ps.filter(p=>p.date>=st.cycleStart):ps;
+  return scoped.reduce((a,p)=>a+(p.sessions||0),0);
+}
 function marksOf(st){const out=[];data.classes.forEach(c=>{
   c.sessions.forEach(s=>{const v=c.records[s.id+':'+st.id];if(v)out.push({iso:s.iso,label:s.label,cls:c.name,mark:v,classId:c.id,sessionId:s.id});});});
   return out.sort((a,b)=>a.iso<b.iso?1:-1);}
-function usedSessions(st){return marksOf(st).filter(m=>m.mark==='present'||m.mark==='late').length;}
-function consumedSessions(st){return marksOf(st).filter(m=>m.mark==='present'||m.mark==='late'||m.mark==='absent').length;}
-function absentCount(st){return marksOf(st).filter(m=>m.mark==='absent').length;}
-function makeupUsed(st){return marksOf(st).filter(m=>m.mark==='makeup').length;}
+function scopedMarks(st){const all=marksOf(st);return st.cycleStart?all.filter(m=>m.iso>=st.cycleStart):all;}
+function usedSessions(st){return scopedMarks(st).filter(m=>m.mark==='present'||m.mark==='late').length;}
+function consumedSessions(st){return scopedMarks(st).filter(m=>m.mark==='present'||m.mark==='late'||m.mark==='absent').length;}
+function absentCount(st){return scopedMarks(st).filter(m=>m.mark==='absent').length;}
+function makeupUsed(st){return scopedMarks(st).filter(m=>m.mark==='makeup').length;}
 function makeupLeft(st){return Math.max(0,absentCount(st)-makeupUsed(st));}
 /* 보강기한: 4·12·24회권 모두 동일한 공식 — 그 패키지의 '마지막 수업일'(출석이든 결석이든 순서대로 다 채운 날) + 4주(28일).
    즉 패키지 기간 내내 아무 때나 보강 가능하고, 마지막 회차가 끝난 뒤에도 4주 여유를 더 줌. */
 function lastCoveredClassDate(st){
-  const dates=marksOf(st).filter(m=>m.mark==='present'||m.mark==='late'||m.mark==='absent').map(m=>m.iso).sort();
+  const dates=scopedMarks(st).filter(m=>m.mark==='present'||m.mark==='late'||m.mark==='absent').map(m=>m.iso).sort();
   const paid=paidSessions(st);
   if(paid<=0||!dates.length)return '';
   const idx=Math.min(paid,dates.length)-1;
@@ -1975,7 +1980,7 @@ function studentSheet(st){const fee=feeFor(st);let sess=4,amt=planAmount(fee,4),
     oroot().querySelectorAll('.plan').forEach(pl=>pl.onclick=()=>{sess=+pl.dataset.s;amt=planAmount(fee,sess);draw();});
     const rmNow=remainSessions(st);
     if(rmNow<0){const hint=oroot().querySelector('#pHint');
-      if(hint)hint.innerHTML='· 현재 <b style="color:var(--verm)">'+(-rmNow)+'회를 미리 사용</b>한 상태입니다. 새로 4회를 등록하면 실제 잔여는 <b>'+(4+rmNow)+'회</b>가 됩니다.<br>'+hint.innerHTML;}
+      if(hint)hint.innerHTML='· 현재 <b style="color:var(--verm)">'+(-rmNow)+'회를 미리 사용</b>한 상태입니다. 잔여가 0 이하라 새로 결제하시면 <b>이전 잔여·보강은 정리되고 새 결제일부터 다시 시작</b>돼요.<br>'+hint.innerHTML;}
     oroot().querySelectorAll('.stp').forEach(b=>b.onclick=()=>{const i=oroot().querySelector('#pSess');
       let v=parseInt(i.value);if(!Number.isFinite(v))v=0;v=Math.max(0,v+(+b.dataset.d));i.value=v;});
     oroot().querySelectorAll('.stpA').forEach(b=>b.onclick=()=>{const i=oroot().querySelector('#pAmt');
@@ -1997,6 +2002,13 @@ function studentSheet(st){const fee=feeFor(st);let sess=4,amt=planAmount(fee,4),
         <div class="actions"><button class="btn-ghost" id="pcNo">취소</button><button class="btn-primary" id="pcYes">맞아요, 저장</button></div></div></div>`);
       oroot().querySelector('#pcNo').onclick=()=>oroot().querySelector('#pConfirmOv').remove();
       oroot().querySelector('#pcYes').onclick=()=>{
+        const rmBefore=remainSessions(st),mkBefore=makeupLeft(st);
+        if(rmBefore<=0){
+          if(rmBefore<0||mkBefore>0){
+            pushLog('admin',`(원장님) ${esc(st.name)}님 ${D} 결제 시 이전 잔여 ${rmBefore}회, 보강 ${mkBefore}회를 정리하고 새로 시작했어요.`,D);
+          }
+          st.cycleStart=D;
+        }
         st.payments.push({id:uid(),sessions:S,amount:A,date:D,plan:S,memo:M});save();renderFee();renderReport();studentSheet(st);toast('결제가 저장되었습니다.');};};
     q('#stEdit').onclick=()=>editStudent(st);
     q('#stBulk').onclick=()=>bulkSheet(st);
