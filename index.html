@@ -1373,7 +1373,11 @@ function renderRoster(){const c=curClass(),box=document.getElementById('rosterLi
     {const pausedN=data.students.filter(s=>s.status==='paused').length;
     head.innerHTML=`전체 <b>${data.students.length}</b>명 · 재적 ${enrolled().length-pausedN} · 휴강중 ${pausedN} · 종료 ${data.students.filter(s=>s.status==='ended').length}`;}
     box.appendChild(head);
-    list.slice().sort((a,b)=>a.name.localeCompare(b.name,'ko')).forEach(st=>{
+    list.slice().sort((a,b)=>{
+      const ae=a.status==='ended'?1:0, be=b.status==='ended'?1:0;
+      if(ae!==be)return ae-be;
+      return a.name.localeCompare(b.name,'ko');
+    }).forEach(st=>{
       const cn=clsNames(st);box.appendChild(rowFor(st,cn||'반 미지정'));
     });
     return;
