@@ -922,6 +922,11 @@ function pushLog(type,text,relIso){
   data.activityLog.unshift({id:uid(),type,text,ts:Date.now(),seen:false,relIso:relIso||null});
   if(data.activityLog.length>50)data.activityLog.length=50;
 }
+function logAdminClear(st,c,mark,iso){
+  if(!st||!mark)return;
+  const label=LABEL[mark]||mark;
+  pushLog(mark==='makeup'?'makeup':'admin',`(원장님) ${esc(st.name)}님의 ${shortDate(iso)} '${label}' 기록을 지웠어요${c?' ('+esc(c.name)+')':''}`,iso);
+}
 function logIsExpired(e){return !!(e.relIso&&e.relIso<todayISO());}
 function unseenLogCount(){return (data.activityLog||[]).filter(e=>!e.seen&&!logIsExpired(e)).length;}
 function markLogSeen(){(data.activityLog||[]).forEach(e=>e.seen=true);save();render();}
@@ -1329,7 +1334,7 @@ function renderCheck(){
       else{const idx=STATUSES.indexOf(status);c.records[k]=STATUSES[(idx+1)%4];}
       save();renderCheck();renderFee();renderReport();
     };
-    if(hasRec)row.querySelector('.clearrec').onclick=(e)=>{e.stopPropagation();delete c.records[k];save();renderCheck();renderFee();renderReport();toast('이 날짜 기록을 지웠어요.');};
+    if(hasRec)row.querySelector('.clearrec').onclick=(e)=>{e.stopPropagation();logAdminClear(st,c,c.records[k],sess.iso);delete c.records[k];save();renderCheck();renderFee();renderReport();toast('이 날짜 기록을 지웠어요.');};
     list.appendChild(row);});
   if(guests.length){
     const h=document.createElement('div');h.className='note';h.style.margin='14px 3px 6px';
@@ -1340,7 +1345,7 @@ function renderCheck(){
       row.onclick=()=>{c.records[k]=STATUSES[(Math.max(0,STATUSES.indexOf(status))+1)%4];save();renderCheck();renderFee();renderReport();};
       const del=document.createElement('div');del.className='note';del.style.textAlign='right';del.style.margin='2px 6px 8px';
       del.innerHTML='<span style="color:var(--verm);cursor:pointer">이 학생 빼기</span>';
-      del.onclick=()=>{delete c.records[k];save();renderCheck();renderFee();renderReport();toast('빼줬어요.');};
+      del.onclick=()=>{logAdminClear(st,c,c.records[k],sess.iso);delete c.records[k];save();renderCheck();renderFee();renderReport();toast('빼줬어요.');};
       list.appendChild(row);list.appendChild(del);});}
   const addG=document.createElement('div');addG.className='barbtns';addG.style.marginTop='12px';
   addG.innerHTML=isTemp?'<button id="addGuest" style="border-color:var(--blue);color:var(--blue)">＋ 학생 추가</button>'
@@ -1362,7 +1367,7 @@ function renderCheck(){
       if(c.records[k]!==undefined){
         const del=document.createElement('div');del.className='note';del.style.textAlign='right';del.style.margin='2px 6px 8px';
         del.innerHTML='<span style="color:var(--verm);cursor:pointer">기록 지우기</span>';
-        del.onclick=()=>{delete c.records[k];save();renderCheck();renderFee();renderReport();toast('지웠어요.');};
+        del.onclick=()=>{logAdminClear(st,c,c.records[k],sess.iso);delete c.records[k];save();renderCheck();renderFee();renderReport();toast('지웠어요.');};
         list.appendChild(del);
       }
     });
@@ -1578,9 +1583,18 @@ function renderReport(){const c=curClass();
   else{logBox.innerHTML=log.map(e=>{
     const ago=Math.max(0,Math.round((Date.now()-e.ts)/60000));
     const when=ago<60?ago+'분 전':ago<1440?Math.round(ago/60)+'시간 전':Math.round(ago/1440)+'일 전';
-    const icon=e.type==='absent'?'🔺':e.type==='makeup'?'🔁':'✓';
-    return `<div class="hrow" style="${(e.seen||logIsExpired(e))?'':'font-weight:700'}"><span>${icon} ${esc(e.text)}</span><span style="color:var(--ink-soft);font-size:11px">${when}</span></div>`;
-  }).join('');}}
+    const icon=e.type==='absent'?'🔺':e.type==='makeup'?'🔁':e.type==='admin'?'🗑':'✓';
+    return `<div class="hrow" style="${(e.seen||logIsExpired(e))?'':'font-weight:700'}"><span>${icon} ${esc(e.text)}</span><span style="display:flex;align-items:center;gap:6px"><span style="color:var(--ink-soft);font-size:11px">${when}</span><span data-logdel="${e.id}" style="color:var(--ink-soft);cursor:pointer;font-size:13px;padding:2px 4px" title="이 기록 지우기">✕</span></span></div>`;
+  }).join('')+'<div class="note" style="text-align:right;margin-top:4px"><span id="logClearAll" style="color:var(--verm);cursor:pointer">전체 지우기</span></div>';
+  logBox.querySelectorAll('[data-logdel]').forEach(el=>el.onclick=()=>{
+    data.activityLog=(data.activityLog||[]).filter(x=>x.id!==el.dataset.logdel);
+    save();renderReport();
+  });
+  const clearAll=document.getElementById('logClearAll');
+  if(clearAll)clearAll.onclick=()=>confirmSheet('최근 활동 기록을 전체 지울까요?',()=>{
+    data.activityLog=[];save();closeOverlay();renderReport();toast('전체 지웠어요.');
+  },'전체 지우기');
+  }}
 function showKpiList(kind){
   const titles={all:'재적 학생',out:'재결제 대상',makeup:'보강 대상'};
   let list;
@@ -1820,6 +1834,7 @@ function bindStuAdminCal(st,fullRedraw){
     const iso=el.dataset.mdel;const arr=stuAdminMarkMap[iso];if(!arr||!arr[0])return;
     const rec=arr[0];
     const c=classById(rec.classId);if(!c)return;
+    logAdminClear(st,c,rec.mark,iso);
     delete c.records[rec.sessionId+':'+st.id];
     save();renderFee();renderReport();fullRedraw();toast('기록을 지웠어요.');
   });
@@ -1840,6 +1855,7 @@ function bindStuAdminCal(st,fullRedraw){
     oroot().querySelectorAll('[data-mdel2]').forEach(x=>x.onclick=()=>{
       const rec=arr[parseInt(x.dataset.mdel2)];
       const c=classById(rec.classId);if(!c)return;
+      logAdminClear(st,c,rec.mark,iso);
       delete c.records[rec.sessionId+':'+st.id];
       save();renderFee();renderReport();fullRedraw();toast('기록을 지웠어요.');
     });
