@@ -338,6 +338,7 @@ function publicHolidayLabel(iso){
 }
 function todayISO(){const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
 function shortDate(iso){if(!iso)return '';const p=iso.split('-');return p.length===3?(+p[1])+'/'+(+p[2]):iso}
+function fullDateKr(iso){if(!iso)return '';const p=iso.split('-');return p.length===3?`${p[0]}년 ${+p[1]}월 ${+p[2]}일`:iso}
 function mkDateLabel(u){const sd=shortDate(u.iso);return(u.label&&u.label!==sd)?`${esc(u.label)} (${sd})`:sd;}
 function addMonths(iso,m){const p=iso.split('-').map(Number);const d=new Date(p[0],p[1]-1+m+1,0);return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
 function addDays(iso,d){const dt=new Date(iso+'T00:00:00');dt.setDate(dt.getDate()+d);return dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate());}
@@ -2629,7 +2630,7 @@ function renderStudentApp(){
     if(stuData.makeupDue&&!stuData.makeupDueExtended){
       if(stuData.makeupDueExpired&&stuData.status!=='paused')dueBadge=`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;font-weight:700;margin-bottom:8px">⚠ 보강기한(${stuData.makeupDue})이 지나 보강이 소멸됐어요.</div>`;
       else if(stuData.makeupDueSoon&&!stuData.makeupDueExpired)dueBadge=`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin-bottom:8px">⚠ 보강기한이 곧 만료돼요 (${stuData.makeupDue}까지)</div>`;
-      else if(!stuData.makeupDueExpired)dueBadge=`<div class="note" style="margin-bottom:8px">보강기한: ${stuData.makeupDue}까지</div>`;
+      else if(!stuData.makeupDueExpired)dueBadge=`<div class="note" style="margin-bottom:8px;font-size:16px">보강기한은 <b style="color:var(--verm);font-size:17px">${fullDateKr(stuData.makeupDue)}</b>까지 입니다.</div>`;
     }else if(stuData.makeupDue&&stuData.makeupDueExtended){
       dueBadge=`<div class="note" style="background:var(--jade-tint);color:var(--jade-deep);padding:9px 11px;border-radius:9px;font-weight:700;margin-bottom:8px">💚 ${stuData.makeupDue}까지 보강 가능해요.</div>`;
     }
