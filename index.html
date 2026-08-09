@@ -486,6 +486,7 @@ async function regenerateStudentViews(){
           recMemos:Object.fromEntries(Object.entries(c.recMemos||{}).filter(([k])=>k.endsWith(':'+st.id)).map(([k,v])=>[k.split(':')[0],v]))};
       }).filter(Boolean);
       const isResearchStudent=(st.classIds||[]).some(cid=>{const c=classById(cid);return c&&c.type==='연구';});
+      const hasRealClass=(st.classIds||[]).some(cid=>{const c=classById(cid);return c&&classWeekday(c);});
       const upcomingForStu=allUpcoming.map(u=>u.classType==='연구'&&!isResearchStudent?{...u,afternoonOnly:true}:u);
       const myMakeups=[];
       data.classes.forEach(cc=>(cc.sessions||[]).forEach(s=>{
@@ -496,7 +497,7 @@ async function regenerateStudentViews(){
       let daysLeft=null;
       if(dueVal&&!expired){daysLeft=Math.round((new Date(dueVal)-new Date(t))/86400000);}
       const payload={
-        studentId:st.id,name:st.name,status:st.status,classes,
+        studentId:st.id,name:st.name,status:st.status,classes,hasRealClass,
         remain:remainSessions(st),usedTotal:usedSessions(st),absentTotal:absentCount(st),
         makeupLeft:effectiveMakeupLeft(st),allUpcoming:upcomingForStu,myMakeups,
         makeupDueExpired:expired,makeupDueSoon:(daysLeft!==null&&daysLeft<=7),delayedUsage:isDelayedUsage(st),paceEnd:expectedPaceEnd(st),makeupDueExtended:!!st.makeupDueOverride,
@@ -2732,7 +2733,8 @@ function renderStudentApp(){
       <div style="display:flex;gap:6px"><button class="logoutbtn" id="stuRefresh" title="새로고침">🔄</button><button class="logoutbtn" id="stuLogout">로그아웃</button></div></div>
     ${stuData.status==='paused'?`<div class="stucard" style="background:var(--ochre-tint);border-color:var(--ochre)"><h3>🌱 현재 휴강중이에요</h3><div class="note" style="color:var(--ink)">언제든 다시 오세요! 재등록해주시면 잔여 회차·보강기한 모두 그날부터 다시 이어져요. 재등록은 원장님께 말씀해주세요.</div>${stuData.remain>0?`<div class="note" style="margin-top:8px;font-weight:700;color:var(--ink)">잔여 <b>${stuData.remain}</b>회 남아있어요.</div>`:''}<div class="note" style="margin-top:8px;color:var(--ink)">💜 휴강중에도 아래 "하루수업 신청"으로 언제든 하루씩 참여하실 수 있어요.</div></div>`:''}
     ${stuData.status==='ended'?`<div class="stucard" style="background:var(--line-soft)"><h3>수강이 종료된 상태예요</h3><div class="note">다시 다니고 싶으시면 언제든 원장님께 연락 주세요.</div></div>`:''}
-    ${stuData.status==='paused'?'':`<div class="stucard"><h3>출석 · 잔여 회차</h3>
+    ${(stuData.status!=='paused'&&stuData.status!=='ended'&&stuData.hasRealClass===false)?`<div class="stucard" style="background:var(--purple-tint);border-color:var(--purple)"><h3>🎫 하루수업 쿠폰 이용중</h3><div class="note" style="color:var(--ink)">정규 반 등록 없이 아래 "하루수업 신청"으로 자유롭게 이용하시는 계정이에요.</div></div>`:''}
+    ${(stuData.status==='paused'||stuData.hasRealClass===false)?'':`<div class="stucard"><h3>출석 · 잔여 회차</h3>
       <div class="tally"><span class="p"><b>${stuData.remain}</b>회 남음</span>${approvedMakeup>0?`<span class="a"><b>${stuData.absentTotal}</b>회 결석</span>`:''}${approvedMakeup>0?`<span class="m"><b>${approvedMakeup}</b>회 보강 가능</span>`:''}</div>
       ${stuData.remain<0?`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">⚠ ${stuData.paceEnd?shortDate(stuData.paceEnd)+'까지였던 수강 기간이 지났어요. ':''}결제 없이 ${-stuData.remain}회 더 출석하셨어요. 결제해 주세요.</div>`:stuData.remain===0?`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">⚠ ${stuData.paceEnd?shortDate(stuData.paceEnd)+'까지였던 수강 기간이 끝났어요. ':''}재결제해 주세요.</div>`:''}
       <div class="note" style="margin:-6px 2px 10px">보강은 언제든 미리 예약하실 수 있어요.</div>
