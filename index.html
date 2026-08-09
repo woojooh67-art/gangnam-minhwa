@@ -2151,6 +2151,8 @@ function editStudent(st){
       <div class="note" style="margin:4px 3px 0">기한이 지났지만 예외로 특정 날짜까지 배려해주고 싶을 때 쓰세요. 여기 넣으면 다른 계산은 무시하고 이 날짜가 그대로 보강기한이 돼요. 지우면 다시 자동 계산으로 돌아가요.</div></div>
     <div class="fgroup"><label>재등록일 직접 지정 · 비우면 첫 결제일 기준</label><input id="esRegDate" type="date" class="selin" value="${st.regDateOverride||''}">
       <div class="note" style="margin:4px 3px 0">장기간 휴강했다가 다시 등록한 학생은, 여기에 재등록일을 넣어주세요. 그 이전 날짜에는 출석 목록에서 안 보이게 돼요. (원래 결제가 여러 번이라 오래된 첫 결제일부터 계속 나오는 문제를 방지해요.)</div></div>
+    <div class="fgroup"><label>회차 리셋 기준일 · 비우면 전체 누적</label><input id="esCycleStart" type="date" class="selin" value="${st.cycleStart||''}">
+      <div class="note" style="margin:4px 3px 0">이 날짜를 넣으면, 잔여·결석·보강 계산이 <b>이 날짜 이후 기록만</b>으로 다시 계산돼요. 예전에 밀린 마이너스나 못 쓴 보강을 지금 정리하고 싶을 때, 정리 기준이 되는 결제일을 넣어주세요. (앞으로는 잔여가 0 이하일 때 새로 결제하면 자동으로 채워져요.)</div></div>
     <div class="fgroup"><label>전화번호 <small style="color:var(--ink-soft)">(로그인 코드 추천에 쓰여요)</small></label><input id="esMemo" class="selin" value="${esc(st.memo||'010-')}" placeholder="예: 010-1234-5678"></div>
     <div class="fgroup"><label>특이사항 메모 <small style="color:var(--ink-soft)">(연락처와 별개, 자유롭게)</small></label><input id="esNotes" class="selin" value="${esc(st.notes||'')}" placeholder="예: 2/6 12회차 선결제 이후 휴강, 4/10 재등록"></div>
     <div class="fgroup"><label>수강 반 (여러 반 겸용 가능)</label>
@@ -2209,6 +2211,12 @@ function editStudent(st){
   q('#esOk').onclick=()=>{const nm=q('#esName').value.trim();if(nm)st.name=nm;
     const rt=parseInt(q('#esRate').value);st.rate=(rt&&rt>0)?rt:0;
     const off=v=>(v==='paused'||v==='ended');const wasPaused=off(st.status),nowPaused=off(q('#esStat').value);
+    const newCycleStart=q('#esCycleStart').value||'';
+    if(newCycleStart!==(st.cycleStart||'')){
+      if(newCycleStart)pushLog('admin',`(원장님) ${esc(st.name)}님의 회차 리셋 기준일을 ${shortDate(newCycleStart)}로 지정했어요. 그 이전 기록은 잔여·결석·보강 계산에서 빠져요.`,newCycleStart);
+      else pushLog('admin',`(원장님) ${esc(st.name)}님의 회차 리셋 기준일을 없애서, 다시 전체 누적으로 계산해요.`,todayISO());
+    }
+    st.cycleStart=newCycleStart;
     st.status=q('#esStat').value;st.extend=Math.max(0,parseInt(q('#esExt').value)||0);st.lastClassOverride=q('#esLastClass').value||'';st.makeupDueOverride=q('#esDueOverride').value||'';st.regDateOverride=q('#esRegDate').value||'';st.memo=q('#esMemo').value.trim();st.notes=q('#esNotes').value.trim();
     const cids=[...oroot().querySelectorAll('input[data-cid]:checked')].map(x=>x.dataset.cid);
     if(!cids.length&&!nowPaused){toast('최소 한 개 반을 선택하세요. (휴강중·종료 상태면 반 없이도 저장 가능해요)');return;}
