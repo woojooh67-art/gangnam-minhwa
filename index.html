@@ -2087,7 +2087,7 @@ function editStudent(st){
     <div class="fgroup"><label>수강 반 (여러 반 겸용 가능)</label>
       ${data.classes.map(c=>`<label class="chk"><input type="checkbox" data-cid="${c.id}" ${(st.classIds||[]).indexOf(c.id)>=0?'checked':''}> ${esc(c.name)}</label>`).join('')}
       <button class="minibtn" id="esMoveClass" style="margin-top:8px;color:var(--blue)">🔀 반 이동 (예전 반 기록 정리하러 가기)</button></div>
-    <div class="fgroup"><div class="note" style="margin:2px 3px 0">💡 모든 학생이 앱에서 "일일 수업 신청" 카드로 정규반·연구반 중 자리 남은 날짜를 자유롭게 신청할 수 있어요 (회비: 정규반 ${won(data.rates.daily||60000)} · 연구반 ${won(data.rates.dailyResearch||90000)}). 신청만으로는 자동 결제되지 않고, 원장님이 확인 후 결제를 기록해주셔야 해요.</div></div>
+    <div class="fgroup"><div class="note" style="margin:2px 3px 0">💡 모든 학생이 앱에서 "하루수업 신청" 카드로 정규반·연구반 중 자리 남은 날짜를 자유롭게 신청할 수 있어요 (회비: 정규반 ${won(data.rates.daily||60000)} · 연구반 ${won(data.rates.dailyResearch||90000)}). 신청만으로는 자동 결제되지 않고, 원장님이 확인 후 결제를 기록해주셔야 해요.</div></div>
     <div class="fgroup"><label>학생 앱 로그인 코드</label>
       ${st.code?`<div class="selin" style="font-weight:700;letter-spacing:3px;text-align:center;background:var(--jade-tint);color:var(--jade-deep);border-color:var(--jade)">${st.code}</div>
         <div class="note" style="margin:6px 3px 0">이 4자리 코드를 학생에게 알려주세요. 학생 앱에서 이 코드로 로그인해요.</div>
@@ -2668,8 +2668,8 @@ function renderStudentApp(){
     const researchSlots=slots.filter(u=>u.classType==='연구');
     const regularRows=regularSlots.map(rowFor).join('')||'<div class="note">신청 가능한 날짜가 아직 없어요.</div>';
     const researchRows=researchSlots.length?`<div class="note" style="margin:12px 3px 6px"><b>🔬 연구반 (요금 다름)</b></div>${researchSlots.map(rowFor).join('')}`:'';
-    dropinSection=`<div class="stucard">
-      <h3 style="cursor:pointer;display:flex;justify-content:space-between;align-items:center" id="dropinToggle">일일 수업 신청 <span style="font-size:13px;color:var(--ink-soft)">${dropinOpen?'▲ 접기':'▼ 펼치기'}</span></h3>
+    dropinSection=`<div class="stucard" style="background:var(--purple-tint);border-color:var(--purple)">
+      <h3 style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;color:var(--purple)" id="dropinToggle">하루수업 신청 <span style="font-size:13px;color:var(--purple)">${dropinOpen?'▲ 접기':'▼ 펼치기'}</span></h3>
       ${dropinOpen?`${regularRows}${researchRows}<div class="note">신청하시면 원장님 확인 후 정식 반영돼요. 수업 오시는 날 회비를 결제해주세요.</div>`:''}
     </div>`;
   }
