@@ -987,7 +987,7 @@ function renderClasses(){const sel=document.getElementById('classSel');sel.inner
   sortedClasses.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;if(!(tab==='check'&&checkMode==='all')&&c.id===data.activeClass)o.selected=true;sel.appendChild(o);});
   const meta=document.getElementById('classMeta');
   if(tab==='check'&&checkMode==='all'){meta.textContent='전체보기 · 모든 반이 한 달력에 표시돼요';return;}
-  const c=curClass();meta.textContent=`${c.sched||''} · ${c.type} · 월(4회) ${won(c.fee)} · 재적 ${studentsInClass(c.id).length}명`;}
+  const c=curClass();meta.textContent=`${c.sched||''} · ${c.type} · 월(4회) ${won(c.fee)} · 재적 ${activeIn(c.id).length}명`;}
 
 function calRowsHTML(startDow,dim,dayHTML){
   let html='<tr>',col=0;
@@ -1401,6 +1401,13 @@ function renderRoster(){const c=curClass(),box=document.getElementById('rosterLi
   }
   const studs=studentsInClass(c.id).filter(s=>!q||s.name.indexOf(q)>=0);
   if(!studs.length){box.innerHTML='<div class="empty">이 반에 학생이 없어요.<br>위 칸에 이름을 넣고 <b>추가</b>를 누르세요.</div>';return;}
+  {const clsAll=studentsInClass(c.id);
+  const clsEnded=clsAll.filter(s=>s.status==='ended').length;
+  const clsPaused=clsAll.filter(s=>s.status==='paused').length;
+  const clsTotal=clsAll.length-clsEnded;
+  const head=document.createElement('div');head.className='note';
+  head.innerHTML=`전체 <b>${clsTotal}</b>명 · 재적 ${clsTotal-clsPaused} · 휴강중 ${clsPaused}${clsEnded?` · 종료 (${clsEnded})`:''}`;
+  box.appendChild(head);}
   studs.forEach((st,i)=>box.appendChild(rowFor(st,String(i+1))));}
 function allPayments(){const out=[];data.students.forEach(st=>(st.payments||[]).forEach(p=>out.push({st,p})));return out;}
 function monthsWithData(){const set=new Set(allPayments().map(x=>(x.p.date||'').slice(0,7)).filter(Boolean));
