@@ -265,7 +265,7 @@
       <input class="search" id="feeSearch" placeholder="이름 검색" autocomplete="off">
       <div class="rowlist" id="feeList"></div>
       <div class="barbtns" style="margin-top:12px"><button id="feeSettings">⚙ 요금·할인 설정</button><button id="rulesEdit">📜 화실 이용 규칙 관리</button></div>
-      <div class="barbtns"><button id="ttEdit">🗓 화실 시간표 관리</button><button id="holidayBtn" style="border-color:var(--verm);color:var(--verm)">📅 휴강 · 휴무일 관리</button><button id="dupSessBtn" style="border-color:var(--ochre);color:var(--ochre)">🔍 중복 회차 정리</button></div>
+      <div class="barbtns"><button id="ttEdit">🗓 화실 시간표 관리</button><button id="holidayBtn" style="border-color:var(--verm);color:var(--verm)">📅 휴강 · 휴무일 관리</button></div>
       <div class="barbtns"><button id="bulkClearBtn" style="border-color:var(--verm);color:var(--verm)">🧹 기록 일괄 초기화 (오류 복구용)</button></div>
       <div class="barbtns"><button id="diagBtn">🔍 전체 잔여 회차 진단</button></div>
     </section>
@@ -493,7 +493,7 @@ async function regenerateStudentViews(){
         remain:remainSessions(st),usedTotal:usedSessions(st),absentTotal:absentCount(st),
         makeupLeft:effectiveMakeupLeft(st),allUpcoming:upcomingForStu,myMakeups,
         makeupDueExpired:expired,makeupDueSoon:(daysLeft!==null&&daysLeft<=7),delayedUsage:isDelayedUsage(st),paceEnd:expectedPaceEnd(st),makeupDueExtended:!!st.makeupDueOverride,
-        dropin:!!(st.dropin||st.dropinOnce),dailyRate:data.rates.daily||60000,
+        dropin:!!(st.dropin||st.dropinOnce),dailyRate:data.rates.daily||60000,dailyRateResearch:data.rates.dailyResearch||90000,
         payments:(st.payments||[]).slice().sort((a,b)=>a.date<b.date?1:-1).map(p=>({date:p.date,amount:p.amount,sessions:p.sessions,plan:p.plan})),
         makeupDue:makeupDue(st),studioRules:data.studioRules||'',timetableGrid,allSkipped,allUpcomingSkipped,archiveMarks:st.archiveMarks||{},updatedAt:Date.now()
       };
@@ -682,45 +682,6 @@ function diagnosticSheet(){
     const st=studentById(el.dataset.diagid);if(st)studentSheet(st);
   });
 }
-function duplicateSessionsSheet(){
-  const groups=[];
-  data.classes.forEach(c=>{
-    const byIso={};
-    c.sessions.forEach(s=>{(byIso[s.iso]=byIso[s.iso]||[]).push(s);});
-    Object.keys(byIso).forEach(iso=>{
-      if(byIso[iso].length>1)groups.push({classId:c.id,className:c.name,iso,sessions:byIso[iso]});
-    });
-  });
-  groups.sort((a,b)=>a.iso<b.iso?-1:1);
-  if(!groups.length){toast('중복된 회차가 없어요. 깨끗해요!');return;}
-  const recCount=(c,sid)=>Object.keys(c.records).filter(k=>k.indexOf(sid+':')===0).length;
-  oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>🔍 중복 회차 정리</h3>
-    <div class="subt">같은 날짜에 회차가 2개 이상 있는 곳이에요. 기록이 없는(0건) 쪽을 지우시면 돼요. 기록이 있는 쪽은 남겨서 학생 목록에 중복으로 안 뜨게 하세요.</div>
-    <div style="max-height:56vh;overflow:auto">
-    ${groups.map((g,gi)=>{
-      const c=classById(g.classId);
-      return `<div class="stucard" style="margin-bottom:10px"><h3 style="font-size:14px">${esc(g.className)} · ${shortDate(g.iso)}</h3>
-        ${g.sessions.map((s,si)=>{
-          const n=recCount(c,s.id);
-          return `<div class="srow" style="margin-bottom:6px"><span class="nm">${esc(s.label)} <small style="color:var(--ink-soft)">(기록 ${n}건)</small></span><span class="pill" data-dupdel="${gi}:${si}" style="cursor:pointer;background:${n>0?'var(--line-soft)':'var(--verm-tint)'};color:${n>0?'var(--ink-soft)':'var(--verm)'}">${n>0?'기록있음':'삭제'}</span></div>`;
-        }).join('')}
-      </div>`;
-    }).join('')}
-    </div>
-    <div class="actions"><button class="btn-ghost" id="dupClose">닫기</button></div></div></div>`;
-  oroot().querySelector('#dupClose').onclick=closeOverlay;
-  oroot().querySelectorAll('[data-dupdel]').forEach(el=>el.onclick=()=>{
-    const [gi,si]=el.dataset.dupdel.split(':').map(Number);
-    const g=groups[gi],s=g.sessions[si],c=classById(g.classId);
-    const n=recCount(c,s.id);
-    if(n>0){toast('기록이 있는 회차는 여기서 못 지워요. 회차 안에서 직접 확인 후 지워주세요.');return;}
-    confirmSheet(`${esc(g.className)} · ${shortDate(g.iso)} 회차(기록 없음)를 지울까요?`,()=>{
-      c.sessions=c.sessions.filter(x=>x.id!==s.id);
-      if(activeSess[c.id]===s.id)activeSess[c.id]='__none__';
-      save();closeOverlay();duplicateSessionsSheet();toast('지웠어요.');
-    },'삭제');
-  });
-}
 function holidaySheet(){
   const t=todayISO();
   let mode='class';
@@ -899,22 +860,6 @@ function autoCreateUpcomingSessions(){
     });
   }
   return made;
-}
-function finalizePastSessions(){
-  const todayIso=todayISO();
-  let filled=0;
-  data.classes.forEach(c=>{
-    const sorted=c.sessions.slice().sort((a,b)=>a.iso<b.iso?-1:1);
-    sorted.forEach(s=>{
-      if(s.iso>=todayIso)return;
-      activeIn(c.id).forEach(st=>{
-        const k=s.id+':'+st.id;
-        if(c.records[k]!==undefined)return;
-        if(remainSessions(st)>0){c.records[k]='present';filled++;}
-      });
-    });
-  });
-  return filled;
 }
 function studentById(id){return data.students.find(s=>s.id===id);}
 function pushLog(type,text,relIso){
@@ -1627,7 +1572,7 @@ function showKpiList(kind){
     return `<div class="srow" style="margin-bottom:8px" data-kst="${st.id}"><span style="cursor:pointer;flex:1;display:flex;flex-direction:column" data-kgo="${st.id}"><span class="nm">${esc(st.name)}</span><span class="sub">${sub}</span></span>${extraBtn||`<span class="pill" style="background:var(--line-soft);color:var(--ink-soft);min-width:44px;cursor:pointer" data-kgo="${st.id}">보기</span>`}</div>`;
   }).join('');
   oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>${titles[kind]} (${list.length}명)</h3>
-    ${kind==='out'?'<div class="note" style="margin:-4px 3px 10px">"이번만 드롭인 허용"을 누르면 그 학생이 앱에서 한 번 일일 수업(60,000원)을 예약할 수 있어요. 예약이 반영되면 자동으로 다시 꺼져요.</div>':''}
+    ${kind==='out'?'<div class="note" style="margin:-4px 3px 10px">"이번만 드롭인 허용"을 누르면 그 학생이 앱에서 한 번 일일 수업을 예약할 수 있어요 (정규반/연구반에 따라 요금 자동 적용). 예약이 반영되면 자동으로 다시 꺼져요.</div>':''}
     <div style="max-height:56vh;overflow:auto">${rows||'<div class="note">해당하는 학생이 없어요.</div>'}</div>
     <div class="actions" style="margin-top:14px"><button class="btn-ghost" id="kpNo" style="flex:1">닫기</button></div></div></div>`;
   oroot().querySelector('#kpNo').onclick=closeOverlay;
@@ -2159,7 +2104,7 @@ function editStudent(st){
       ${data.classes.map(c=>`<label class="chk"><input type="checkbox" data-cid="${c.id}" ${(st.classIds||[]).indexOf(c.id)>=0?'checked':''}> ${esc(c.name)}</label>`).join('')}
       <button class="minibtn" id="esMoveClass" style="margin-top:8px;color:var(--blue)">🔀 반 이동 (예전 반 기록 정리하러 가기)</button></div>
     <div class="fgroup"><label class="chk"><input type="checkbox" id="esDropin" ${st.dropin?'checked':''}> 학생 앱에서 <b>일일 수업(드롭인) 예약</b> 가능하게 하기</label>
-      <div class="note" style="margin:2px 3px 0">체크하면 학생 앱에 "일일 수업 예약" 카드가 생겨서, 정규반 시간 중 자리가 남은 날짜를 골라 직접 예약할 수 있어요. 회비(${won(data.rates.daily||60000)})는 예약만으로는 자동 결제되지 않고, 원장님이 확인 후 결제를 기록해주셔야 해요.</div>
+      <div class="note" style="margin:2px 3px 0">체크하면 학생 앱에 "일일 수업 예약" 카드가 생겨서, 정규반·연구반 중 자리가 남은 날짜를 골라 직접 예약할 수 있어요. 회비(정규반 ${won(data.rates.daily||60000)} · 연구반 ${won(data.rates.dailyResearch||90000)})는 예약만으로는 자동 결제되지 않고, 원장님이 확인 후 결제를 기록해주셔야 해요.</div>
       ${(!st.dropin&&st.dropinOnce)?'<div class="note" style="color:var(--blue);font-weight:700;margin:6px 3px 0">☑ 지금 "이번 한 번" 드롭인 예약이 허용되어 있어요. 예약이 반영되면 자동으로 꺼져요.</div>':''}</div>
     <div class="fgroup"><label>학생 앱 로그인 코드</label>
       ${st.code?`<div class="selin" style="font-weight:700;letter-spacing:3px;text-align:center;background:var(--jade-tint);color:var(--jade-deep);border-color:var(--jade)">${st.code}</div>
@@ -2257,13 +2202,16 @@ function classMoveSheet(st){
 function openSettings(){oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>요금 · 할인 설정</h3>
   <div class="subt">월요금은 4회 기준입니다. 인상하면 이후 결제부터 적용됩니다.</div>
   ${data.classes.map(c=>`<div class="setrow"><div class="l">${esc(c.name)}<small>${c.type} · ${esc(c.sched||'')}</small></div><input type="number" data-fee="${c.id}" value="${c.fee}"></div>`).join('')}
-  <div class="setrow"><div class="l">일일 수업료<small>1회 참여</small></div><input type="number" id="setDaily" value="${data.rates.daily||60000}"></div><div class="setrow"><div class="l">12회(3개월) 할인<small>%</small></div><input type="number" id="setD3" value="${data.rates.d3}"></div>
+  <div class="setrow"><div class="l">일일 수업료<small>정규반 1회 참여</small></div><input type="number" id="setDaily" value="${data.rates.daily||60000}"></div>
+  <div class="setrow"><div class="l">연구반 일일 참관료<small>연구반 1회 참여(하루)</small></div><input type="number" id="setDailyResearch" value="${data.rates.dailyResearch||90000}"></div>
+  <div class="setrow"><div class="l">12회(3개월) 할인<small>%</small></div><input type="number" id="setD3" value="${data.rates.d3}"></div>
   <div class="setrow"><div class="l">24회(6개월) 할인<small>%</small></div><input type="number" id="setD6" value="${data.rates.d6}"></div>
   <div class="setrow"><div class="l">타임당 정원<small>보강 예약 가능 인원 기준</small></div><input type="number" id="setCap" value="${capacityOf()}"></div>
   <div class="actions" style="margin-top:15px"><button class="btn-ghost" id="sNo">취소</button><button class="btn-primary" id="sOk">저장</button></div></div></div>`;
   oroot().querySelector('#sNo').onclick=closeOverlay;
   oroot().querySelector('#sOk').onclick=()=>{oroot().querySelectorAll('input[data-fee]').forEach(inp=>{const c=classById(inp.dataset.fee);if(c)c.fee=Math.max(0,parseInt(inp.value)||0);});
     data.rates.daily=Math.max(0,parseInt(oroot().querySelector('#setDaily').value)||60000);
+    data.rates.dailyResearch=Math.max(0,parseInt(oroot().querySelector('#setDailyResearch').value)||90000);
     data.rates.d3=Math.max(0,parseInt(oroot().querySelector('#setD3').value)||0);
     data.rates.d6=Math.max(0,parseInt(oroot().querySelector('#setD6').value)||0);
     data.capacity=Math.max(1,parseInt(oroot().querySelector('#setCap').value)||7);
@@ -2478,7 +2426,6 @@ document.getElementById('rulesEdit').onclick=rulesSheet;
 document.getElementById('ttEdit').onclick=timetableSheet;
 document.getElementById('bulkClearBtn').onclick=bulkClearRecordsSheet;
 document.getElementById('holidayBtn').onclick=holidaySheet;
-document.getElementById('dupSessBtn').onclick=duplicateSessionsSheet;
 document.getElementById('diagBtn').onclick=diagnosticSheet;
 document.getElementById('feeSearch').addEventListener('input',e=>{feeQuery=e.target.value.trim();renderFee();});
 document.getElementById('rosterSearch').addEventListener('input',e=>{rosterQuery=e.target.value.trim();renderRoster();});
@@ -2727,15 +2674,16 @@ function renderStudentApp(){
   if(stuData.dropin){
     const pendingDropin=stuData._pendingDropin||[];
     const slots=(stuData.allUpcoming||[]).filter(u=>u.iso>=t);
-    const rate=stuData.dailyRate||60000;
+    const rateFor=u=>(u.classType==='연구')?(stuData.dailyRateResearch||90000):(stuData.dailyRate||60000);
     const rows=slots.map(u=>{
+      const rate=rateFor(u);
       const already=pendingDropin.indexOf(u.sessionId)>=0;
       const avail=u.avail!==undefined?u.avail:99;
       if(already)return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span style="display:flex;align-items:center;gap:8px"><span style="color:var(--blue);font-size:12.5px;font-weight:700">${won(rate)} 입금 예정</span><button class="minibtn" style="color:var(--verm);padding:4px 2px;font-size:12px" data-cancel-dsid="${u.sessionId}">취소</button></span></div>`;
       if(avail<=0)return `<div class="stuhist" style="opacity:.5"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span style="color:var(--verm);font-size:12px">정원 마감</span></div>`;
-      return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)} <small style="color:var(--ink-soft)">· 잔여 ${avail}석</small></span><button class="checkbtn" style="width:auto;padding:8px 14px;margin:0;font-size:12.5px" data-dcid="${u.classId}" data-dsid="${u.sessionId}" data-diso="${u.iso}" data-dlabel="${esc(u.label||'')}" data-dcname="${esc(u.className)}">예약</button></div>`;
+      return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)} <small style="color:var(--ink-soft)">· ${won(rate)} · 잔여 ${avail}석</small></span><button class="checkbtn" style="width:auto;padding:8px 14px;margin:0;font-size:12.5px" data-dcid="${u.classId}" data-dsid="${u.sessionId}" data-diso="${u.iso}" data-dlabel="${esc(u.label||'')}" data-dcname="${esc(u.className)}" data-drate="${rate}">예약</button></div>`;
     }).join('');
-    dropinSection=`<div class="stucard"><h3>일일 수업 예약 (1회 ${won(rate)})</h3>${rows||'<div class="note">예약 가능한 수업이 아직 없어요.</div>'}<div class="note">예약하시면 원장님 확인 후 정식 반영돼요. 수업 오시는 날 회비를 결제해주세요.</div></div>`;
+    dropinSection=`<div class="stucard"><h3>일일 수업 예약</h3>${rows||'<div class="note">예약 가능한 수업이 아직 없어요.</div>'}<div class="note">예약하시면 원장님 확인 후 정식 반영돼요. 수업 오시는 날 회비를 결제해주세요.</div></div>`;
   }
   root.innerHTML=`<div class="stuwrap">
     <div class="stutop"><div style="display:flex;align-items:center;gap:10px"><img src="${LOGO_URI}" style="width:52px;height:52px;border-radius:50%;flex:0 0 auto"><div><h2>${esc(stuData.name)}님</h2><small>${esc((stuData.classes||[]).map(c=>c.name).join(' · '))}</small></div></div>
@@ -2790,7 +2738,7 @@ function renderStudentApp(){
   root.querySelectorAll('button[data-msid]').forEach(b=>b.onclick=()=>bookMakeup(b.dataset.mcid,b.dataset.msid,b.dataset.miso,b.dataset.mlabel,b.dataset.mcname));
   {const opb=document.getElementById('openMakeupPickerBtn');if(opb)opb.onclick=()=>openMakeupPicker();}
   root.querySelectorAll('button[data-cancel-msid]').forEach(b=>b.onclick=()=>cancelMakeup(b.dataset.cancelMsid));
-  root.querySelectorAll('button[data-dsid]').forEach(b=>b.onclick=()=>bookDropin(b.dataset.dcid,b.dataset.dsid,b.dataset.diso,b.dataset.dlabel,b.dataset.dcname));
+  root.querySelectorAll('button[data-dsid]').forEach(b=>b.onclick=()=>bookDropin(b.dataset.dcid,b.dataset.dsid,b.dataset.diso,b.dataset.dlabel,b.dataset.dcname,b.dataset.drate));
   root.querySelectorAll('button[data-cancel-dsid]').forEach(b=>b.onclick=()=>cancelDropin(b.dataset.cancelDsid));
   root.querySelectorAll('button[data-msxid]').forEach(b=>b.onclick=()=>requestMakeupCancel(b.dataset.mcxid,b.dataset.msxid,b.dataset.mxiso,b.dataset.mxlabel,b.dataset.mxcname));
   root.querySelectorAll('button[data-racid]').forEach(b=>b.onclick=()=>requestAbsenceCancel(b.dataset.racclassid,b.dataset.racid,b.dataset.raciso,b.dataset.raclabel,b.dataset.racname));
@@ -2859,9 +2807,9 @@ async function cancelMakeup(sessionId){
     toast('보강 예약을 취소했어요.');
   }catch(e){console.error(e);toast('취소 실패 — 다시 시도해주세요.');}
 }
-async function bookDropin(classId,sessionId,iso,label,className){
+async function bookDropin(classId,sessionId,iso,label,className,rate){
   try{
-    const amount=stuData.dailyRate||60000;
+    const amount=parseInt(rate)||stuData.dailyRate||60000;
     await db.collection('dropinRequests').add({uid:auth.currentUser.uid,studentId:stuData.studentId,studentName:stuData.name,classId,sessionId,iso,label,className,amount,createdAt:Date.now()});
     if(!stuData._pendingDropin)stuData._pendingDropin=[];
     stuData._pendingDropin.push(sessionId);renderStudentApp();
