@@ -809,7 +809,7 @@ function bulkUncancelListSheet(){
   oroot().querySelector('#ucOk').onclick=()=>{
     const checked=[...oroot().querySelectorAll('[data-ucidx]:checked')].map(el=>items[parseInt(el.dataset.ucidx)]);
     if(!checked.length){toast('항목을 선택해주세요.');return;}
-    confirmSheet(`선택하신 ${checked.length}건의 휴강을 취소하고 정상 수업으로 되돌릴까요?`,()=>{
+    confirmSheet(`선택하신 ${checked.length}건의 휴강을 취소하고 정상 수업으로 되돌릴까요? (오신 분만 체크하시면 되고, 안 오신 분은 결석 처리되지 않아요.)`,()=>{
       checked.forEach(it=>{
         if(it.type==='all'){
           data.studioClosedDates=(data.studioClosedDates||[]).filter(x=>x.iso!==it.iso);
@@ -819,7 +819,6 @@ function bulkUncancelListSheet(){
         c.skippedDates=(c.skippedDates||[]).filter(x=>x!==it.iso);
         if(!c.sessions.find(s=>s.iso===it.iso)){
           const s={id:uid(),label:shortDate(it.iso),iso:it.iso};c.sessions.push(s);
-          if(it.iso===todayISO())activeIn(c.id).forEach(st=>{c.records[s.id+':'+st.id]='present';});
         }
       });
       save();closeOverlay();render();toast(`${checked.length}건 되돌렸어요.`);
@@ -1148,7 +1147,7 @@ function renderCheckCal(){
     if(skipped.indexOf(iso)>=0){
       activeSess[c.id]='__none__';renderCheck();
       oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>${shortDate(iso)} 휴강 처리됨</h3>
-        <div class="subt">다시 수업을 여실지, 휴강 표시만 지우고 그대로 둘지 고르세요.</div>
+        <div class="subt">다시 수업을 여실지, 휴강 표시만 지우고 그대로 둘지 고르세요. (다시 열면 오신 분만 체크하시면 되고, 안 오신 분은 결석 처리되지 않아요.)</div>
         <div class="actions" style="flex-direction:column;gap:8px"><button class="btn-primary" id="reOpen" style="width:100%">다시 수업 열기</button><button class="btn-ghost" id="justClear" style="width:100%">휴강 표시만 지우기</button><button class="btn-ghost" id="skNo" style="width:100%">취소</button></div></div></div>`;
       oroot().querySelector('#skNo').onclick=closeOverlay;
       oroot().querySelector('#justClear').onclick=()=>{
@@ -1156,8 +1155,7 @@ function renderCheckCal(){
       oroot().querySelector('#reOpen').onclick=()=>{
         c.skippedDates=skipped.filter(x=>x!==iso);
         const s={id:uid(),label:shortDate(iso),iso};c.sessions.push(s);
-        if(iso===todayISO())activeIn(c.id).forEach(st=>{c.records[s.id+':'+st.id]='present';});
-        activeSess[c.id]=s.id;save();closeOverlay();renderCheck();toast('수업을 다시 열었어요.');};
+        activeSess[c.id]=s.id;save();closeOverlay();renderCheck();toast('수업을 다시 열었어요. 오신 학생만 눌러서 출석 체크해주세요 (안 오신 분은 자동으로 결석 처리되지 않아요).');};
       return;
     }
     if(cw!==null&&dow!==cw){
