@@ -268,6 +268,7 @@
       <div class="barbtns"><button id="ttEdit">🗓 화실 시간표 관리</button><button id="holidayBtn" style="border-color:var(--verm);color:var(--verm)">📅 휴강 · 휴무일 관리</button></div>
       <div class="barbtns"><button id="bulkClearBtn" style="border-color:var(--verm);color:var(--verm)">🧹 기록 일괄 초기화 (오류 복구용)</button></div>
       <div class="barbtns"><button id="diagBtn">🔍 전체 잔여 회차 진단</button></div>
+      <div class="barbtns"><button id="codeReleaseBtn" style="border-color:var(--verm);color:var(--verm)">🔓 로그인 코드 강제 해제</button></div>
     </section>
 
     <section id="view-roster" class="hidden">
@@ -2293,6 +2294,33 @@ async function releaseStudentLogin(st){
     }catch(e){console.error(e);}
   }
 }
+function codeReleaseSheet(){
+  oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>🔓 로그인 코드 강제 해제</h3>
+    <div class="subt">삭제된 학생인데 그 코드로 계속 로그인이 되는 경우, 여기서 코드를 입력하면 그 로그인 계정을 완전히 지워요. 지금 명단에 있는 학생이 쓰고 있는 코드는 절대 입력하지 마세요 — 그 학생도 로그인이 끊겨요.</div>
+    <div class="fgroup"><label>해제할 코드 (4자리)</label><input id="crCode" class="selin" type="tel" inputmode="numeric" maxlength="4" placeholder="0000"></div>
+    <div class="actions"><button class="btn-ghost" id="crNo">취소</button><button class="btn-primary" id="crYes">해제하기</button></div></div></div>`;
+  oroot().querySelector('#crNo').onclick=closeOverlay;
+  oroot().querySelector('#crYes').onclick=async()=>{
+    const code=oroot().querySelector('#crCode').value.trim();
+    if(!/^\d{4}$/.test(code)){toast('4자리 숫자로 입력하세요.');return;}
+    if(data.students.some(x=>x.code===code)){toast('⚠ 지금 명단에 있는 학생이 쓰는 코드예요. 해제하지 않았어요.');return;}
+    toast('해제 중...');
+    try{
+      const sa=secondaryAuth();
+      const cred=await sa.signInWithEmailAndPassword(code+'@'+STUDENT_DOMAIN,codeToPassword(code));
+      const uid=cred.user.uid;
+      try{await db.collection('studentViews').doc(uid).delete();}catch(e){console.error(e);}
+      await sa.currentUser.delete();
+      await sa.signOut();
+      closeOverlay();toast('코드 '+code+' 해제 완료. 이제 새 학생에게 발급하실 수 있어요.');
+    }catch(e){
+      console.error(e);
+      closeOverlay();
+      if(e&&e.code==='auth/user-not-found')toast('이미 해제되어 있거나 발급된 적 없는 코드예요.');
+      else toast('해제 실패 — 이미 처리됐거나 오류가 있어요.');
+    }
+  };
+}
 async function addStudent(){const inp=document.getElementById('nameInput');const v=inp.value.trim();if(!v)return;const cid=curClass().id;
   const phoneInp=document.getElementById('phoneInput');const phoneRaw=phoneInp?phoneInp.value.trim():'';
   const rawNames=v.split(/[\n,]/).map(x=>x.trim()).filter(Boolean);
@@ -2463,6 +2491,7 @@ document.getElementById('ttEdit').onclick=timetableSheet;
 document.getElementById('bulkClearBtn').onclick=bulkClearRecordsSheet;
 document.getElementById('holidayBtn').onclick=holidaySheet;
 document.getElementById('diagBtn').onclick=diagnosticSheet;
+document.getElementById('codeReleaseBtn').onclick=codeReleaseSheet;
 document.getElementById('feeSearch').addEventListener('input',e=>{feeQuery=e.target.value.trim();renderFee();});
 document.getElementById('rosterSearch').addEventListener('input',e=>{rosterQuery=e.target.value.trim();renderRoster();});
 document.getElementById('exportCsv').onclick=exportCsv;
