@@ -412,10 +412,17 @@ async function mergeAllStudentActivity(showToast){
     const q3=await db.collection('dropinRequests').get();
     q3.forEach(doc=>{const d=doc.data();const c=classById(d.classId);const st=studentById(d.studentId);
       if(c&&st){const k=d.sessionId+':'+st.id;c.records[k]='present';
-        if(!st.payments)st.payments=[];
-        st.payments.push({id:uid(),sessions:1,amount:d.amount||(data.rates.daily||60000),date:d.iso,plan:1});
-        const msg=`${st.name}님이 ${c.name} · ${d.label||shortDate(d.iso)} 일일 수업을 예약했어요 (${won(d.amount||(data.rates.daily||60000))} 입금 예정).`;
-        pushLog('dropin',msg,d.iso);msgs.push(msg);
+        if(st.dropinPack&&!isDropinPackExpired(st)&&st.dropinPack.expiry>=d.iso&&st.dropinPack.used<st.dropinPack.total){
+          st.dropinPack.used++;
+          const remainPack=st.dropinPack.total-st.dropinPack.used;
+          const msg=`${st.name}님이 ${c.name} · ${d.label||shortDate(d.iso)} 일일 수업을 예약했어요 (선결제 8회 중 ${remainPack}회 남음).`;
+          pushLog('dropin',msg,d.iso);msgs.push(msg);
+        }else{
+          if(!st.payments)st.payments=[];
+          st.payments.push({id:uid(),sessions:1,amount:d.amount||(data.rates.daily||60000),date:d.iso,plan:1});
+          const msg=`${st.name}님이 ${c.name} · ${d.label||shortDate(d.iso)} 일일 수업을 예약했어요 (${won(d.amount||(data.rates.daily||60000))} 입금 예정).`;
+          pushLog('dropin',msg,d.iso);msgs.push(msg);
+        }
         total++;}});
     if(!q3.empty){const b3=db.batch();q3.forEach(doc=>b3.delete(doc.ref));await b3.commit();}
     const q4=await db.collection('makeupCancelRequests').get();
@@ -494,6 +501,7 @@ async function regenerateStudentViews(){
         makeupLeft:effectiveMakeupLeft(st),allUpcoming:upcomingForStu,myMakeups,
         makeupDueExpired:expired,makeupDueSoon:(daysLeft!==null&&daysLeft<=7),delayedUsage:isDelayedUsage(st),paceEnd:expectedPaceEnd(st),makeupDueExtended:!!st.makeupDueOverride,
         dropin:!!(st.dropin||st.dropinOnce),dailyRate:data.rates.daily||60000,dailyRateResearch:data.rates.dailyResearch||90000,
+        dropinPack:(st.dropinPack&&!isDropinPackExpired(st))?{total:st.dropinPack.total,used:st.dropinPack.used,expiry:st.dropinPack.expiry}:null,
         payments:(st.payments||[]).slice().sort((a,b)=>a.date<b.date?1:-1).map(p=>({date:p.date,amount:p.amount,sessions:p.sessions,plan:p.plan})),
         makeupDue:makeupDue(st),studioRules:data.studioRules||'',timetableGrid,allSkipped,allUpcomingSkipped,archiveMarks:st.archiveMarks||{},updatedAt:Date.now()
       };
@@ -924,6 +932,9 @@ function consumedSessions(st){return scopedMarks(st).filter(m=>m.mark==='present
 function absentCount(st){return scopedMarks(st).filter(m=>m.mark==='absent').length;}
 function makeupUsed(st){return scopedMarks(st).filter(m=>m.mark==='makeup').length;}
 function makeupLeft(st){return Math.max(0,absentCount(st)-makeupUsed(st));}
+function isDropinPackExpired(st){return !!(st.dropinPack&&st.dropinPack.expiry&&st.dropinPack.expiry<todayISO());}
+function dropinPackActive(st){return !!(st.dropinPack&&!isDropinPackExpired(st)&&st.dropinPack.used<st.dropinPack.total);}
+function dropinPackRemain(st){return st.dropinPack?Math.max(0,st.dropinPack.total-st.dropinPack.used):0;}
 /* 보강기한: 4·12·24회권 모두 동일한 공식 — 그 패키지의 '마지막 수업일'(출석이든 결석이든 순서대로 다 채운 날) + 4주(28일).
    즉 패키지 기간 내내 아무 때나 보강 가능하고, 마지막 회차가 끝난 뒤에도 4주 여유를 더 줌. */
 function lastCoveredClassDate(st){
@@ -1854,7 +1865,7 @@ function bindStuAdminCal(st,fullRedraw){
 function studentSheet(st){const fee=feeFor(st);let sess=4,amt=planAmount(fee,4),selKey='4',delId=null;
   function draw(){
     const prevSheet=oroot().querySelector('.sheet');const savedScroll=prevSheet?prevSheet.scrollTop:0;
-    const opts=[['1','일일(정규)','1회',1,data.rates.daily||60000],['1r','일일(연구)','1회',1,data.rates.dailyResearch||90000],['4','4회','정가',4,planAmount(fee,4)],['12','12회',data.rates.d3+'%↓',12,planAmount(fee,12)],['24','24회',data.rates.d6+'%↓',24,planAmount(fee,24)]];
+    const opts=[['1','일일(정규)','1회',1,data.rates.daily||60000],['1r','일일(연구)','1회',1,data.rates.dailyResearch||90000],['4','4회','정가',4,planAmount(fee,4)],['12','12회',data.rates.d3+'%↓',12,planAmount(fee,12)],['24','24회',data.rates.d6+'%↓',24,planAmount(fee,24)],['dropin8','하루수업 8회 선결제','90일 이내 자유 이용',0,440000]];
     const hist=(st.payments||[]).slice().sort((a,b)=>a.date<b.date?1:-1);
     const marks=marksOf(st).slice(0,10);
     const paceEndSt=expectedPaceEnd(st);
@@ -1875,6 +1886,7 @@ function studentSheet(st){const fee=feeFor(st);let sess=4,amt=planAmount(fee,4),
         <button class="btn-primary" id="raApply" style="margin-left:8px;padding:9px 16px">적용</button></span></div>
       ${ml>0&&due?`<div class="note" style="background:${dueExpired(st)?'var(--verm-tint)':'var(--blue-tint)'};color:${dueExpired(st)?'var(--verm)':'var(--blue)'};padding:9px 11px;border-radius:9px;margin:-6px 0 12px">보강 기한 ${due}${dueExpired(st)?' · 기한이 지났습니다':''}</div>`:''}
       ${isDelayedUsage(st)?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;margin:-6px 0 12px">⏰ 정상 진행 기간(주 1회 기준)이 지났지만 잔여 회차가 남아있어 계속 수강 중이에요.</div>`:''}
+      ${dropinPackActive(st)?`<div class="note" style="background:var(--purple-tint);color:var(--purple);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">💜 하루수업 선결제 ${dropinPackRemain(st)}/${st.dropinPack.total}회 남음 · ${st.dropinPack.expiry}까지</div>`:''}
       <div class="barbtns"><button id="stMsg">📩 안내 문구</button><button id="stGuide">📱 앱 사용법 안내</button></div>
       <div class="barbtns"><button id="stEdit">정보 수정</button><button id="stBulk" style="border-color:var(--ochre);color:var(--ochre)">📅 지난 결제 일괄 입력</button></div>
       <div class="barbtns"><button id="stClearHist" style="border-color:var(--verm);color:var(--verm)">🧹 이 학생 기록만 기간별 초기화</button></div>
@@ -1894,7 +1906,7 @@ function studentSheet(st){const fee=feeFor(st);let sess=4,amt=planAmount(fee,4),
       ${hist.length?`<div class="hist"><div class="h">결제 내역 · 총 ${paidSessions(st)}회 구매 / ${usedSessions(st)}회 사용</div>${hist.map(p=>{
         const right=(p.id===delId)
           ?`<span style="display:flex;gap:6px"><button class="hyes" data-id="${p.id}" style="border:none;background:var(--verm);color:#fff;border-radius:8px;padding:6px 11px;font-weight:700;font-family:inherit">삭제</button><button class="hno" style="border:1px solid var(--line);background:var(--card);color:var(--ink-soft);border-radius:8px;padding:6px 11px;font-family:inherit">취소</button></span>`
-          :`<span>${p.sessions}회${planOf(st,p)!==p.sessions?` <small style="color:var(--ink-soft)">(${planOf(st,p)}회권)</small>`:''} · ${won(p.amount)} <button class="hx" data-id="${p.id}" style="border:none;background:transparent;color:var(--verm);font-size:15px;padding:4px 7px;cursor:pointer">✕</button></span>`;
+          :`<span>${p.plan==='dropin8'?'하루수업 8회 선결제':`${p.sessions}회${planOf(st,p)!==p.sessions?` <small style="color:var(--ink-soft)">(${planOf(st,p)}회권)</small>`:''}`} · ${won(p.amount)} <button class="hx" data-id="${p.id}" style="border:none;background:transparent;color:var(--verm);font-size:15px;padding:4px 7px;cursor:pointer">✕</button></span>`;
         return `<div class="hrow"><span>${p.date}${p.memo?` <small style="color:var(--ochre)">📝 ${esc(p.memo)}</small>`:''}</span>${right}</div>`;}).join('')}</div>`:''}
 
       <div class="hist"><div class="h">출결 이력 <small style="font-weight:400;color:var(--ink-soft)">(색칠된 칸: 눌러서 상태 변경 · 빈 칸: 눌러서 출석 기록 만들기)</small></div>
@@ -1931,7 +1943,7 @@ function studentSheet(st){const fee=feeFor(st);let sess=4,amt=planAmount(fee,4),
       oroot().insertAdjacentHTML('beforeend',`<div class="overlay" id="pConfirmOv"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>이대로 저장할까요?</h3>
         <div style="font-size:14.5px;line-height:1.9;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:6px 0 16px">
           <div>📅 결제일: <b>${D}</b></div>
-          <div>🔢 등록 회차: <b>${S}회</b></div>
+          ${selKey==='dropin8'?`<div>🔢 하루수업 <b>8회</b> 선결제 · <b>${addDays(D,90)}</b>까지 유효</div>`:`<div>🔢 등록 회차: <b>${S}회</b></div>`}
           <div>💰 금액: <b>${won(A)}</b></div>
           ${M?`<div>📝 메모: <b>${esc(M)}</b></div>`:''}
         </div>
@@ -1939,6 +1951,20 @@ function studentSheet(st){const fee=feeFor(st);let sess=4,amt=planAmount(fee,4),
         <div class="actions"><button class="btn-ghost" id="pcNo">취소</button><button class="btn-primary" id="pcYes">맞아요, 저장</button></div></div></div>`);
       oroot().querySelector('#pcNo').onclick=()=>oroot().querySelector('#pConfirmOv').remove();
       oroot().querySelector('#pcYes').onclick=()=>{
+        if(selKey==='dropin8'){
+          const exp=addDays(D,90);
+          if(!st.dropinPack||isDropinPackExpired(st)||st.dropinPack.used>=st.dropinPack.total){
+            st.dropinPack={total:8,used:0,expiry:exp};
+          }else{
+            st.dropinPack.total+=8;
+            if(exp>st.dropinPack.expiry)st.dropinPack.expiry=exp;
+          }
+          if(!st.payments)st.payments=[];
+          st.payments.push({id:uid(),sessions:0,amount:A,date:D,plan:'dropin8',memo:M||'하루수업 8회 선결제'});
+          pushLog('admin',`(원장님) ${esc(st.name)}님이 하루수업 8회를 선결제했어요 (${exp}까지 유효).`,D);
+          save();renderFee();renderReport();studentSheet(st);toast('선결제가 저장되었습니다.');
+          return;
+        }
         const rmBefore=remainSessions(st),mkBefore=makeupLeft(st);
         if(rmBefore<=0){
           if(rmBefore<0||mkBefore>0){
@@ -2618,7 +2644,7 @@ function renderStudentApp(){
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--verm-tint);border:1px solid var(--verm);vertical-align:middle"></span> 휴강</span>
       </div>`;
   }
-  const payRows=(stuData.payments||[]).slice().sort((a,b)=>a.date<b.date?1:-1).slice(0,6).map(p=>`<div class="stuhist"><span>${shortDate(p.date)} · ${p.plan||p.sessions||''}회권</span><b>${won(p.amount)}</b></div>`).join('')||'<div class="note">결제 내역이 없어요.</div>';
+  const payRows=(stuData.payments||[]).slice().sort((a,b)=>a.date<b.date?1:-1).slice(0,6).map(p=>`<div class="stuhist"><span>${shortDate(p.date)} · ${p.plan==='dropin8'?'하루수업 8회 선결제':`${p.plan||p.sessions||''}회권`}</span><b>${won(p.amount)}</b></div>`).join('')||'<div class="note">결제 내역이 없어요.</div>';
   let makeupSection='';
   if(quotaTotal>0&&(realEntitlement>0||stuData.remain>0)){
     const pendingRows=pendingMakeup.map(sid=>{
@@ -2684,9 +2710,20 @@ function renderStudentApp(){
     const researchSlots=slots.filter(u=>u.classType==='연구');
     const regularRows=regularSlots.map(rowFor).join('')||'<div class="note">신청 가능한 날짜가 아직 없어요.</div>';
     const researchRows=researchSlots.length?`<div class="note" style="margin:12px 3px 6px"><b>🔬 연구반 (요금 다름)</b></div>${researchSlots.map(rowFor).join('')}`:'';
+    let packBar='';
+    if(stuData.dropinPack){
+      const pk=stuData.dropinPack;
+      const dots=Array.from({length:pk.total},(_,i)=>`<span style="display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:4px;background:${i<pk.used?'var(--purple)':'var(--card)'};border:1.5px solid var(--purple)"></span>`).join('');
+      packBar=`<div class="note" style="background:var(--card);border:1px solid var(--purple);border-radius:9px;padding:9px 11px;margin-bottom:8px">
+        <div style="font-weight:700;color:var(--purple);margin-bottom:4px">선결제 ${pk.used}/${pk.total}회 사용 · ${pk.total-pk.used}회 남음</div>
+        <div>${dots}</div>
+        <div style="margin-top:4px;color:var(--ink-soft);font-size:12px">${pk.expiry}까지 사용 가능</div>
+      </div>`;
+    }
     dropinSection=`<div class="stucard" style="background:var(--purple-tint);border-color:var(--purple)">
       <h3 style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;color:var(--purple)" id="dropinToggle">하루수업 신청 <span style="font-size:13px;color:var(--purple)">${dropinOpen?'▲ 접기':'▼ 펼치기'}</span></h3>
-      ${dropinOpen?`${regularRows}${researchRows}<div class="note">신청하시면 원장님 확인 후 정식 반영돼요. 수업 오시는 날 회비를 결제해주세요.</div>`:''}
+      ${packBar}
+      ${dropinOpen?`${regularRows}${researchRows}<div class="note">신청하시면 원장님 확인 후 정식 반영돼요.${stuData.dropinPack?' 선결제 회차가 있으면 자동으로 먼저 차감돼요.':' 수업 오시는 날 회비를 결제해주세요.'}</div>`:''}
     </div>`;
   }
   const isPaused=stuData.status==='paused';
