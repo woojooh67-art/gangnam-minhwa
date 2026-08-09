@@ -927,6 +927,12 @@ function logAdminClear(st,c,mark,iso){
   const label=LABEL[mark]||mark;
   pushLog(mark==='makeup'?'makeup':'admin',`(원장님) ${esc(st.name)}님의 ${shortDate(iso)} '${label}' 기록을 지웠어요${c?' ('+esc(c.name)+')':''}`,iso);
 }
+function logStatusChange(st,c,prevMark,newMark,iso){
+  if(!st||!prevMark||prevMark===newMark)return;
+  if(prevMark!=='makeup'&&prevMark!=='absent')return;
+  const prevLabel=LABEL[prevMark]||prevMark,newLabel=LABEL[newMark]||newMark;
+  pushLog(prevMark==='makeup'?'makeup':'admin',`(원장님) ${esc(st.name)}님의 ${shortDate(iso)} '${prevLabel}'을(를) '${newLabel}'(으)로 바꿨어요${c?' ('+esc(c.name)+')':''}`,iso);
+}
 function logIsExpired(e){return !!(e.relIso&&e.relIso<todayISO());}
 function unseenLogCount(){return (data.activityLog||[]).filter(e=>!e.seen&&!logIsExpired(e)).length;}
 function markLogSeen(){(data.activityLog||[]).forEach(e=>e.seen=true);save();render();}
@@ -1331,7 +1337,7 @@ function renderCheck(){
     row.innerHTML=`<span class="nm">${esc(st.name)}</span><span class="sub" style="${subCls}">${sub.join(' · ')}</span><span style="display:flex;align-items:center;gap:6px"><span class="${pillCls}">${pillLabel}</span>${hasRec?`<span class="clearrec" style="color:var(--ink-soft);font-size:11px;padding:2px 4px;cursor:pointer" title="이 날짜 기록 지우기(패키지 밖 날짜 등)">✕</span>`:''}</span>`;
     row.onclick=()=>{
       if(!hasRec){c.records[k]=(status==='none')?'present':status;}
-      else{const idx=STATUSES.indexOf(status);c.records[k]=STATUSES[(idx+1)%4];}
+      else{const idx=STATUSES.indexOf(status);const next=STATUSES[(idx+1)%4];logStatusChange(st,c,status,next,sess.iso);c.records[k]=next;}
       save();renderCheck();renderFee();renderReport();
     };
     if(hasRec)row.querySelector('.clearrec').onclick=(e)=>{e.stopPropagation();logAdminClear(st,c,c.records[k],sess.iso);delete c.records[k];save();renderCheck();renderFee();renderReport();toast('이 날짜 기록을 지웠어요.');};
@@ -1342,7 +1348,7 @@ function renderCheck(){
     guests.forEach(st=>{const k=sess.id+':'+st.id;const status=c.records[k]||'makeup';cnt[status]++;
       const row=document.createElement('div');row.className='srow '+CLS[status];
       row.innerHTML=`<span class="nm">${esc(st.name)}</span><span class="sub">${esc(clsNames(st))||'반 미지정'} · 잔여 ${remainSessions(st)}회</span><span class="pill">${LABEL[status]}</span>`;
-      row.onclick=()=>{c.records[k]=STATUSES[(Math.max(0,STATUSES.indexOf(status))+1)%4];save();renderCheck();renderFee();renderReport();};
+      row.onclick=()=>{const next=STATUSES[(Math.max(0,STATUSES.indexOf(status))+1)%4];logStatusChange(st,c,status,next,sess.iso);c.records[k]=next;save();renderCheck();renderFee();renderReport();};
       const del=document.createElement('div');del.className='note';del.style.textAlign='right';del.style.margin='2px 6px 8px';
       del.innerHTML='<span style="color:var(--verm);cursor:pointer">이 학생 빼기</span>';
       del.onclick=()=>{logAdminClear(st,c,c.records[k],sess.iso);delete c.records[k];save();renderCheck();renderFee();renderReport();toast('빼줬어요.');};
@@ -1360,7 +1366,7 @@ function renderCheck(){
       row.innerHTML=`<span class="nm">${esc(st.name)} <small style="color:var(--ink-soft)">(${st.status==='ended'?'종료':'휴강중'})</small></span><span class="pill">${LABEL[status]}</span>`;
       row.onclick=()=>{
         if(status==='none'){c.records[k]='present';}
-        else{const idx=STATUSES.indexOf(status);c.records[k]=STATUSES[(idx+1)%4];}
+        else{const idx=STATUSES.indexOf(status);const next=STATUSES[(idx+1)%4];logStatusChange(st,c,status,next,sess.iso);c.records[k]=next;}
         save();renderCheck();renderFee();renderReport();
       };
       list.appendChild(row);
@@ -1826,7 +1832,9 @@ function bindStuAdminCal(st,fullRedraw){
     const c=classById(rec.classId);if(!c)return;
     const k=rec.sessionId+':'+st.id;
     const idx=STATUSES.indexOf(rec.mark);
-    c.records[k]=STATUSES[(idx+1)%4];
+    const next=STATUSES[(idx+1)%4];
+    logStatusChange(st,c,rec.mark,next,iso);
+    c.records[k]=next;
     save();renderFee();renderReport();fullRedraw();
   });
   box.querySelectorAll('[data-mdel]').forEach(el=>el.onclick=(e)=>{
@@ -1849,7 +1857,9 @@ function bindStuAdminCal(st,fullRedraw){
       const c=classById(rec.classId);if(!c)return;
       const k=rec.sessionId+':'+st.id;
       const idx=STATUSES.indexOf(rec.mark);
-      c.records[k]=STATUSES[(idx+1)%4];
+      const next=STATUSES[(idx+1)%4];
+      logStatusChange(st,c,rec.mark,next,iso);
+      c.records[k]=next;
       save();renderFee();renderReport();fullRedraw();
     });
     oroot().querySelectorAll('[data-mdel2]').forEach(x=>x.onclick=()=>{
