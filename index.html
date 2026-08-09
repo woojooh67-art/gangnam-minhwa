@@ -413,17 +413,21 @@ async function mergeAllStudentActivity(showToast){
     const q3=await db.collection('dropinRequests').get();
     q3.forEach(doc=>{const d=doc.data();const c=classById(d.classId);const st=studentById(d.studentId);
       if(c&&st){const k=d.sessionId+':'+st.id;c.records[k]='present';
+        if(!st.dropinBookings)st.dropinBookings=[];
+        let fromPack=false,paymentId=null;
         if(st.dropinPack&&!isDropinPackExpired(st)&&st.dropinPack.expiry>=d.iso&&st.dropinPack.used<st.dropinPack.total){
-          st.dropinPack.used++;
+          st.dropinPack.used++;fromPack=true;
           const remainPack=st.dropinPack.total-st.dropinPack.used;
           const msg=`${st.name}님이 ${c.name} · ${d.label||shortDate(d.iso)} 일일 수업을 예약했어요 (선결제 8회 중 ${remainPack}회 남음).`;
           pushLog('dropin',msg,d.iso);msgs.push(msg);
         }else{
           if(!st.payments)st.payments=[];
-          st.payments.push({id:uid(),sessions:1,amount:d.amount||(data.rates.daily||60000),date:d.iso,plan:1});
+          paymentId=uid();
+          st.payments.push({id:paymentId,sessions:1,amount:d.amount||(data.rates.daily||60000),date:d.iso,plan:1});
           const msg=`${st.name}님이 ${c.name} · ${d.label||shortDate(d.iso)} 일일 수업을 예약했어요 (${won(d.amount||(data.rates.daily||60000))} 입금 예정).`;
           pushLog('dropin',msg,d.iso);msgs.push(msg);
         }
+        st.dropinBookings.push({sessionId:d.sessionId,classId:d.classId,className:c.name,iso:d.iso,label:d.label,fromPack,paymentId});
         total++;}});
     if(!q3.empty){const b3=db.batch();q3.forEach(doc=>b3.delete(doc.ref));await b3.commit();}
     const q4=await db.collection('makeupCancelRequests').get();
@@ -442,6 +446,22 @@ async function mergeAllStudentActivity(showToast){
           pushLog('absent',msg,d.iso);msgs.push(msg);
           total++;}}});
     if(!q5.empty){const b5=db.batch();q5.forEach(doc=>b5.delete(doc.ref));await b5.commit();}
+    const q6=await db.collection('dropinCancelRequests').get();
+    q6.forEach(doc=>{const d=doc.data();const c=classById(d.classId);const st=studentById(d.studentId);
+      if(c&&st){const k=d.sessionId+':'+st.id;
+        const bk=(st.dropinBookings||[]).find(b=>b.sessionId===d.sessionId);
+        if(bk&&c.records[k]==='present'){
+          delete c.records[k];
+          if(bk.fromPack&&st.dropinPack){st.dropinPack.used=Math.max(0,st.dropinPack.used-1);}
+          else if(bk.paymentId){st.payments=(st.payments||[]).filter(p=>p.id!==bk.paymentId);}
+          st.dropinBookings=(st.dropinBookings||[]).filter(b=>b.sessionId!==d.sessionId);
+          const msg=`${st.name}님이 ${c.name} · ${d.label||shortDate(d.iso)} 하루수업 예약을 취소했어요.`;
+          pushLog('dropin',msg,d.iso);msgs.push(msg);
+          total++;
+        }}});
+    if(!q6.empty){const b6=db.batch();q6.forEach(doc=>b6.delete(doc.ref));await b6.commit();}
+    const pruneCutoff=addDays(todayISO(),-30);
+    data.students.forEach(sx=>{if(sx.dropinBookings&&sx.dropinBookings.length)sx.dropinBookings=sx.dropinBookings.filter(b=>b.iso>=pruneCutoff);});
     if(total>0){await save();render();}
     if(showToast)toast(total>0?(total+'건 반영했어요.'):'새로 반영할 게 없어요.');
     return {total,msgs};
@@ -494,13 +514,14 @@ async function regenerateStudentViews(){
         if(s.iso>=t&&cc.records[s.id+':'+st.id]==='makeup')myMakeups.push({classId:cc.id,className:cc.name,sessionId:s.id,iso:s.iso,label:s.label});
       }));
       myMakeups.sort((a,b)=>a.iso<b.iso?-1:1);
+      const myDropins=(st.dropinBookings||[]).filter(b=>b.iso>=t).sort((a,b)=>a.iso<b.iso?-1:1);
       const dueVal=makeupDue(st),expired=dueExpired(st);
       let daysLeft=null;
       if(dueVal&&!expired){daysLeft=Math.round((new Date(dueVal)-new Date(t))/86400000);}
       const payload={
         studentId:st.id,name:st.name,status:st.status,classes,hasRealClass,
         remain:remainSessions(st),usedTotal:usedSessions(st),absentTotal:absentCount(st),
-        makeupLeft:effectiveMakeupLeft(st),allUpcoming:upcomingForStu,myMakeups,
+        makeupLeft:effectiveMakeupLeft(st),allUpcoming:upcomingForStu,myMakeups,myDropins,
         makeupDueExpired:expired,makeupDueSoon:(daysLeft!==null&&daysLeft<=7),delayedUsage:isDelayedUsage(st),paceEnd:expectedPaceEnd(st),makeupDueExtended:!!st.makeupDueOverride,
         dropin:!!(st.dropin||st.dropinOnce),dailyRate:data.rates.daily||60000,dailyRateResearch:data.rates.dailyResearch||90000,
         dropinPack:(st.dropinPack&&!isDropinPackExpired(st))?{total:st.dropinPack.total,used:st.dropinPack.used,expiry:st.dropinPack.expiry}:null,
@@ -2761,6 +2782,18 @@ function renderStudentApp(){
     }).join('');
     myMakeupSection=`<div class="stucard"><h3>예약된 보강</h3>${rows}<div class="note">수업 하루 전까지는 직접 취소하실 수 있어요. 취소 후 다시 원하는 날짜로 예약해 주세요.</div></div>`;
   }
+  let myDropinSection='';
+  const myDropins=stuData.myDropins||[];
+  if(myDropins.length){
+    const pendingDropinCancel=stuData._pendingDropinCancel||[];
+    const rows2=myDropins.map(u=>{
+      const cancelling=pendingDropinCancel.indexOf(u.sessionId)>=0;
+      if(cancelling)return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span style="color:var(--verm);font-size:12.5px;font-weight:700">취소 반영대기</span></div>`;
+      if(u.iso>t)return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><button class="minibtn" style="color:var(--verm)" data-dxcid="${u.classId}" data-dxsid="${u.sessionId}" data-dxiso="${u.iso}" data-dxlabel="${esc(u.label||'')}" data-dxcname="${esc(u.className)}">예약 취소</button></div>`;
+      return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span class="c-m" style="font-weight:700">하루수업 · 당일이라 변경 불가</span></div>`;
+    }).join('');
+    myDropinSection=`<div class="stucard"><h3>예약된 하루수업</h3>${rows2}<div class="note">수업 하루 전까지는 직접 취소하실 수 있어요.</div></div>`;
+  }
   let timetableSection='';let stuTtScrollDay=-1;
   if(stuData.timetableGrid&&stuData.timetableGrid.blocks){
     const dowOf=dl=>({'월':1,'화':2,'수':3,'목':4,'금':5,'토':6,'일':0})[dl];
@@ -2857,6 +2890,7 @@ function renderStudentApp(){
     ${timetableSection}
     ${isPaused?'':makeupSection}
     ${isPaused?'':myMakeupSection}
+    ${isPaused?'':myDropinSection}
     ${dropinSection}
     <div class="stucard"><details><summary>최근 출석 이력</summary><div id="stuHistCal">${stuCalGrid()}</div></details></div>
     <div class="stucard"><details><summary>수강료 납부 내역</summary>${payRows}${(stuData.payments||[]).length>6?'<div class="note" style="margin-top:6px">최근 6건까지만 표시돼요. 이전 내역은 원장님께 문의해주세요.</div>':''}
@@ -2888,6 +2922,7 @@ function renderStudentApp(){
   root.querySelectorAll('button[data-dsid]').forEach(b=>b.onclick=()=>bookDropin(b.dataset.dcid,b.dataset.dsid,b.dataset.diso,b.dataset.dlabel,b.dataset.dcname,b.dataset.drate));
   root.querySelectorAll('button[data-cancel-dsid]').forEach(b=>b.onclick=()=>cancelDropin(b.dataset.cancelDsid));
   root.querySelectorAll('button[data-msxid]').forEach(b=>b.onclick=()=>requestMakeupCancel(b.dataset.mcxid,b.dataset.msxid,b.dataset.mxiso,b.dataset.mxlabel,b.dataset.mxcname));
+  root.querySelectorAll('button[data-dxsid]').forEach(b=>b.onclick=()=>requestDropinCancel(b.dataset.dxcid,b.dataset.dxsid,b.dataset.dxiso,b.dataset.dxlabel,b.dataset.dxcname));
   root.querySelectorAll('button[data-racid]').forEach(b=>b.onclick=()=>requestAbsenceCancel(b.dataset.racclassid,b.dataset.racid,b.dataset.raciso,b.dataset.raclabel,b.dataset.racname));
   root.querySelectorAll('button[data-cancel-asid]').forEach(b=>b.onclick=()=>cancelAbsenceReport(b.dataset.cancelAsid));
   function bindStuCalNav(){
@@ -2980,6 +3015,14 @@ async function requestMakeupCancel(classId,sessionId,iso,label,className){
     toast('보강 예약 취소를 신청했어요. 원장님이 확인하면 정식 반영돼요.');
   }catch(e){console.error(e);toast('전송 실패 — 인터넷 연결을 확인해주세요.');}
 }
+async function requestDropinCancel(classId,sessionId,iso,label,className){
+  try{
+    await db.collection('dropinCancelRequests').add({uid:auth.currentUser.uid,studentId:stuData.studentId,studentName:stuData.name,classId,sessionId,iso,label,className,createdAt:Date.now()});
+    if(!stuData._pendingDropinCancel)stuData._pendingDropinCancel=[];
+    stuData._pendingDropinCancel.push(sessionId);renderStudentApp();
+    toast('하루수업 취소를 신청했어요. 원장님이 확인하면 정식 반영돼요.');
+  }catch(e){console.error(e);toast('전송 실패 — 인터넷 연결을 확인해주세요.');}
+}
 async function requestAbsenceCancel(classId,sessionId,iso,label,className){
   try{
     await db.collection('absentCancelRequests').add({uid:auth.currentUser.uid,studentId:stuData.studentId,studentName:stuData.name,classId,sessionId,iso,label,className,createdAt:Date.now()});
@@ -3019,6 +3062,9 @@ async function enterStudent(u){
     try{const q5=await db.collection('absentCancelRequests').where('uid','==',u).get();
       stuData._pendingAbsentCancel=q5.docs.map(d=>d.data().sessionId);}
     catch(e){console.error(e);stuData._pendingAbsentCancel=[];}
+    try{const q6=await db.collection('dropinCancelRequests').where('uid','==',u).get();
+      stuData._pendingDropinCancel=q6.docs.map(d=>d.data().sessionId);}
+    catch(e){console.error(e);stuData._pendingDropinCancel=[];}
   }
   renderStudentApp();
 }
