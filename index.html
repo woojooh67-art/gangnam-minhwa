@@ -842,7 +842,7 @@ function bulkUncancelListSheet(){
 }
 function autoCreateUpcomingSessions(){
   let made=0;const todayIso=todayISO();
-  for(let d=0;d<7;d++){
+  for(let d=0;d<14;d++){
     const dt=new Date();dt.setDate(dt.getDate()+d);
     const iso=dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate());
     const dow=dt.getDay();
@@ -2502,7 +2502,7 @@ async function enterAdmin(){
   const isFirstTimeSetup=!d||!d.classes||!d.classes.length;
   if(isFirstTimeSetup)d=seed();
   data=d;const made=autoCreateUpcomingSessions();const merged=await mergeAllStudentActivity(false);await save();render();
-  if(made>0)toast(`앞으로 7일치 수업 회차 ${made}개를 자동으로 만들었어요.`);
+  if(made>0)toast(`앞으로 14일치 수업 회차 ${made}개를 자동으로 만들었어요.`);
   if(merged.total>0)newActivitySheet(merged.msgs);
   autoBackupIfNeeded();
 }
