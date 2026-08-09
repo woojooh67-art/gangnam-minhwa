@@ -2620,7 +2620,7 @@ function renderStudentApp(){
   }
   const payRows=(stuData.payments||[]).slice().sort((a,b)=>a.date<b.date?1:-1).slice(0,6).map(p=>`<div class="stuhist"><span>${shortDate(p.date)} · ${p.plan||p.sessions||''}회권</span><b>${won(p.amount)}</b></div>`).join('')||'<div class="note">결제 내역이 없어요.</div>';
   let makeupSection='';
-  if(quotaTotal>0){
+  if(quotaTotal>0&&(realEntitlement>0||stuData.remain>0)){
     const pendingRows=pendingMakeup.map(sid=>{
       const u=(stuData.allUpcoming||[]).find(x=>x.sessionId===sid);if(!u)return '';
       return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span style="display:flex;align-items:center;gap:8px"><span style="color:var(--blue);font-size:12.5px;font-weight:700">예약 반영대기</span><button class="minibtn" style="color:var(--verm);padding:4px 2px;font-size:12px" data-cancel-msid="${u.sessionId}">취소</button></span></div>`;
