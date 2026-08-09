@@ -2673,12 +2673,13 @@ function renderStudentApp(){
       ${dropinOpen?`${regularRows}${researchRows}<div class="note">신청하시면 원장님 확인 후 정식 반영돼요. 수업 오시는 날 회비를 결제해주세요.</div>`:''}
     </div>`;
   }
+  const isPaused=stuData.status==='paused';
   root.innerHTML=`<div class="stuwrap">
     <div class="stutop"><div style="display:flex;align-items:center;gap:10px"><img src="${LOGO_URI}" style="width:52px;height:52px;border-radius:50%;flex:0 0 auto"><div><h2>${esc(stuData.name)}님</h2><small>${esc((stuData.classes||[]).map(c=>c.name).join(' · '))}</small></div></div>
       <div style="display:flex;gap:6px"><button class="logoutbtn" id="stuRefresh" title="새로고침">🔄</button><button class="logoutbtn" id="stuLogout">로그아웃</button></div></div>
     ${stuData.status==='paused'?`<div class="stucard" style="background:var(--ochre-tint);border-color:var(--ochre)"><h3>🌱 현재 휴강중이에요</h3><div class="note" style="color:var(--ink)">언제든 다시 오세요! 재등록해주시면 잔여 회차·보강기한 모두 그날부터 다시 이어져요. 재등록은 원장님께 말씀해주세요.</div></div>`:''}
     ${stuData.status==='ended'?`<div class="stucard" style="background:var(--line-soft)"><h3>수강이 종료된 상태예요</h3><div class="note">다시 다니고 싶으시면 언제든 원장님께 연락 주세요.</div></div>`:''}
-    <div class="stucard"><h3>출석 · 잔여 회차</h3>
+    ${stuData.status==='paused'?'':`<div class="stucard"><h3>출석 · 잔여 회차</h3>
       <div class="tally"><span class="p"><b>${stuData.remain}</b>회 남음</span>${approvedMakeup>0?`<span class="a"><b>${stuData.absentTotal}</b>회 결석</span>`:''}${approvedMakeup>0?`<span class="m"><b>${approvedMakeup}</b>회 보강 가능</span>`:''}</div>
       ${stuData.remain<0?`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">⚠ ${stuData.paceEnd?shortDate(stuData.paceEnd)+'까지였던 수강 기간이 지났어요. ':''}결제 없이 ${-stuData.remain}회 더 출석하셨어요. 결제해 주세요.</div>`:stuData.remain===0?`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">⚠ ${stuData.paceEnd?shortDate(stuData.paceEnd)+'까지였던 수강 기간이 끝났어요. ':''}재결제해 주세요.</div>`:''}
       <div class="note" style="margin:-6px 2px 10px">보강은 언제든 미리 예약하실 수 있어요.</div>
@@ -2695,11 +2696,11 @@ function renderStudentApp(){
       :''}
       ${stuData.delayedUsage?`<div class="note" style="color:var(--ochre)">⏰ 정상 수업 종료일은 지났습니다. 남은 회차 수강 중입니다.</div>`:''}</div>
     <div class="stucard"><h3>다가오는 수업</h3>${upcomingRows||'<div class="note">예정된 수업이 없어요.</div>'}
-      <div class="note">결석하실 것 같으면 미리 눌러서 알려주세요. 참석 예정이면 아무것도 안 누르셔도 돼요.</div></div>
+      <div class="note">결석하실 것 같으면 미리 눌러서 알려주세요. 참석 예정이면 아무것도 안 누르셔도 돼요.</div></div>`}
     ${skippedNotice}
     ${timetableSection}
-    ${makeupSection}
-    ${myMakeupSection}
+    ${isPaused?'':makeupSection}
+    ${isPaused?'':myMakeupSection}
     ${dropinSection}
     <div class="stucard"><details><summary>최근 출석 이력</summary><div id="stuHistCal">${stuCalGrid()}</div></details></div>
     <div class="stucard"><details><summary>수강료 납부 내역</summary>${payRows}${(stuData.payments||[]).length>6?'<div class="note" style="margin-top:6px">최근 6건까지만 표시돼요. 이전 내역은 원장님께 문의해주세요.</div>':''}
