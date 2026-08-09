@@ -1843,10 +1843,10 @@ function bindStuAdminCal(st,fullRedraw){
   });
 }
 /* ---------- student detail ---------- */
-function studentSheet(st){const fee=feeFor(st);let sess=4,amt=planAmount(fee,4),delId=null;
+function studentSheet(st){const fee=feeFor(st);let sess=4,amt=planAmount(fee,4),selKey='4',delId=null;
   function draw(){
     const prevSheet=oroot().querySelector('.sheet');const savedScroll=prevSheet?prevSheet.scrollTop:0;
-    const opts=[[1,'일일','1회'],[4,'4회','정가'],[12,'12회',data.rates.d3+'%↓'],[24,'24회',data.rates.d6+'%↓']];
+    const opts=[['1','일일(정규)','1회',1,data.rates.daily||60000],['1r','일일(연구)','1회',1,data.rates.dailyResearch||90000],['4','4회','정가',4,planAmount(fee,4)],['12','12회',data.rates.d3+'%↓',12,planAmount(fee,12)],['24','24회',data.rates.d6+'%↓',24,planAmount(fee,24)]];
     const hist=(st.payments||[]).slice().sort((a,b)=>a.date<b.date?1:-1);
     const marks=marksOf(st).slice(0,10);
     const paceEndSt=expectedPaceEnd(st);
@@ -1872,7 +1872,7 @@ function studentSheet(st){const fee=feeFor(st);let sess=4,amt=planAmount(fee,4),
       <div class="barbtns"><button id="stClearHist" style="border-color:var(--verm);color:var(--verm)">🧹 이 학생 기록만 기간별 초기화</button></div>
 
       <div class="sechead" style="margin-top:6px">수업료 결제</div>
-      <div class="planopts">${opts.map(o=>`<div class="plan ${o[0]===sess?'sel':''}" data-s="${o[0]}"><div class="pn">${o[1]}</div><div class="pd">${o[2]}</div><div class="pp">${won(planAmount(fee,o[0]))}</div></div>`).join('')}</div>
+      <div class="planopts">${opts.map(o=>`<div class="plan ${o[0]===selKey?'sel':''}" data-s="${o[0]}"><div class="pn">${o[1]}</div><div class="pd">${o[2]}</div><div class="pp">${won(o[4])}</div></div>`).join('')}</div>
       <div class="field"><label>등록 회차 <small style="color:var(--ink-soft)">(선택한 권종 그대로 · 특별한 경우만 직접 고치세요)</small></label><span class="stepwrap"><button class="stp" data-d="-1">－</button><input type="number" id="pSess" inputmode="numeric" value="${sess}"><button class="stp" data-d="1">＋</button></span></div>
       <div class="field"><label>금액 <small style="color:var(--ink-soft)">(±1만원)</small></label><span class="stepwrap"><button class="stpA" data-d="-10000">－</button><input type="number" id="pAmt" inputmode="numeric" value="${amt}" style="width:120px!important"><button class="stpA" data-d="10000">＋</button></span></div>
       <div class="field"><label>결제일</label><input type="date" id="pDate" value="${todayISO()}"></div>
@@ -1906,7 +1906,7 @@ function studentSheet(st){const fee=feeFor(st);let sess=4,amt=planAmount(fee,4),
       const raw=paidSessions(st)-consumedSessions(st);
       st.remainAdjust=target-raw;save();renderFee();renderReport();draw();toast('잔여 회차를 '+target+'회로 맞췄어요.');
     };
-    oroot().querySelectorAll('.plan').forEach(pl=>pl.onclick=()=>{sess=+pl.dataset.s;amt=planAmount(fee,sess);draw();});
+    oroot().querySelectorAll('.plan').forEach(pl=>pl.onclick=()=>{selKey=pl.dataset.s;const o=opts.find(x=>x[0]===selKey);if(o){sess=o[3];amt=o[4];}draw();});
     const rmNow=remainSessions(st);
     if(rmNow<0){const hint=oroot().querySelector('#pHint');
       if(hint)hint.innerHTML='· 현재 <b style="color:var(--verm)">'+(-rmNow)+'회를 미리 사용</b>한 상태입니다. 잔여가 0 이하라 새로 결제하시면 <b>이전 잔여·보강은 정리되고 새 결제일부터 다시 시작</b>돼요.<br>'+hint.innerHTML;}
