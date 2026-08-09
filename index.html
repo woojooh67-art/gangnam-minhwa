@@ -1370,7 +1370,8 @@ function renderRoster(){const c=curClass(),box=document.getElementById('rosterLi
     let list=data.students.filter(s=>!q||s.name.indexOf(q)>=0);
     if(!list.length){box.innerHTML='<div class="empty">해당하는 학생이 없습니다.</div>';return;}
     const head=document.createElement('div');head.className='note';
-    head.innerHTML=`전체 <b>${data.students.length}</b>명 · 재적 ${enrolled().length} · 휴강중 ${data.students.filter(s=>s.status==='paused').length} · 종료 ${data.students.filter(s=>s.status==='ended').length}`;
+    {const pausedN=data.students.filter(s=>s.status==='paused').length;
+    head.innerHTML=`전체 <b>${data.students.length}</b>명 · 재적 ${enrolled().length-pausedN} · 휴강중 ${pausedN} · 종료 ${data.students.filter(s=>s.status==='ended').length}`;}
     box.appendChild(head);
     list.slice().sort((a,b)=>a.name.localeCompare(b.name,'ko')).forEach(st=>{
       const cn=clsNames(st);box.appendChild(rowFor(st,cn||'반 미지정'));
@@ -1489,12 +1490,13 @@ function incomeSheet(it){
 }
 function renderReport(){const c=curClass();
   renderRevenueChart();
-  const totalStud=enrolled().length, endedCnt=data.students.length-enrolled().length;
+  const pausedCnt=data.students.filter(s=>s.status==='paused').length;
+  const totalStud=enrolled().length-pausedCnt, endedCnt=data.students.length-enrolled().length;
   let outCnt=0,mkCnt=0,rev=0;const mk=curMonthKey();
   data.students.forEach(st=>{if(st.status!=='ended'){if(statusOf(st)==='out')outCnt++;if(makeupLeft(st)>0)mkCnt++;}
     (st.payments||[]).forEach(p=>{if((p.date||'').slice(0,7)===mk)rev+=p.amount;});});
   document.getElementById('allKpi').innerHTML=
-    `<div class="kpi-click" data-kpi="all" style="cursor:pointer"><div class="v">${totalStud}</div><div class="t">재적 학생${endedCnt?' (종료 '+endedCnt+')':''}</div></div>
+    `<div class="kpi-click" data-kpi="all" style="cursor:pointer"><div class="v">${totalStud}</div><div class="t">재적 학생${pausedCnt||endedCnt?' ('+[pausedCnt?'휴강 '+pausedCnt:'',endedCnt?'종료 '+endedCnt:''].filter(Boolean).join(' · ')+')':''}</div></div>
      <div class="kpi-click" data-kpi="out" style="cursor:pointer"><div class="v c-a">${outCnt}</div><div class="t">재결제 대상</div></div>
      <div class="kpi-click" data-kpi="makeup" style="cursor:pointer"><div class="v c-m">${mkCnt}</div><div class="t">보강 대상</div></div>
      <div><div class="v" style="font-size:15px">${won(rev)}</div><div class="t">이번달 수납</div></div>`;
@@ -1521,7 +1523,7 @@ function renderReport(){const c=curClass();
 function showKpiList(kind){
   const titles={all:'재적 학생',out:'재결제 대상',makeup:'보강 대상'};
   let list;
-  if(kind==='all')list=enrolled();
+  if(kind==='all')list=enrolled().filter(st=>st.status!=='paused');
   else if(kind==='out')list=data.students.filter(st=>st.status!=='ended'&&statusOf(st)==='out');
   else list=data.students.filter(st=>st.status!=='ended'&&makeupLeft(st)>0);
   list=list.slice().sort((a,b)=>a.name<b.name?-1:1);
