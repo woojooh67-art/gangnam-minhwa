@@ -265,7 +265,7 @@
       <input class="search" id="feeSearch" placeholder="이름 검색" autocomplete="off">
       <div class="rowlist" id="feeList"></div>
       <div class="barbtns" style="margin-top:12px"><button id="feeSettings">⚙ 요금·할인 설정</button><button id="rulesEdit">📜 화실 이용 규칙 관리</button></div>
-      <div class="barbtns"><button id="ttEdit">🗓 화실 시간표 관리</button><button id="holidayBtn" style="border-color:var(--verm);color:var(--verm)">📅 휴강 · 휴무일 관리</button></div>
+      <div class="barbtns"><button id="ttEdit">🗓 화실 시간표 관리</button><button id="holidayBtn" style="border-color:var(--verm);color:var(--verm)">📅 휴강 · 휴무일 관리</button><button id="dupSessBtn" style="border-color:var(--ochre);color:var(--ochre)">🔍 중복 회차 정리</button></div>
       <div class="barbtns"><button id="bulkClearBtn" style="border-color:var(--verm);color:var(--verm)">🧹 기록 일괄 초기화 (오류 복구용)</button></div>
       <div class="barbtns"><button id="diagBtn">🔍 전체 잔여 회차 진단</button></div>
     </section>
@@ -680,6 +680,45 @@ function diagnosticSheet(){
   oroot().querySelector('#diagClose').onclick=closeOverlay;
   oroot().querySelectorAll('[data-diagid]').forEach(el=>el.onclick=()=>{
     const st=studentById(el.dataset.diagid);if(st)studentSheet(st);
+  });
+}
+function duplicateSessionsSheet(){
+  const groups=[];
+  data.classes.forEach(c=>{
+    const byIso={};
+    c.sessions.forEach(s=>{(byIso[s.iso]=byIso[s.iso]||[]).push(s);});
+    Object.keys(byIso).forEach(iso=>{
+      if(byIso[iso].length>1)groups.push({classId:c.id,className:c.name,iso,sessions:byIso[iso]});
+    });
+  });
+  groups.sort((a,b)=>a.iso<b.iso?-1:1);
+  if(!groups.length){toast('중복된 회차가 없어요. 깨끗해요!');return;}
+  const recCount=(c,sid)=>Object.keys(c.records).filter(k=>k.indexOf(sid+':')===0).length;
+  oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>🔍 중복 회차 정리</h3>
+    <div class="subt">같은 날짜에 회차가 2개 이상 있는 곳이에요. 기록이 없는(0건) 쪽을 지우시면 돼요. 기록이 있는 쪽은 남겨서 학생 목록에 중복으로 안 뜨게 하세요.</div>
+    <div style="max-height:56vh;overflow:auto">
+    ${groups.map((g,gi)=>{
+      const c=classById(g.classId);
+      return `<div class="stucard" style="margin-bottom:10px"><h3 style="font-size:14px">${esc(g.className)} · ${shortDate(g.iso)}</h3>
+        ${g.sessions.map((s,si)=>{
+          const n=recCount(c,s.id);
+          return `<div class="srow" style="margin-bottom:6px"><span class="nm">${esc(s.label)} <small style="color:var(--ink-soft)">(기록 ${n}건)</small></span><span class="pill" data-dupdel="${gi}:${si}" style="cursor:pointer;background:${n>0?'var(--line-soft)':'var(--verm-tint)'};color:${n>0?'var(--ink-soft)':'var(--verm)'}">${n>0?'기록있음':'삭제'}</span></div>`;
+        }).join('')}
+      </div>`;
+    }).join('')}
+    </div>
+    <div class="actions"><button class="btn-ghost" id="dupClose">닫기</button></div></div></div>`;
+  oroot().querySelector('#dupClose').onclick=closeOverlay;
+  oroot().querySelectorAll('[data-dupdel]').forEach(el=>el.onclick=()=>{
+    const [gi,si]=el.dataset.dupdel.split(':').map(Number);
+    const g=groups[gi],s=g.sessions[si],c=classById(g.classId);
+    const n=recCount(c,s.id);
+    if(n>0){toast('기록이 있는 회차는 여기서 못 지워요. 회차 안에서 직접 확인 후 지워주세요.');return;}
+    confirmSheet(`${esc(g.className)} · ${shortDate(g.iso)} 회차(기록 없음)를 지울까요?`,()=>{
+      c.sessions=c.sessions.filter(x=>x.id!==s.id);
+      if(activeSess[c.id]===s.id)activeSess[c.id]='__none__';
+      save();closeOverlay();duplicateSessionsSheet();toast('지웠어요.');
+    },'삭제');
   });
 }
 function holidaySheet(){
@@ -1654,7 +1693,10 @@ function sessionSheet(sess){const c=curClass();const isNew=!sess;
   bindCal();
   q('#ssNo').onclick=closeOverlay;
   q('#ssOk').onclick=()=>{const label=q('#ssLabel').value.trim()||shortDate(selIso),iso=selIso;
-    if(isNew){const s={id:uid(),label,iso};c.sessions.push(s);
+    if(isNew){
+      const dup=c.sessions.find(x=>x.iso===iso);
+      if(dup){toast(`${shortDate(iso)}엔 이미 '${dup.label}' 회차가 있어요. 그 회차를 그대로 쓰세요.`);activeSess[c.id]=dup.id;closeOverlay();renderCheck();renderFee();renderReport();return;}
+      const s={id:uid(),label,iso};c.sessions.push(s);
       if(iso===todayISO())activeIn(c.id).forEach(st=>{c.records[s.id+':'+st.id]='present';});
       activeSess[c.id]=s.id;}
     else{sess.label=label;sess.iso=iso;}
@@ -2390,6 +2432,7 @@ document.getElementById('rulesEdit').onclick=rulesSheet;
 document.getElementById('ttEdit').onclick=timetableSheet;
 document.getElementById('bulkClearBtn').onclick=bulkClearRecordsSheet;
 document.getElementById('holidayBtn').onclick=holidaySheet;
+document.getElementById('dupSessBtn').onclick=duplicateSessionsSheet;
 document.getElementById('diagBtn').onclick=diagnosticSheet;
 document.getElementById('feeSearch').addEventListener('input',e=>{feeQuery=e.target.value.trim();renderFee();});
 document.getElementById('rosterSearch').addEventListener('input',e=>{rosterQuery=e.target.value.trim();renderRoster();});
