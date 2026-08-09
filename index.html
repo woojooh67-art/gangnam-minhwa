@@ -413,7 +413,6 @@ async function mergeAllStudentActivity(showToast){
       if(c&&st){const k=d.sessionId+':'+st.id;c.records[k]='present';
         if(!st.payments)st.payments=[];
         st.payments.push({id:uid(),sessions:1,amount:d.amount||(data.rates.daily||60000),date:d.iso,plan:1});
-        if(st.dropinOnce&&!st.dropin)st.dropinOnce=false;
         const msg=`${st.name}님이 ${c.name} · ${d.label||shortDate(d.iso)} 일일 수업을 예약했어요 (${won(d.amount||(data.rates.daily||60000))} 입금 예정).`;
         pushLog('dropin',msg,d.iso);msgs.push(msg);
         total++;}});
@@ -1563,30 +1562,15 @@ function showKpiList(kind){
     let sub=(esc(clsNames(st))||'반 미지정');
     sub+= r<0?` · ⚠${-r}회 미리 사용`:` · 잔여 ${r}회`;
     if(ml>0)sub+=dueExpired(st)?` · ⚠보강 ${ml}회(기한지남)`:` · 보강 ${ml}회`;
-    let extraBtn='';
-    if(kind==='out'&&!st.dropin){
-      extraBtn=st.dropinOnce
-        ?`<button class="minibtn" style="color:var(--jade-deep)" data-dropinoff="${st.id}">이번만 허용 취소</button>`
-        :`<button class="minibtn" style="color:var(--blue)" data-dropinon="${st.id}">이번만 드롭인 허용</button>`;
-    }
-    return `<div class="srow" style="margin-bottom:8px" data-kst="${st.id}"><span style="cursor:pointer;flex:1;display:flex;flex-direction:column" data-kgo="${st.id}"><span class="nm">${esc(st.name)}</span><span class="sub">${sub}</span></span>${extraBtn||`<span class="pill" style="background:var(--line-soft);color:var(--ink-soft);min-width:44px;cursor:pointer" data-kgo="${st.id}">보기</span>`}</div>`;
+    return `<div class="srow" style="margin-bottom:8px" data-kst="${st.id}"><span style="cursor:pointer;flex:1;display:flex;flex-direction:column" data-kgo="${st.id}"><span class="nm">${esc(st.name)}</span><span class="sub">${sub}</span></span><span class="pill" style="background:var(--line-soft);color:var(--ink-soft);min-width:44px;cursor:pointer" data-kgo="${st.id}">보기</span></div>`;
   }).join('');
   oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>${titles[kind]} (${list.length}명)</h3>
-    ${kind==='out'?'<div class="note" style="margin:-4px 3px 10px">"이번만 드롭인 허용"을 누르면 그 학생이 앱에서 한 번 일일 수업을 예약할 수 있어요 (정규반/연구반에 따라 요금 자동 적용). 예약이 반영되면 자동으로 다시 꺼져요.</div>':''}
     <div style="max-height:56vh;overflow:auto">${rows||'<div class="note">해당하는 학생이 없어요.</div>'}</div>
     <div class="actions" style="margin-top:14px"><button class="btn-ghost" id="kpNo" style="flex:1">닫기</button></div></div></div>`;
   oroot().querySelector('#kpNo').onclick=closeOverlay;
   oroot().querySelectorAll('[data-kgo]').forEach(el=>{
     const st=data.students.find(x=>x.id===el.dataset.kgo);
     el.onclick=()=>{if(st)studentSheet(st);};
-  });
-  oroot().querySelectorAll('[data-dropinon]').forEach(b=>b.onclick=()=>{
-    const st=data.students.find(x=>x.id===b.dataset.dropinon);
-    if(st){st.dropinOnce=true;save();toast(st.name+' 님, 이번 한 번 드롭인 예약이 열렸어요.');showKpiList(kind);}
-  });
-  oroot().querySelectorAll('[data-dropinoff]').forEach(b=>b.onclick=()=>{
-    const st=data.students.find(x=>x.id===b.dataset.dropinoff);
-    if(st){st.dropinOnce=false;save();toast('취소했어요.');showKpiList(kind);}
   });
 }
 
@@ -2103,9 +2087,7 @@ function editStudent(st){
     <div class="fgroup"><label>수강 반 (여러 반 겸용 가능)</label>
       ${data.classes.map(c=>`<label class="chk"><input type="checkbox" data-cid="${c.id}" ${(st.classIds||[]).indexOf(c.id)>=0?'checked':''}> ${esc(c.name)}</label>`).join('')}
       <button class="minibtn" id="esMoveClass" style="margin-top:8px;color:var(--blue)">🔀 반 이동 (예전 반 기록 정리하러 가기)</button></div>
-    <div class="fgroup"><label class="chk"><input type="checkbox" id="esDropin" ${st.dropin?'checked':''}> 학생 앱에서 <b>일일 수업(드롭인) 예약</b> 가능하게 하기</label>
-      <div class="note" style="margin:2px 3px 0">체크하면 학생 앱에 "일일 수업 예약" 카드가 생겨서, 정규반·연구반 중 자리가 남은 날짜를 골라 직접 예약할 수 있어요. 회비(정규반 ${won(data.rates.daily||60000)} · 연구반 ${won(data.rates.dailyResearch||90000)})는 예약만으로는 자동 결제되지 않고, 원장님이 확인 후 결제를 기록해주셔야 해요.</div>
-      ${(!st.dropin&&st.dropinOnce)?'<div class="note" style="color:var(--blue);font-weight:700;margin:6px 3px 0">☑ 지금 "이번 한 번" 드롭인 예약이 허용되어 있어요. 예약이 반영되면 자동으로 꺼져요.</div>':''}</div>
+    <div class="fgroup"><div class="note" style="margin:2px 3px 0">💡 모든 학생이 앱에서 "일일 수업 신청" 카드로 정규반·연구반 중 자리 남은 날짜를 자유롭게 신청할 수 있어요 (회비: 정규반 ${won(data.rates.daily||60000)} · 연구반 ${won(data.rates.dailyResearch||90000)}). 신청만으로는 자동 결제되지 않고, 원장님이 확인 후 결제를 기록해주셔야 해요.</div></div>
     <div class="fgroup"><label>학생 앱 로그인 코드</label>
       ${st.code?`<div class="selin" style="font-weight:700;letter-spacing:3px;text-align:center;background:var(--jade-tint);color:var(--jade-deep);border-color:var(--jade)">${st.code}</div>
         <div class="note" style="margin:6px 3px 0">이 4자리 코드를 학생에게 알려주세요. 학생 앱에서 이 코드로 로그인해요.</div>
@@ -2166,7 +2148,6 @@ function editStudent(st){
     const cids=[...oroot().querySelectorAll('input[data-cid]:checked')].map(x=>x.dataset.cid);
     if(!cids.length&&!nowPaused){toast('최소 한 개 반을 선택하세요. (휴강중·종료 상태면 반 없이도 저장 가능해요)');return;}
     st.classIds=cids;
-    st.dropin=q('#esDropin').checked;
     let cleared=0;
     if(!wasPaused&&nowPaused){ /* 휴강 전환: 오늘 이후 회차의 자동 출석 기록 제거 (숨은 차감 방지) */
       const t=todayISO();
@@ -2203,7 +2184,7 @@ function openSettings(){oroot().innerHTML=`<div class="overlay"><div class="shee
   <div class="subt">월요금은 4회 기준입니다. 인상하면 이후 결제부터 적용됩니다.</div>
   ${data.classes.map(c=>`<div class="setrow"><div class="l">${esc(c.name)}<small>${c.type} · ${esc(c.sched||'')}</small></div><input type="number" data-fee="${c.id}" value="${c.fee}"></div>`).join('')}
   <div class="setrow"><div class="l">일일 수업료<small>정규반 1회 참여</small></div><input type="number" id="setDaily" value="${data.rates.daily||60000}"></div>
-  <div class="setrow"><div class="l">연구반 일일 참관료<small>연구반 1회 참여(하루)</small></div><input type="number" id="setDailyResearch" value="${data.rates.dailyResearch||90000}"></div>
+  <div class="setrow"><div class="l">연구반 일일 수업료<small>연구반 1회 참여(하루)</small></div><input type="number" id="setDailyResearch" value="${data.rates.dailyResearch||90000}"></div>
   <div class="setrow"><div class="l">12회(3개월) 할인<small>%</small></div><input type="number" id="setD3" value="${data.rates.d3}"></div>
   <div class="setrow"><div class="l">24회(6개월) 할인<small>%</small></div><input type="number" id="setD6" value="${data.rates.d6}"></div>
   <div class="setrow"><div class="l">타임당 정원<small>보강 예약 가능 인원 기준</small></div><input type="number" id="setCap" value="${capacityOf()}"></div>
@@ -2671,7 +2652,7 @@ function renderStudentApp(){
     }
   }
   let dropinSection='';
-  if(stuData.dropin){
+  {
     const pendingDropin=stuData._pendingDropin||[];
     const slots=(stuData.allUpcoming||[]).filter(u=>u.iso>=t);
     const rateFor=u=>(u.classType==='연구')?(stuData.dailyRateResearch||90000):(stuData.dailyRate||60000);
@@ -2681,9 +2662,9 @@ function renderStudentApp(){
       const avail=u.avail!==undefined?u.avail:99;
       if(already)return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span style="display:flex;align-items:center;gap:8px"><span style="color:var(--blue);font-size:12.5px;font-weight:700">${won(rate)} 입금 예정</span><button class="minibtn" style="color:var(--verm);padding:4px 2px;font-size:12px" data-cancel-dsid="${u.sessionId}">취소</button></span></div>`;
       if(avail<=0)return `<div class="stuhist" style="opacity:.5"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span style="color:var(--verm);font-size:12px">정원 마감</span></div>`;
-      return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)} <small style="color:var(--ink-soft)">· ${won(rate)} · 잔여 ${avail}석</small></span><button class="checkbtn" style="width:auto;padding:8px 14px;margin:0;font-size:12.5px" data-dcid="${u.classId}" data-dsid="${u.sessionId}" data-diso="${u.iso}" data-dlabel="${esc(u.label||'')}" data-dcname="${esc(u.className)}" data-drate="${rate}">예약</button></div>`;
+      return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)} <small style="color:var(--ink-soft)">· ${won(rate)} · 잔여 ${avail}석</small></span><button class="checkbtn" style="width:auto;padding:8px 14px;margin:0;font-size:12.5px" data-dcid="${u.classId}" data-dsid="${u.sessionId}" data-diso="${u.iso}" data-dlabel="${esc(u.label||'')}" data-dcname="${esc(u.className)}" data-drate="${rate}">신청</button></div>`;
     }).join('');
-    dropinSection=`<div class="stucard"><h3>일일 수업 예약</h3>${rows||'<div class="note">예약 가능한 수업이 아직 없어요.</div>'}<div class="note">예약하시면 원장님 확인 후 정식 반영돼요. 수업 오시는 날 회비를 결제해주세요.</div></div>`;
+    dropinSection=`<div class="stucard"><h3>일일 수업 신청</h3>${rows||'<div class="note">신청 가능한 날짜가 아직 없어요.</div>'}<div class="note">신청하시면 원장님 확인 후 정식 반영돼요. 수업 오시는 날 회비를 결제해주세요.</div></div>`;
   }
   root.innerHTML=`<div class="stuwrap">
     <div class="stutop"><div style="display:flex;align-items:center;gap:10px"><img src="${LOGO_URI}" style="width:52px;height:52px;border-radius:50%;flex:0 0 auto"><div><h2>${esc(stuData.name)}님</h2><small>${esc((stuData.classes||[]).map(c=>c.name).join(' · '))}</small></div></div>
