@@ -2654,7 +2654,20 @@ async function enterAdmin(){
   if(made>0)toast(`앞으로 14일치 수업 회차 ${made}개를 자동으로 만들었어요.`);
   if(merged.total>0)newActivitySheet(merged.msgs);
   autoBackupIfNeeded();
+  startAutoMerge();
 }
+let _autoMergeInterval=null;
+function startAutoMerge(){
+  stopAutoMerge();
+  _autoMergeInterval=setInterval(async()=>{
+    if(!data)return;
+    try{
+      const merged=await mergeAllStudentActivity(false);
+      if(merged.total>0){render();toast('🔄 '+merged.total+'건 자동으로 반영됐어요.');}
+    }catch(e){console.error(e);}
+  },60000);
+}
+function stopAutoMerge(){if(_autoMergeInterval){clearInterval(_autoMergeInterval);_autoMergeInterval=null;}}
 
 /* ---------- student view ---------- */
 let stuData=null;let stuCalYM=null;
@@ -3123,7 +3136,7 @@ async function enterStudent(u){
 
 /* ---------- auth bootstrap ---------- */
 auth.onAuthStateChanged(async user=>{
-  if(!user){data=null;stuData=null;showLogin();return;}
+  if(!user){stopAutoMerge();data=null;stuData=null;showLogin();return;}
   try{
     const adoc=await db.collection('admins').doc(user.uid).get();
     if(adoc.exists)await enterAdmin();else await enterStudent(user.uid);
