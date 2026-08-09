@@ -2983,10 +2983,18 @@ async function bookMakeup(classId,sessionId,iso,label,className){
 async function cancelMakeup(sessionId){
   try{
     const q=await db.collection('makeupRequests').where('uid','==',auth.currentUser.uid).where('toSessionId','==',sessionId).get();
-    if(!q.empty){const batch=db.batch();q.forEach(d=>batch.delete(d.ref));await batch.commit();}
-    stuData._pendingMakeup=(stuData._pendingMakeup||[]).filter(id=>id!==sessionId);
-    renderStudentApp();
-    toast('보강 예약을 취소했어요.');
+    if(!q.empty){
+      const batch=db.batch();q.forEach(d=>batch.delete(d.ref));await batch.commit();
+      stuData._pendingMakeup=(stuData._pendingMakeup||[]).filter(id=>id!==sessionId);
+      renderStudentApp();
+      toast('보강 예약을 취소했어요.');
+    }else{
+      /* 원장님이 이미 확인·반영해서 확정된 상태 — 정식 취소 신청으로 전환 */
+      const m=(stuData.myMakeups||[]).find(x=>x.sessionId===sessionId);
+      stuData._pendingMakeup=(stuData._pendingMakeup||[]).filter(id=>id!==sessionId);
+      if(m)await requestMakeupCancel(m.classId,m.sessionId,m.iso,m.label,m.className);
+      else{renderStudentApp();toast('보강 예약을 취소했어요.');}
+    }
   }catch(e){console.error(e);toast('취소 실패 — 다시 시도해주세요.');}
 }
 async function bookDropin(classId,sessionId,iso,label,className,rate){
@@ -3001,10 +3009,18 @@ async function bookDropin(classId,sessionId,iso,label,className,rate){
 async function cancelDropin(sessionId){
   try{
     const q=await db.collection('dropinRequests').where('uid','==',auth.currentUser.uid).where('sessionId','==',sessionId).get();
-    if(!q.empty){const batch=db.batch();q.forEach(d=>batch.delete(d.ref));await batch.commit();}
-    stuData._pendingDropin=(stuData._pendingDropin||[]).filter(p=>p.sessionId!==sessionId);
-    renderStudentApp();
-    toast('예약을 취소했어요.');
+    if(!q.empty){
+      const batch=db.batch();q.forEach(d=>batch.delete(d.ref));await batch.commit();
+      stuData._pendingDropin=(stuData._pendingDropin||[]).filter(p=>p.sessionId!==sessionId);
+      renderStudentApp();
+      toast('예약을 취소했어요.');
+    }else{
+      /* 원장님이 이미 확인·반영해서 확정된 상태 — 정식 취소 신청으로 전환 */
+      const m=(stuData.myDropins||[]).find(x=>x.sessionId===sessionId);
+      stuData._pendingDropin=(stuData._pendingDropin||[]).filter(p=>p.sessionId!==sessionId);
+      if(m)await requestDropinCancel(m.classId,m.sessionId,m.iso,m.label,m.className);
+      else{renderStudentApp();toast('예약을 취소했어요.');}
+    }
   }catch(e){console.error(e);toast('취소 실패 — 다시 시도해주세요.');}
 }
 async function requestMakeupCancel(classId,sessionId,iso,label,className){
