@@ -2709,18 +2709,35 @@ function renderStudentApp(){
     const rateFor=u=>(u.classType==='연구'&&!u.afternoonOnly)?(stuData.dailyRateResearch||90000):(stuData.dailyRate||60000);
     const clsLabel=u=>`${esc(u.className)}${u.afternoonOnly?' <small style="color:var(--blue);font-weight:600">(2~5시만)</small>':''}`;
     const rowFor=u=>{
-      const rate=rateFor(u);
-      const already=pendingDropin.indexOf(u.sessionId)>=0;
+      const pend=pendingDropin.find(p=>p.sessionId===u.sessionId);
       const avail=u.avail!==undefined?u.avail:99;
-      if(already)return `<div class="stuhist"><span>${clsLabel(u)} · ${mkDateLabel(u)}</span><span style="display:flex;align-items:center;gap:8px"><span style="color:var(--blue);font-size:12.5px;font-weight:700">${won(rate)} 입금 예정</span><button class="minibtn" style="color:var(--verm);padding:4px 2px;font-size:12px" data-cancel-dsid="${u.sessionId}">취소</button></span></div>`;
+      const dualOption=u.classType==='연구'&&u.afternoonOnly&&!stuData.dropinPack;
+      if(pend){
+        const rate=pend.rate;
+        const isFull=dualOption&&rate>=(stuData.dailyRateResearch||90000);
+        const optTag=dualOption?(isFull?' <small style="color:var(--purple);font-weight:600">(풀타임)</small>':' <small style="color:var(--blue);font-weight:600">(2~5시)</small>'):'';
+        return `<div class="stuhist"><span>${esc(u.className)}${optTag} · ${mkDateLabel(u)}</span><span style="display:flex;align-items:center;gap:8px"><span style="color:var(--blue);font-size:12.5px;font-weight:700">${won(rate)} 입금 예정</span><button class="minibtn" style="color:var(--verm);padding:4px 2px;font-size:12px" data-cancel-dsid="${u.sessionId}">취소</button></span></div>`;
+      }
       if(avail<=0)return `<div class="stuhist" style="opacity:.5"><span>${clsLabel(u)} · ${mkDateLabel(u)}</span><span style="color:var(--verm);font-size:12px">정원 마감</span></div>`;
+      if(dualOption){
+        const rRegular=stuData.dailyRate||60000,rFull=stuData.dailyRateResearch||90000;
+        return `<div class="stuhist" style="flex-direction:column;align-items:stretch;gap:6px">
+          <span>${esc(u.className)} · ${mkDateLabel(u)} <small style="color:var(--ink-soft)">· 잔여 ${avail}석</small></span>
+          <div style="display:flex;gap:8px">
+            <button class="checkbtn" style="flex:1;padding:8px 10px;margin:0;font-size:12.5px" data-dcid="${u.classId}" data-dsid="${u.sessionId}" data-diso="${u.iso}" data-dlabel="${esc(u.label||'')}" data-dcname="${esc(u.className)}" data-drate="${rRegular}">2~5시만 · ${won(rRegular)}</button>
+            <button class="checkbtn" style="flex:1;padding:8px 10px;margin:0;font-size:12.5px;background:var(--purple)" data-dcid="${u.classId}" data-dsid="${u.sessionId}" data-diso="${u.iso}" data-dlabel="${esc(u.label||'')}" data-dcname="${esc(u.className)}" data-drate="${rFull}">풀타임 · ${won(rFull)}</button>
+          </div>
+        </div>`;
+      }
+      const rate=rateFor(u);
       return `<div class="stuhist"><span>${clsLabel(u)} · ${mkDateLabel(u)} <small style="color:var(--ink-soft)">· ${won(rate)} · 잔여 ${avail}석</small></span><button class="checkbtn" style="width:auto;padding:8px 14px;margin:0;font-size:12.5px" data-dcid="${u.classId}" data-dsid="${u.sessionId}" data-diso="${u.iso}" data-dlabel="${esc(u.label||'')}" data-dcname="${esc(u.className)}" data-drate="${rate}">신청</button></div>`;
     };
     const regularSlots=slots.filter(u=>u.classType!=='연구');
     const researchSlots=slots.filter(u=>u.classType==='연구');
     const regularRows=regularSlots.map(rowFor).join('')||'<div class="note">신청 가능한 날짜가 아직 없어요.</div>';
     const researchAfternoonOnly=researchSlots.length&&researchSlots[0].afternoonOnly;
-    const researchRows=researchSlots.length?`<div class="note" style="margin:12px 3px 6px"><b>🔬 연구반${researchAfternoonOnly?' (오후 2~5시만 참여 · 정규 요금)':' (요금 다름)'}</b></div>${researchSlots.map(rowFor).join('')}`:'';
+    const researchHint=stuData.dropinPack?' (오후 2~5시만 참여 · 정규 요금)':' (2~5시만 참여 또는 풀타임 선택 가능)';
+    const researchRows=researchSlots.length?`<div class="note" style="margin:12px 3px 6px"><b>🔬 연구반${researchAfternoonOnly?researchHint:' (요금 다름)'}</b></div>${researchSlots.map(rowFor).join('')}`:'';
     let packBar='';
     if(stuData.dropinPack){
       const pk=stuData.dropinPack;
@@ -2868,7 +2885,7 @@ async function bookDropin(classId,sessionId,iso,label,className,rate){
     const amount=parseInt(rate)||stuData.dailyRate||60000;
     await db.collection('dropinRequests').add({uid:auth.currentUser.uid,studentId:stuData.studentId,studentName:stuData.name,classId,sessionId,iso,label,className,amount,createdAt:Date.now()});
     if(!stuData._pendingDropin)stuData._pendingDropin=[];
-    stuData._pendingDropin.push(sessionId);renderStudentApp();
+    stuData._pendingDropin.push({sessionId,rate:amount});renderStudentApp();
     toast('일일 수업을 예약했어요. 원장님이 확인하면 정식 반영돼요.');
   }catch(e){console.error(e);toast('전송 실패 — 인터넷 연결을 확인해주세요.');}
 }
@@ -2876,7 +2893,7 @@ async function cancelDropin(sessionId){
   try{
     const q=await db.collection('dropinRequests').where('uid','==',auth.currentUser.uid).where('sessionId','==',sessionId).get();
     if(!q.empty){const batch=db.batch();q.forEach(d=>batch.delete(d.ref));await batch.commit();}
-    stuData._pendingDropin=(stuData._pendingDropin||[]).filter(id=>id!==sessionId);
+    stuData._pendingDropin=(stuData._pendingDropin||[]).filter(p=>p.sessionId!==sessionId);
     renderStudentApp();
     toast('예약을 취소했어요.');
   }catch(e){console.error(e);toast('취소 실패 — 다시 시도해주세요.');}
@@ -2920,7 +2937,7 @@ async function enterStudent(u){
       stuData._pendingMakeup=q2.docs.map(d=>d.data().toSessionId);}
     catch(e){console.error(e);stuData._pendingMakeup=[];}
     try{const q3=await db.collection('dropinRequests').where('uid','==',u).get();
-      stuData._pendingDropin=q3.docs.map(d=>d.data().sessionId);}
+      stuData._pendingDropin=q3.docs.map(d=>({sessionId:d.data().sessionId,rate:d.data().amount}));}
     catch(e){console.error(e);stuData._pendingDropin=[];}
     try{const q4=await db.collection('makeupCancelRequests').where('uid','==',u).get();
       stuData._pendingMakeupCancel=q4.docs.map(d=>d.data().sessionId);}
