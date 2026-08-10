@@ -251,7 +251,12 @@
       </div>
       <div id="checkCalBox" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px"></div>
       <div class="note" id="checkCalNote" style="margin:-2px 3px 10px"></div>
-      <div class="barbtns" style="margin-bottom:10px"><button id="holidayBtn" style="border-color:var(--verm);color:var(--verm)">📅 휴강 · 휴무일 관리</button><button id="studioNotesBtn">📌 특별 일정 메모</button></div>
+      <div class="sechead">학생 활동 반영</div>
+      <div class="barbtns"><button id="mergeSelfChecks">🔄 학생 결석 알림 · 보강 예약 불러오기</button></div>
+      <div class="note">· 학생이 앱에서 '결석 예정 알리기' 또는 '보강 예약'을 하면 여기 반영 버튼을 눌러야 정식 반영돼요. 관리자가 직접 체크·수정한 내용은 항상 우선 적용되고 언제든 [출석] 탭에서 고칠 수 있어요.</div>
+      <div class="sechead" style="display:flex;align-items:center;justify-content:space-between">최근 학생 활동<button class="minibtn" id="markLogSeen" style="padding:2px 6px">모두 확인</button></div>
+      <div id="activityLog"></div>
+      <div class="barbtns" style="margin:14px 0 10px"><button id="holidayBtn" style="border-color:var(--verm);color:var(--verm)">📅 휴강 · 휴무일 관리</button><button id="studioNotesBtn">📌 특별 일정 메모</button></div>
       <div id="checkDetail">
         <div class="sesshead" style="justify-content:flex-start"><span class="t" id="sessTitle">회차</span><span class="d" id="sessDate"></span></div>
         <div class="tally" id="tally"></div>
@@ -286,11 +291,6 @@
     </section>
 
     <section id="view-report" class="hidden">
-      <div class="sechead">학생 활동 반영</div>
-      <div class="barbtns"><button id="mergeSelfChecks">🔄 학생 결석 알림 · 보강 예약 불러오기</button></div>
-      <div class="note">· 학생이 앱에서 '결석 예정 알리기' 또는 '보강 예약'을 하면 여기 반영 버튼을 눌러야 정식 반영돼요. 관리자가 직접 체크·수정한 내용은 항상 우선 적용되고 언제든 [출석] 탭에서 고칠 수 있어요.</div>
-      <div class="sechead" style="display:flex;align-items:center;justify-content:space-between">최근 학생 활동<button class="minibtn" id="markLogSeen" style="padding:2px 6px">모두 확인</button></div>
-      <div id="activityLog"></div>
       <div class="sechead">연구소 전체</div>
       <div class="kpi" id="allKpi"></div>
       <div class="sechead" id="repTitle">반 출석 현황</div>
@@ -310,9 +310,9 @@
   </main>
 
   <nav class="tabs">
-    <button data-tab="check" class="active"><span class="ic">✓</span>출석</button>
+    <button data-tab="check" class="active"><span class="ic">✓</span>출석<span id="reportBadge" class="hidden" style="background:var(--verm);color:#fff;border-radius:999px;font-size:10px;padding:1px 6px;margin-top:-2px"></span></button>
     <button data-tab="roster"><span class="ic">☰</span>학생</button>
-    <button data-tab="report"><span class="ic">▤</span>기록<span id="reportBadge" class="hidden" style="background:var(--verm);color:#fff;border-radius:999px;font-size:10px;padding:1px 6px;margin-top:-2px"></span></button>
+    <button data-tab="report"><span class="ic">▤</span>기록</button>
   </nav>
 </div>
 </div>
