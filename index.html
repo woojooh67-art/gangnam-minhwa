@@ -2354,9 +2354,21 @@ function editStudent(st){
       await issueStudentCode(st,suggestedCode);
     },'바꾸기');
   };
-  if(q('#esRevoke'))q('#esRevoke').onclick=()=>confirmSheet(`'${esc(st.name)}' 학생의 로그인 코드(${st.code})를 연결 해제할까요?<br>이 코드로는 더 이상 로그인해도 아무 정보가 안 보여요. 새 코드를 다시 발급할 수 있어요.`,async()=>{
-    try{if(st.uid)await db.collection('studentViews').doc(st.uid).delete();}catch(e){console.error(e);}
-    st.code='';st.uid='';save();editStudent(st);toast('연결 해제되었습니다.');},'연결 해제');
+  if(q('#esRevoke'))q('#esRevoke').onclick=()=>{
+    oroot().insertAdjacentHTML('beforeend',`<div class="overlay" id="esRevokeOv"><div class="sheet"><button class="quickx" onclick="document.getElementById('esRevokeOv').remove()">✕</button><h3>코드 ${st.code} 어떻게 할까요?</h3>
+      <div class="subt">'${esc(st.name)}' 학생의 현재 코드예요. 이 코드로는 더 이상 로그인 못 하게 되고, 아래 중 골라주세요.</div>
+      <div class="actions" style="flex-direction:column;gap:8px">
+        <button class="btn-primary" id="erChange" style="width:100%">🔄 코드 변경 (새 코드 바로 발급)</button>
+        <button class="btn-danger" id="erDelOnly" style="width:100%">🗑 완전히 삭제 (당장은 새 코드 안 줌)</button>
+        <button class="btn-ghost" id="erCancel" style="width:100%">취소</button>
+      </div></div></div>`);
+    const closeThis=()=>{const ov=document.getElementById('esRevokeOv');if(ov)ov.remove();};
+    document.getElementById('erCancel').onclick=closeThis;
+    const doRevoke=async()=>{try{if(st.uid)await db.collection('studentViews').doc(st.uid).delete();}catch(e){console.error(e);}
+      st.code='';st.uid='';save();};
+    document.getElementById('erChange').onclick=async()=>{await doRevoke();closeThis();editStudent(st);toast('코드를 해제했어요. 아래에서 새 코드를 발급하세요.');};
+    document.getElementById('erDelOnly').onclick=async()=>{await doRevoke();closeThis();editStudent(st);toast('코드를 삭제했어요. 필요할 때 다시 발급해주세요.');};
+  };
   oroot().querySelectorAll('.stpE').forEach(b=>b.onclick=()=>{const i=oroot().querySelector('#esExt');
     let v=parseInt(i.value);if(!Number.isFinite(v))v=0;v=Math.max(0,v+(+b.dataset.d));i.value=v;});
   q('#esNo').onclick=closeOverlay;
