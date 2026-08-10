@@ -262,24 +262,26 @@
       <div id="ttAlways"></div>
     </section>
 
-    <section id="view-fee" class="hidden">
-      <div class="board" id="feeBoard"></div>
-      <div class="filters" id="feeScopeFilters"></div>
-      <div class="filters" id="feeFilters"></div>
-      <input class="search" id="feeSearch" placeholder="이름 검색" autocomplete="off">
-      <div class="rowlist" id="feeList"></div>
+    <section id="view-roster" class="hidden">
+      <div class="filters" id="stuModeToggle" style="margin-bottom:10px"></div>
+      <div id="rosterModeBox">
+        <div class="filters" id="rosterScope"></div>
+        <div class="addrow"><input id="nameInput" placeholder="이름 (여러 명은 쉼표로, 뒤에 전화번호도: 홍길동 01012345678)" autocomplete="off"><input id="phoneInput" placeholder="전화번호(선택)" autocomplete="off" style="flex:0 0 130px"><button id="addStudent">추가</button></div>
+        <div class="note" style="margin:-4px 3px 10px">1명만 등록할 때 전화번호를 적으면 그 뒷자리가 로그인 코드로 자동 발급돼요. 여러 명을 한 번에 등록할 땐 전화번호 칸은 무시되고 무작위 코드가 발급돼요.</div>
+        <input class="search" id="rosterSearch" placeholder="이름 검색" autocomplete="off">
+        <div id="rosterList"></div>
+      </div>
+      <div id="feeModeBox" class="hidden">
+        <div class="board" id="feeBoard"></div>
+        <div class="filters" id="feeScopeFilters"></div>
+        <div class="filters" id="feeFilters"></div>
+        <input class="search" id="feeSearch" placeholder="이름 검색" autocomplete="off">
+        <div class="rowlist" id="feeList"></div>
+      </div>
       <div class="barbtns" style="margin-top:12px"><button id="feeSettings">⚙ 요금·할인 설정</button><button id="rulesEdit">📜 화실 이용 규칙 관리</button></div>
       <div class="barbtns"><button id="bulkClearBtn" style="border-color:var(--verm);color:var(--verm)">🧹 기록 일괄 초기화 (오류 복구용)</button></div>
       <div class="barbtns"><button id="diagBtn">🔍 전체 잔여 회차 진단</button></div>
       <div class="barbtns"><button id="codeReleaseBtn" style="border-color:var(--verm);color:var(--verm)">🔓 로그인 코드 강제 해제</button></div>
-    </section>
-
-    <section id="view-roster" class="hidden">
-      <div class="filters" id="rosterScope"></div>
-      <div class="addrow"><input id="nameInput" placeholder="이름 (여러 명은 쉼표로, 뒤에 전화번호도: 홍길동 01012345678)" autocomplete="off"><input id="phoneInput" placeholder="전화번호(선택)" autocomplete="off" style="flex:0 0 130px"><button id="addStudent">추가</button></div>
-      <div class="note" style="margin:-4px 3px 10px">1명만 등록할 때 전화번호를 적으면 그 뒷자리가 로그인 코드로 자동 발급돼요. 여러 명을 한 번에 등록할 땐 전화번호 칸은 무시되고 무작위 코드가 발급돼요.</div>
-      <input class="search" id="rosterSearch" placeholder="이름 검색" autocomplete="off">
-      <div id="rosterList"></div>
     </section>
 
     <section id="view-report" class="hidden">
@@ -308,8 +310,7 @@
 
   <nav class="tabs">
     <button data-tab="check" class="active"><span class="ic">✓</span>출석</button>
-    <button data-tab="roster"><span class="ic">☰</span>명단</button>
-    <button data-tab="fee"><span class="ic">₩</span>수업료</button>
+    <button data-tab="roster"><span class="ic">☰</span>학생</button>
     <button data-tab="report"><span class="ic">▤</span>기록<span id="reportBadge" class="hidden" style="background:var(--verm);color:#fff;border-radius:999px;font-size:10px;padding:1px 6px;margin-top:-2px"></span></button>
   </nav>
 </div>
@@ -321,7 +322,7 @@ const KEY='ggmh_v22';
 const STATUSES=['present','absent','makeup','dropin'];
 const LABEL={present:'출석',late:'지각',absent:'결석',makeup:'보강',dropin:'일일권 출석',none:'재결제 필요'};
 const CLS={present:'st-present',late:'st-late',absent:'st-absent',makeup:'st-makeup',dropin:'st-dropin',none:'st-none'};
-let mem=null,data=null,tab='check',activeSess={},feeFilter='all',feeQuery='',feeScope='all',rosterScope='all',rosterQuery='',repMonth=null,repScope='month',checkCalYM={},checkMode='all',dropinOpen=false;
+let mem=null,data=null,tab='check',activeSess={},feeFilter='all',feeQuery='',feeScope='all',rosterScope='all',rosterQuery='',repMonth=null,repScope='month',checkCalYM={},checkMode='all',dropinOpen=false,stuMode='roster';
 
 /* ---------- utils ---------- */
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
@@ -1072,7 +1073,15 @@ function isDelayedUsage(st){if(st.regDateOverride)return false;const p=lastPayme
 function statusOf(st){if(st.status==='ended')return 'ended';if(st.status==='paused')return 'paused';const r=remainSessions(st);if(r<=0)return 'out';if(r<=2)return 'low';return 'ok';}
 
 /* ---------- render ---------- */
-function render(){renderClasses();renderCheck();renderFee();renderRoster();renderReport();updateReportBadge();}
+function render(){renderClasses();renderCheck();renderStuMode();renderFee();renderRoster();renderReport();updateReportBadge();}
+function renderStuMode(){
+  const box=document.getElementById('stuModeToggle');if(!box)return;
+  box.innerHTML=[['roster','☰ 반별 보기'],['fee','₩ 결제상태별 보기']].map(o=>`<button class="fchip ${stuMode===o[0]?'on':''}" data-sm="${o[0]}" style="flex:1">${o[1]}</button>`).join('');
+  box.querySelectorAll('[data-sm]').forEach(b=>b.onclick=()=>{stuMode=b.dataset.sm;renderStuMode();});
+  const rBox=document.getElementById('rosterModeBox'),fBox=document.getElementById('feeModeBox');
+  if(rBox)rBox.classList.toggle('hidden',stuMode!=='roster');
+  if(fBox)fBox.classList.toggle('hidden',stuMode!=='fee');
+}
 function classSortKey(c){
   const dow=classWeekday(c);
   const dayPart=(dow===null)?8:(dow===0?7:dow);
@@ -2598,10 +2607,10 @@ async function pickStudentsFromBackup(id){
 }
 
 /* ---------- nav ---------- */
-function switchTab(t){tab=t;['check','fee','roster','report'].forEach(v=>document.getElementById('view-'+v).classList.toggle('hidden',v!==t));
+function switchTab(t){tab=t;['check','roster','report'].forEach(v=>document.getElementById('view-'+v).classList.toggle('hidden',v!==t));
   document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));
   renderClasses();
-  if(t==='fee')renderFee();if(t==='report')renderReport();if(t==='roster')renderRoster();}
+  if(t==='report')renderReport();if(t==='roster'){renderStuMode();renderRoster();renderFee();}}
 
 document.getElementById('classSel').onchange=e=>{
   if(e.target.value==='__all__'){checkMode='all';switchTab('check');render();return;}
