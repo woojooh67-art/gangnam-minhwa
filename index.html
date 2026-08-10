@@ -251,6 +251,8 @@
       </div>
       <div id="checkCalBox" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px"></div>
       <div class="note" id="checkCalNote" style="margin:-2px 3px 10px"></div>
+      <div class="barbtns" style="margin-bottom:10px"><button id="holidayBtn" style="border-color:var(--verm);color:var(--verm)">📅 휴강 · 휴무일 관리</button><button id="studioNotesBtn">📌 특별 일정 메모</button></div>
+      <div class="barbtns" style="margin-bottom:10px"><button id="ttEdit">🗓 화실 시간표 관리</button></div>
       <div id="checkDetail">
         <div class="sesshead" style="justify-content:flex-start"><span class="t" id="sessTitle">회차</span><span class="d" id="sessDate"></span></div>
         <div class="tally" id="tally"></div>
@@ -267,8 +269,6 @@
       <input class="search" id="feeSearch" placeholder="이름 검색" autocomplete="off">
       <div class="rowlist" id="feeList"></div>
       <div class="barbtns" style="margin-top:12px"><button id="feeSettings">⚙ 요금·할인 설정</button><button id="rulesEdit">📜 화실 이용 규칙 관리</button></div>
-      <div class="barbtns"><button id="ttEdit">🗓 화실 시간표 관리</button><button id="holidayBtn" style="border-color:var(--verm);color:var(--verm)">📅 휴강 · 휴무일 관리</button></div>
-      <div class="barbtns"><button id="studioNotesBtn">📌 특별 일정 메모</button></div>
       <div class="barbtns"><button id="bulkClearBtn" style="border-color:var(--verm);color:var(--verm)">🧹 기록 일괄 초기화 (오류 복구용)</button></div>
       <div class="barbtns"><button id="diagBtn">🔍 전체 잔여 회차 진단</button></div>
       <div class="barbtns"><button id="codeReleaseBtn" style="border-color:var(--verm);color:var(--verm)">🔓 로그인 코드 강제 해제</button></div>
@@ -737,24 +737,37 @@ function diagnosticSheet(){
 }
 function studioNotesSheet(){
   function draw(){
-    const notes=(data.studioNotes||[]).slice().sort((a,b)=>a.iso<b.iso?1:-1);
+    const raw=(data.studioNotes||[]).slice().sort((a,b)=>a.iso<b.iso?1:-1);
+    const groups={};
+    raw.forEach(n=>{const gid=n.groupId||n.id;if(!groups[gid])groups[gid]={gid,text:n.text,isos:[]};groups[gid].isos.push(n.iso);});
+    const list=Object.values(groups).sort((a,b)=>Math.max(...b.isos)<Math.max(...a.isos)?-1:1);
     oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>📌 특별 일정 메모</h3>
-      <div class="subt">수업은 없지만 기록해두고 싶은 날(전시·아트페어 참가 등)을 자유롭게 남겨두세요. 달력에 작은 표시로 나타나요.</div>
-      <div class="fgroup"><label>날짜</label><input type="date" id="snDate" class="selin" value="${todayISO()}"></div>
+      <div class="subt">수업은 없지만 기록해두고 싶은 날(전시·아트페어 참가 등)을 자유롭게 남겨두세요. 기간으로도 남길 수 있어요. 달력에 작은 표시로 나타나요.</div>
+      <div class="fgroup"><label>시작일</label><input type="date" id="snFrom" class="selin" value="${todayISO()}"></div>
+      <div class="fgroup"><label>종료일 <small style="color:var(--ink-soft);font-weight:400">(하루만이면 시작일과 같게 두세요)</small></label><input type="date" id="snTo" class="selin" value="${todayISO()}"></div>
       <div class="fgroup"><label>내용</label><input type="text" id="snText" class="selin" placeholder="예: OO아트페어 참가"></div>
       <div class="actions" style="margin-bottom:16px"><button class="btn-primary" id="snAdd" style="width:100%">추가</button></div>
-      <div class="rowlist">${notes.length?notes.map(n=>`<div class="stuhist"><span><b>${shortDate(n.iso)}</b> · ${esc(n.text)}</span><span data-sndel="${n.id}" style="color:var(--verm);cursor:pointer;font-size:13px;padding:2px 4px">✕</span></div>`).join(''):'<div class="note">아직 남긴 메모가 없어요.</div>'}</div>
+      <div class="rowlist">${list.length?list.map(g=>{
+        const isos=g.isos.sort();const range=isos.length>1?`${shortDate(isos[0])} ~ ${shortDate(isos[isos.length-1])}`:shortDate(isos[0]);
+        return `<div class="stuhist"><span><b>${range}</b> · ${esc(g.text)}</span><span data-sndel="${g.gid}" style="color:var(--verm);cursor:pointer;font-size:13px;padding:2px 4px">✕</span></div>`;
+      }).join(''):'<div class="note">아직 남긴 메모가 없어요.</div>'}</div>
       </div></div>`;
     const q=s=>oroot().querySelector(s);
     q('#snAdd').onclick=()=>{
-      const iso=q('#snDate').value,text=q('#snText').value.trim();
-      if(!iso||!text){toast('날짜와 내용을 입력해주세요.');return;}
+      const from=q('#snFrom').value,to=q('#snTo').value,text=q('#snText').value.trim();
+      if(!from||!to||from>to){toast('날짜를 확인해주세요.');return;}
+      if(!text){toast('내용을 입력해주세요.');return;}
       if(!data.studioNotes)data.studioNotes=[];
-      data.studioNotes.push({id:uid(),iso,text});
-      save();render();toast('메모를 남겼어요.');draw();
+      const gid=uid();
+      const d0=new Date(from+'T00:00:00'),d1=new Date(to+'T00:00:00');let n=0;
+      for(let d=new Date(d0);d<=d1;d.setDate(d.getDate()+1)){
+        const iso=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+        data.studioNotes.push({id:uid(),groupId:gid,iso,text});n++;
+      }
+      save();render();toast(`${n}일에 메모를 남겼어요.`);draw();
     };
     oroot().querySelectorAll('[data-sndel]').forEach(el=>el.onclick=()=>{
-      data.studioNotes=(data.studioNotes||[]).filter(n=>n.id!==el.dataset.sndel);
+      data.studioNotes=(data.studioNotes||[]).filter(n=>(n.groupId||n.id)!==el.dataset.sndel);
       save();render();toast('지웠어요.');draw();
     });
   }
