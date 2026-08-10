@@ -251,12 +251,15 @@
       </div>
       <div id="checkCalBox" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px"></div>
       <div class="note" id="checkCalNote" style="margin:-2px 3px 10px"></div>
+      <div class="barbtns" style="margin-bottom:14px"><button id="holidayBtn" style="border-color:var(--verm);color:var(--verm)">📅 휴강 · 휴무일 관리</button><button id="studioNotesBtn">📌 특별 일정 메모</button></div>
       <div class="sechead">학생 활동 반영</div>
       <div class="barbtns"><button id="mergeSelfChecks">🔄 학생 결석 알림 · 보강 예약 불러오기</button></div>
       <div class="note">· 학생이 앱에서 '결석 예정 알리기' 또는 '보강 예약'을 하면 여기 반영 버튼을 눌러야 정식 반영돼요. 관리자가 직접 체크·수정한 내용은 항상 우선 적용되고 언제든 [출석] 탭에서 고칠 수 있어요.</div>
       <div class="sechead" style="display:flex;align-items:center;justify-content:space-between">최근 학생 활동<button class="minibtn" id="markLogSeen" style="padding:2px 6px">모두 확인</button></div>
       <div id="activityLog"></div>
-      <div class="barbtns" style="margin:14px 0 10px"><button id="holidayBtn" style="border-color:var(--verm);color:var(--verm)">📅 휴강 · 휴무일 관리</button><button id="studioNotesBtn">📌 특별 일정 메모</button></div>
+      <div class="filters" style="display:flex;align-items:center;gap:8px;margin:16px 0 10px">
+        <select id="checkClassSel" class="selin" style="flex:1"></select>
+      </div>
       <div id="checkDetail">
         <div class="sesshead" style="justify-content:flex-start"><span class="t" id="sessTitle">회차</span><span class="d" id="sessDate"></span></div>
         <div class="tally" id="tally"></div>
@@ -1097,8 +1100,8 @@ function classSortKey(c){
 }
 function renderClasses(){const sel=document.getElementById('classSel');sel.innerHTML='';
   const rowBox=document.getElementById('classRowBox'),metaBox=document.getElementById('classMeta');
-  if(rowBox)rowBox.classList.toggle('hidden',tab==='report');
-  if(metaBox)metaBox.classList.toggle('hidden',tab==='report');
+  if(rowBox)rowBox.classList.toggle('hidden',tab==='report'||tab==='check');
+  if(metaBox)metaBox.classList.toggle('hidden',tab==='report'||tab==='check');
   if(tab==='check'){
     const allOpt=document.createElement('option');allOpt.value='__all__';allOpt.textContent='전체';
     if(checkMode==='all')allOpt.selected=true;
@@ -1109,6 +1112,13 @@ function renderClasses(){const sel=document.getElementById('classSel');sel.inner
   const repSel=document.getElementById('repClassSel');
   if(repSel){repSel.innerHTML='';
     sortedClasses.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;if(c.id===data.activeClass)o.selected=true;repSel.appendChild(o);});
+  }
+  const checkSel=document.getElementById('checkClassSel');
+  if(checkSel){checkSel.innerHTML='';
+    const allOpt2=document.createElement('option');allOpt2.value='__all__';allOpt2.textContent='전체';
+    if(checkMode==='all')allOpt2.selected=true;
+    checkSel.appendChild(allOpt2);
+    sortedClasses.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;if(checkMode!=='all'&&c.id===data.activeClass)o.selected=true;checkSel.appendChild(o);});
   }
   const meta=document.getElementById('classMeta');
   if(tab==='check'&&checkMode==='all'){meta.textContent='전체보기 · 모든 반이 한 달력에 표시돼요';return;}
@@ -1687,21 +1697,20 @@ function renderReport(){const c=curClass();
   box.querySelectorAll('[data-rs]').forEach(b=>b.onclick=()=>{repScope=b.dataset.rs;renderReport();});
   const logBox=document.getElementById('activityLog');
   const allLog=(data.activityLog||[]).slice(0,50);
-  const weekAgo=Date.now()-7*86400000;
-  const recent=allLog.filter(e=>e.ts>=weekAgo);
-  const older=allLog.filter(e=>e.ts<weekAgo);
+  const unseen=allLog.filter(e=>!e.seen);
+  const seen=allLog.filter(e=>e.seen);
   if(!allLog.length){logBox.innerHTML='<div class="note">아직 학생 활동이 없어요.</div>';}
   else{
     const rowHtml=e=>{
       const ago=Math.max(0,Math.round((Date.now()-e.ts)/60000));
       const when=ago<60?ago+'분 전':ago<1440?Math.round(ago/60)+'시간 전':Math.round(ago/1440)+'일 전';
       const icon=e.type==='absent'?'🔺':e.type==='makeup'?'🔁':e.type==='admin'?'🗑':'✓';
-      return `<div class="hrow" style="${(e.seen||logIsExpired(e))?'':'font-weight:700'}"><span>${icon} ${esc(e.text)}</span><span style="display:flex;align-items:center;gap:6px"><span style="color:var(--ink-soft);font-size:11px">${when}</span><span data-logdel="${e.id}" style="color:var(--ink-soft);cursor:pointer;font-size:13px;padding:2px 4px" title="이 기록 지우기">✕</span></span></div>`;
+      return `<div class="hrow" style="${e.seen?'':'font-weight:700'}"><span>${icon} ${esc(e.text)}</span><span style="display:flex;align-items:center;gap:6px"><span style="color:var(--ink-soft);font-size:11px">${when}</span><span data-logdel="${e.id}" style="color:var(--ink-soft);cursor:pointer;font-size:13px;padding:2px 4px" title="이 기록 지우기">✕</span></span></div>`;
     };
-    let html=recent.length?recent.map(rowHtml).join(''):'<div class="note">최근 일주일 안에는 활동이 없어요.</div>';
-    if(older.length){
-      html+=`<div class="note" id="logOlderToggle" style="text-align:center;margin:8px 0;cursor:pointer;color:var(--ink-soft);border-top:1px solid var(--line);padding-top:8px">${logOlderOpen?'▲ 이전 기록 접기':'▼ 일주일 이전 기록 더보기 ('+older.length+'건)'}</div>`;
-      if(logOlderOpen)html+=older.map(rowHtml).join('');
+    let html=unseen.length?unseen.map(rowHtml).join(''):'<div class="note">확인 안 한 새 활동이 없어요.</div>';
+    if(seen.length){
+      html+=`<div class="note" id="logOlderToggle" style="text-align:center;margin:8px 0;cursor:pointer;color:var(--ink-soft);border-top:1px solid var(--line);padding-top:8px">${logOlderOpen?'▲ 확인된 기록 접기':'▼ 확인된 기록 더보기 ('+seen.length+'건)'}</div>`;
+      if(logOlderOpen)html+=seen.map(rowHtml).join('');
     }
     html+='<div class="note" style="text-align:right;margin-top:4px"><span id="logClearAll" style="color:var(--verm);cursor:pointer">전체 지우기</span></div>';
     logBox.innerHTML=html;
@@ -2646,6 +2655,10 @@ function switchTab(t){tab=t;['check','roster','report'].forEach(v=>document.getE
 
 document.getElementById('classSel').onchange=e=>{
   if(e.target.value==='__all__'){checkMode='all';switchTab('check');render();return;}
+  data.activeClass=e.target.value;checkMode='single';save();render();
+};
+document.getElementById('checkClassSel').onchange=e=>{
+  if(e.target.value==='__all__'){checkMode='all';save();render();return;}
   data.activeClass=e.target.value;checkMode='single';save();render();
 };
 document.getElementById('repClassSel').onchange=e=>{
