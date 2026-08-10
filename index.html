@@ -263,7 +263,7 @@
         <div class="tally" id="tally"></div>
         <div class="rowlist" id="checkList"></div>
       </div>
-      <div class="barbtns" style="margin:14px 0 10px"><button id="holidayBtn" style="border-color:var(--verm);color:var(--verm)">📅 휴강 · 휴무일 관리</button><button id="studioNotesBtn">📌 특별 일정 메모</button></div>
+      <div class="barbtns" style="margin:14px 0 10px"><button id="holidayBtn" style="border-color:var(--verm);color:var(--verm)">📅 휴강·휴무일 · 특별 일정 메모 관리</button></div>
       <div class="sechead" style="margin-top:18px">🗓 화실 시간표</div>
       <div id="ttAlways"></div>
       <div class="barbtns" style="margin-top:10px"><button id="ttEdit">🗓 화실 시간표 관리</button></div>
@@ -751,6 +751,7 @@ function studioNotesSheet(){
     raw.forEach(n=>{const gid=n.groupId||n.id;if(!groups[gid])groups[gid]={gid,text:n.text,isos:[]};groups[gid].isos.push(n.iso);});
     const list=Object.values(groups).sort((a,b)=>Math.max(...b.isos)<Math.max(...a.isos)?-1:1);
     oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>📌 특별 일정 메모</h3>
+      <div class="filters" style="margin:-4px 0 12px"><button class="fchip" id="dtHoliday">📅 휴강·휴무일</button><button class="fchip on" id="dtNotes">📌 특별 일정 메모</button></div>
       <div class="subt">수업은 없지만 기록해두고 싶은 날(전시·아트페어 참가 등)을 자유롭게 남겨두세요. 기간으로도 남길 수 있어요. 달력에 작은 표시로 나타나요.</div>
       <div class="fgroup"><label>시작일</label><input type="date" id="snFrom" class="selin" value="${todayISO()}"></div>
       <div class="fgroup"><label>종료일 <small style="color:var(--ink-soft);font-weight:400">(하루만이면 시작일과 같게 두세요)</small></label><input type="date" id="snTo" class="selin" value="${todayISO()}"></div>
@@ -762,6 +763,7 @@ function studioNotesSheet(){
       }).join(''):'<div class="note">아직 남긴 메모가 없어요.</div>'}</div>
       </div></div>`;
     const q=s=>oroot().querySelector(s);
+    q('#dtHoliday').onclick=()=>holidaySheet();
     q('#snAdd').onclick=()=>{
       const from=q('#snFrom').value,to=q('#snTo').value,text=q('#snText').value.trim();
       if(!from||!to||from>to){toast('날짜를 확인해주세요.');return;}
@@ -787,6 +789,7 @@ function holidaySheet(){
   let mode='class';
   function draw(){
     oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>📅 휴강 · 휴무일 관리</h3>
+      <div class="filters" style="margin:-4px 0 12px"><button class="fchip on" id="dtHoliday">📅 휴강·휴무일</button><button class="fchip" id="dtNotes">📌 특별 일정 메모</button></div>
       <div class="subt">기간을 정하고, 특정 반만 휴강할지 화실 전체를 쉴지 고르세요.</div>
       <div class="fgroup"><label>시작일</label><input type="date" id="hFrom" class="selin" value="${t}"></div>
       <div class="fgroup"><label>종료일</label><input type="date" id="hTo" class="selin" value="${t}"></div>
@@ -802,6 +805,7 @@ function holidaySheet(){
       <div class="actions"><button class="btn-ghost" id="hNo">취소</button><button class="btn-primary" id="hList">📋 목록 보기</button><button class="btn-danger" id="hOk">휴강 처리</button></div>
       </div></div>`;
     const q=s=>oroot().querySelector(s);
+    q('#dtNotes').onclick=()=>studioNotesSheet();
     q('#hNo').onclick=closeOverlay;
     q('#modeClass').onclick=()=>{mode='class';draw();};
     q('#modeAll').onclick=()=>{mode='all';draw();};
@@ -2674,7 +2678,6 @@ document.getElementById('rulesEdit').onclick=rulesSheet;
 document.getElementById('ttEdit').onclick=timetableSheet;
 document.getElementById('bulkClearBtn').onclick=bulkClearRecordsSheet;
 document.getElementById('holidayBtn').onclick=holidaySheet;
-document.getElementById('studioNotesBtn').onclick=studioNotesSheet;
 document.getElementById('diagBtn').onclick=diagnosticSheet;
 document.getElementById('codeReleaseBtn').onclick=codeReleaseSheet;
 document.getElementById('feeSearch').addEventListener('input',e=>{feeQuery=e.target.value.trim();renderFee();});
