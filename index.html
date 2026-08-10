@@ -145,7 +145,7 @@
   .stp:active{background:var(--jade);color:#fff}
   .actions{display:flex;gap:9px;margin-top:6px}
   .actions button{flex:1;border:none;border-radius:12px;padding:13px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer}
-  .btn-primary{background:var(--jade);color:#fff} .btn-ghost{background:var(--card);color:var(--ink-soft);border:1px solid var(--line)!important} .btn-danger{background:var(--verm-tint);color:var(--verm)}
+  .btn-primary{background:var(--jade);color:#fff;cursor:pointer} .btn-ghost{background:var(--card);color:var(--ink-soft);border:1px solid var(--line)!important;cursor:pointer} .btn-danger{background:var(--verm-tint);color:var(--verm);cursor:pointer}
   .setrow{display:flex;align-items:center;justify-content:space-between;padding:10px 2px;border-bottom:1px solid var(--line-soft)}
   .setrow .l{font-size:13.5px} .setrow .l small{display:block;color:var(--ink-soft);font-size:10.5px}
   .setrow input{width:115px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-family:inherit;font-size:15px;text-align:right}
@@ -2283,10 +2283,12 @@ function editStudent(st){
   oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>${esc(st.name)} · 정보 수정</h3>
     <button class="minibtn" id="esGoDetail" style="width:100%;margin-bottom:14px;border-color:var(--blue);color:var(--blue)">📅 출결·수업료 상세 보기</button>
     <div class="fgroup"><label>학생 앱 로그인 코드</label>
-      ${st.code?`<div class="selin" style="font-weight:700;letter-spacing:3px;text-align:center;font-size:20px;padding:14px;background:var(--jade-tint);color:var(--jade-deep);border-color:var(--jade)">${st.code}</div>
+      ${st.code?`<div style="display:flex;gap:8px;align-items:stretch">
+          <div class="selin" style="flex:0 0 33%;font-weight:700;letter-spacing:2px;text-align:center;font-size:18px;padding:14px 4px;margin-top:0;background:var(--jade-tint);color:var(--jade-deep);border-color:var(--jade)">${st.code}</div>
+          <button class="btn-ghost" id="esRevoke" style="flex:1;border-radius:11px;padding:11px;color:var(--verm)">이 코드 연결 해제<br><small style="font-weight:400">(사용 못 하게 끊기)</small></button>
+        </div>
         <div class="note" style="margin:6px 3px 0">이 4자리 코드를 학생에게 알려주세요. 학생 앱에서 이 코드로 로그인해요.</div>
-        ${suggestedCode&&suggestedCode!==st.code?`<button class="btn-ghost" id="esUsePhone" style="width:100%;border-radius:11px;padding:11px;margin-top:8px;color:var(--jade-deep);border-color:var(--jade)">전화번호 뒷자리(${suggestedCode})로 바꾸기</button>`:''}
-        <button class="btn-ghost" id="esRevoke" style="width:100%;border-radius:11px;padding:11px;margin-top:8px;color:var(--verm)">이 코드 연결 해제 (사용 못 하게 끊기)</button>`
+        ${suggestedCode&&suggestedCode!==st.code?`<button class="btn-ghost" id="esUsePhone" style="width:100%;border-radius:11px;padding:11px;margin-top:8px;color:var(--jade-deep);border-color:var(--jade)">전화번호 뒷자리(${suggestedCode})로 바꾸기</button>`:''}`
         :`<div style="display:flex;gap:7px">
           <input id="esCodeIn" class="selin" style="text-align:center;font-weight:700;letter-spacing:3px;margin-top:0" maxlength="4" inputmode="numeric" placeholder="비우면 자동 생성" value="${suggestedCode}">
           <button class="btn-ghost" id="esGenCode" style="border-radius:11px;padding:0 16px;white-space:nowrap">발급</button></div>
