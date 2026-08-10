@@ -1106,7 +1106,7 @@ function renderClasses(){const sel=document.getElementById('classSel');sel.inner
   if(rowBox)rowBox.classList.toggle('hidden',tab==='report'||tab==='check');
   if(metaBox)metaBox.classList.toggle('hidden',tab==='report'||tab==='check');
   if(tab==='check'){
-    const allOpt=document.createElement('option');allOpt.value='__all__';allOpt.textContent='전체';
+    const allOpt=document.createElement('option');allOpt.value='__all__';allOpt.textContent='반 선택';
     if(checkMode==='all')allOpt.selected=true;
     sel.appendChild(allOpt);
   }
@@ -1118,7 +1118,7 @@ function renderClasses(){const sel=document.getElementById('classSel');sel.inner
   }
   const checkSel=document.getElementById('checkClassSel');
   if(checkSel){checkSel.innerHTML='';
-    const allOpt2=document.createElement('option');allOpt2.value='__all__';allOpt2.textContent='전체';
+    const allOpt2=document.createElement('option');allOpt2.value='__all__';allOpt2.textContent='반 선택';
     if(checkMode==='all')allOpt2.selected=true;
     checkSel.appendChild(allOpt2);
     sortedClasses.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;if(checkMode!=='all'&&c.id===data.activeClass)o.selected=true;checkSel.appendChild(o);});
