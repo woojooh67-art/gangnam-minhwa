@@ -134,6 +134,8 @@
   .chk input{width:20px;height:20px}
   .planopts{display:flex;gap:7px;margin-bottom:13px}
   .plan{flex:1;text-align:center;border:1.5px solid var(--line);background:var(--card);border-radius:13px;padding:11px 4px;cursor:pointer}
+  .plan.sm{flex:0.72;padding:7px 3px;border-radius:11px}
+  .plan.sm .pn{font-size:12px} .plan.sm .pd{font-size:9px} .plan.sm .pp{font-size:11px;margin-top:1px}
   .plan.sel{border-color:var(--jade);background:var(--jade-tint)}
   .plan .pn{font-weight:700;font-size:14.5px} .plan .pd{font-size:10.5px;color:var(--ink-soft)} .plan .pp{font-weight:700;font-size:12.5px;color:var(--jade-deep);margin-top:3px}
   .field{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
@@ -2029,7 +2031,7 @@ function studentSheet(st){const fee=feeFor(st);
     if(key==='1r')return !isResearchSt;
     return false;
   };
-  let sess=4,amt=planAmount(fee,4),selKey=(!hasRealClassSt?'dropin8':isResearchSt?'1r':'4'),delId=null;
+  let sess=4,amt=planAmount(fee,4),selKey=(!hasRealClassSt?'dropin8':'4'),delId=null;
   if(selKey==='1r'){sess=1;amt=data.rates.dailyResearch||90000;}
   if(selKey==='dropin8'){sess=0;amt=data.rates.dropin8Price||440000;}
   function draw(){
@@ -2066,7 +2068,8 @@ function studentSheet(st){const fee=feeFor(st);
       </div>
 
       <div class="sechead" style="margin-top:6px">수업료 결제</div>
-      <div class="planopts">${opts.map(o=>`<div class="plan ${o[0]===selKey?'sel':''}" data-s="${o[0]}" style="${mismatchOf(o[0])?'opacity:.4':''}"><div class="pn">${o[1]}${mismatchOf(o[0])?' ⚠':''}</div><div class="pd">${o[2]}</div><div class="pp">${won(o[4])}</div></div>`).join('')}</div>
+      <div class="planopts">${opts.filter(o=>['4','12','24'].includes(o[0])).map(o=>`<div class="plan ${o[0]===selKey?'sel':''}" data-s="${o[0]}" style="${mismatchOf(o[0])?'opacity:.4':''}"><div class="pn">${o[1]}${mismatchOf(o[0])?' ⚠':''}</div><div class="pd">${o[2]}</div><div class="pp">${won(o[4])}</div></div>`).join('')}</div>
+      <div class="planopts" style="margin-top:-6px">${opts.filter(o=>!['4','12','24'].includes(o[0])).map(o=>`<div class="plan sm ${o[0]===selKey?'sel':''}" data-s="${o[0]}" style="${mismatchOf(o[0])?'opacity:.4':''}"><div class="pn">${o[1]}${mismatchOf(o[0])?' ⚠':''}</div><div class="pd">${o[2]}</div><div class="pp">${won(o[4])}</div></div>`).join('')}</div>
       ${opts.some(o=>mismatchOf(o[0]))?'<div class="note" style="margin:-8px 2px 10px">⚠ 표시된 옵션은 이 학생의 소속 반과 안 맞을 수 있어요. 특별한 사정이 아니면 피해주세요.</div>':''}
       <div class="field"><label>등록 회차 <small style="color:var(--ink-soft)">(선택한 권종 그대로 · 특별한 경우만 직접 고치세요)</small></label><span class="stepwrap"><button class="stp" data-d="-1">－</button><input type="number" id="pSess" inputmode="numeric" value="${sess}"><button class="stp" data-d="1">＋</button></span></div>
       <div class="field"><label>금액 <small style="color:var(--ink-soft)">(±1만원)</small></label><span class="stepwrap"><button class="stpA" data-d="-10000">－</button><input type="number" id="pAmt" inputmode="numeric" value="${amt}" style="width:120px!important"><button class="stpA" data-d="10000">＋</button></span></div>
