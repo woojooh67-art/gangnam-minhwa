@@ -323,7 +323,7 @@ const KEY='ggmh_v22';
 const STATUSES=['present','absent','makeup','dropin'];
 const LABEL={present:'출석',late:'지각',absent:'결석',makeup:'보강',dropin:'일일권 출석',none:'재결제 필요'};
 const CLS={present:'st-present',late:'st-late',absent:'st-absent',makeup:'st-makeup',dropin:'st-dropin',none:'st-none'};
-let mem=null,data=null,tab='check',activeSess={},feeFilter='all',feeQuery='',feeScope='all',rosterScope='all',rosterQuery='',repMonth=null,repScope='month',checkCalYM={},checkMode='all',dropinOpen=false,stuMode='roster';
+let mem=null,data=null,tab='check',activeSess={},feeFilter='all',feeQuery='',feeScope='all',rosterScope='all',rosterQuery='',repMonth=null,repScope='month',checkCalYM={},checkMode='all',dropinOpen=false,stuMode='roster',logOlderOpen=false;
 
 /* ---------- utils ---------- */
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
@@ -1674,14 +1674,27 @@ function renderReport(){const c=curClass();
     <div class="note">· ${scopeLabel} 기준 ${scopeSessions.length}회차 (반 전체 누적 ${c.sessions.length}회차 중) · 회차 차감은 출석·지각만(결석·보강 차감 없음).</div>`;
   box.querySelectorAll('[data-rs]').forEach(b=>b.onclick=()=>{repScope=b.dataset.rs;renderReport();});
   const logBox=document.getElementById('activityLog');
-  const log=(data.activityLog||[]).slice(0,15);
-  if(!log.length){logBox.innerHTML='<div class="note">아직 학생 활동이 없어요.</div>';}
-  else{logBox.innerHTML=log.map(e=>{
-    const ago=Math.max(0,Math.round((Date.now()-e.ts)/60000));
-    const when=ago<60?ago+'분 전':ago<1440?Math.round(ago/60)+'시간 전':Math.round(ago/1440)+'일 전';
-    const icon=e.type==='absent'?'🔺':e.type==='makeup'?'🔁':e.type==='admin'?'🗑':'✓';
-    return `<div class="hrow" style="${(e.seen||logIsExpired(e))?'':'font-weight:700'}"><span>${icon} ${esc(e.text)}</span><span style="display:flex;align-items:center;gap:6px"><span style="color:var(--ink-soft);font-size:11px">${when}</span><span data-logdel="${e.id}" style="color:var(--ink-soft);cursor:pointer;font-size:13px;padding:2px 4px" title="이 기록 지우기">✕</span></span></div>`;
-  }).join('')+'<div class="note" style="text-align:right;margin-top:4px"><span id="logClearAll" style="color:var(--verm);cursor:pointer">전체 지우기</span></div>';
+  const allLog=(data.activityLog||[]).slice(0,50);
+  const weekAgo=Date.now()-7*86400000;
+  const recent=allLog.filter(e=>e.ts>=weekAgo);
+  const older=allLog.filter(e=>e.ts<weekAgo);
+  if(!allLog.length){logBox.innerHTML='<div class="note">아직 학생 활동이 없어요.</div>';}
+  else{
+    const rowHtml=e=>{
+      const ago=Math.max(0,Math.round((Date.now()-e.ts)/60000));
+      const when=ago<60?ago+'분 전':ago<1440?Math.round(ago/60)+'시간 전':Math.round(ago/1440)+'일 전';
+      const icon=e.type==='absent'?'🔺':e.type==='makeup'?'🔁':e.type==='admin'?'🗑':'✓';
+      return `<div class="hrow" style="${(e.seen||logIsExpired(e))?'':'font-weight:700'}"><span>${icon} ${esc(e.text)}</span><span style="display:flex;align-items:center;gap:6px"><span style="color:var(--ink-soft);font-size:11px">${when}</span><span data-logdel="${e.id}" style="color:var(--ink-soft);cursor:pointer;font-size:13px;padding:2px 4px" title="이 기록 지우기">✕</span></span></div>`;
+    };
+    let html=recent.length?recent.map(rowHtml).join(''):'<div class="note">최근 일주일 안에는 활동이 없어요.</div>';
+    if(older.length){
+      html+=`<div class="note" id="logOlderToggle" style="text-align:center;margin:8px 0;cursor:pointer;color:var(--ink-soft);border-top:1px solid var(--line);padding-top:8px">${logOlderOpen?'▲ 이전 기록 접기':'▼ 일주일 이전 기록 더보기 ('+older.length+'건)'}</div>`;
+      if(logOlderOpen)html+=older.map(rowHtml).join('');
+    }
+    html+='<div class="note" style="text-align:right;margin-top:4px"><span id="logClearAll" style="color:var(--verm);cursor:pointer">전체 지우기</span></div>';
+    logBox.innerHTML=html;
+    const olderToggle=document.getElementById('logOlderToggle');
+    if(olderToggle)olderToggle.onclick=()=>{logOlderOpen=!logOlderOpen;renderReport();};
   logBox.querySelectorAll('[data-logdel]').forEach(el=>el.onclick=()=>{
     data.activityLog=(data.activityLog||[]).filter(x=>x.id!==el.dataset.logdel);
     save();renderReport();
