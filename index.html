@@ -2058,8 +2058,12 @@ function studentSheet(st){const fee=feeFor(st);
       ${isDelayedUsage(st)?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;margin:-6px 0 12px">⏰ 정상 진행 기간(주 1회 기준)이 지났지만 잔여 회차가 남아있어 계속 수강 중이에요.</div>`:''}
       ${dropinPackActive(st)?`<div class="note" style="background:var(--purple-tint);color:var(--purple);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">💜 하루수업 선결제 ${dropinPackRemain(st)}/${st.dropinPack.total}회 남음 · ${st.dropinPack.expiry}까지</div>`:''}
       <div class="barbtns"><button id="stMsg">📩 안내 문구</button><button id="stGuide">📱 앱 사용법 안내</button></div>
-      <div class="barbtns"><button id="stEdit">정보 수정</button><button id="stBulk" style="border-color:var(--ochre);color:var(--ochre)">📅 지난 결제 일괄 입력</button></div>
-      <div class="barbtns"><button id="stClearHist" style="border-color:var(--verm);color:var(--verm)">🧹 이 학생 기록만 기간별 초기화</button></div>
+      <div class="barbtns"><button id="stEdit">정보 수정</button></div>
+      <button class="minibtn" id="stToolsToggle" type="button" style="width:100%;margin:4px 0 12px;color:var(--ink-soft)">⚙ 고급 도구 — 지난 기록 정리 (평소엔 안 건드려도 돼요) ▾</button>
+      <div id="stToolsBox" class="hidden">
+        <div class="barbtns"><button id="stBulk" style="border-color:var(--ochre);color:var(--ochre)">📅 지난 결제 일괄 입력</button></div>
+        <div class="barbtns"><button id="stClearHist" style="border-color:var(--verm);color:var(--verm)">🧹 이 학생 기록만 기간별 초기화</button></div>
+      </div>
 
       <div class="sechead" style="margin-top:6px">수업료 결제</div>
       <div class="planopts">${opts.map(o=>`<div class="plan ${o[0]===selKey?'sel':''}" data-s="${o[0]}" style="${mismatchOf(o[0])?'opacity:.4':''}"><div class="pn">${o[1]}${mismatchOf(o[0])?' ⚠':''}</div><div class="pd">${o[2]}</div><div class="pp">${won(o[4])}</div></div>`).join('')}</div>
@@ -2145,6 +2149,11 @@ function studentSheet(st){const fee=feeFor(st);
         }
         st.payments.push({id:uid(),sessions:S,amount:A,date:D,plan:S,memo:M});save();renderFee();renderReport();studentSheet(st);toast('결제가 저장되었습니다.');};};
     q('#stEdit').onclick=()=>editStudent(st);
+    q('#stToolsToggle').onclick=()=>{
+      const box=q('#stToolsBox');const willOpen=box.classList.contains('hidden');
+      box.classList.toggle('hidden');
+      q('#stToolsToggle').textContent=willOpen?'⚙ 고급 도구 — 지난 기록 정리 ▴':'⚙ 고급 도구 — 지난 기록 정리 (평소엔 안 건드려도 돼요) ▾';
+    };
     q('#stBulk').onclick=()=>bulkSheet(st);
     q('#stClearHist').onclick=()=>studentClearHistSheet(st);
     q('#stMsg').onclick=()=>msgSheet(st);
