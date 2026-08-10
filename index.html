@@ -234,7 +234,7 @@
 <div class="app">
   <div class="topbar">
     <div class="brand" style="justify-content:space-between;display:flex;width:100%;align-items:center"><div style="display:flex;align-items:center;gap:9px"><img id="logoImgTop" style="width:44px;height:44px;border-radius:50%;flex:0 0 auto"><div><h1 style="display:inline">강남민화연구소</h1> <span>출석 · 수업료</span></div></div><div style="display:flex;gap:6px"><button class="logoutbtn" id="adminRefresh" title="새로고침">🔄</button><button class="logoutbtn" id="adminLogout">로그아웃</button></div></div>
-    <div class="classrow">
+    <div class="classrow" id="classRowBox">
       <select id="classSel"></select>
       <button class="iconbtn" id="addClass">＋</button>
       <button class="iconbtn" id="editClass" style="color:var(--ink-soft);font-size:15px">✎</button>
@@ -290,6 +290,9 @@
     <section id="view-report" class="hidden">
       <div class="sechead">연구소 전체</div>
       <div class="kpi" id="allKpi"></div>
+      <div class="filters" style="display:flex;align-items:center;gap:8px;margin:14px 0 4px">
+        <select id="repClassSel" class="selin" style="flex:1"></select>
+      </div>
       <div class="sechead" id="repTitle">반 출석 현황</div>
       <div id="reportBody"></div>
       <div class="sechead">월별 수납</div>
@@ -1093,6 +1096,9 @@ function classSortKey(c){
   return dayPart*10000+timePart;
 }
 function renderClasses(){const sel=document.getElementById('classSel');sel.innerHTML='';
+  const rowBox=document.getElementById('classRowBox'),metaBox=document.getElementById('classMeta');
+  if(rowBox)rowBox.classList.toggle('hidden',tab==='report');
+  if(metaBox)metaBox.classList.toggle('hidden',tab==='report');
   if(tab==='check'){
     const allOpt=document.createElement('option');allOpt.value='__all__';allOpt.textContent='전체';
     if(checkMode==='all')allOpt.selected=true;
@@ -1100,6 +1106,10 @@ function renderClasses(){const sel=document.getElementById('classSel');sel.inner
   }
   const sortedClasses=data.classes.filter(x=>!x.isTempContainer).slice().sort((a,b)=>classSortKey(a)-classSortKey(b));
   sortedClasses.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;if(!(tab==='check'&&checkMode==='all')&&c.id===data.activeClass)o.selected=true;sel.appendChild(o);});
+  const repSel=document.getElementById('repClassSel');
+  if(repSel){repSel.innerHTML='';
+    sortedClasses.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;if(c.id===data.activeClass)o.selected=true;repSel.appendChild(o);});
+  }
   const meta=document.getElementById('classMeta');
   if(tab==='check'&&checkMode==='all'){meta.textContent='전체보기 · 모든 반이 한 달력에 표시돼요';return;}
   const c=curClass();meta.textContent=`${c.sched||''} · ${c.type} · 월(4회) ${won(c.fee)} · 재적 ${activeIn(c.id).length}명`;}
@@ -2637,6 +2647,9 @@ function switchTab(t){tab=t;['check','roster','report'].forEach(v=>document.getE
 document.getElementById('classSel').onchange=e=>{
   if(e.target.value==='__all__'){checkMode='all';switchTab('check');render();return;}
   data.activeClass=e.target.value;checkMode='single';save();render();
+};
+document.getElementById('repClassSel').onchange=e=>{
+  data.activeClass=e.target.value;save();render();
 };
 document.getElementById('checkAllToggle').onclick=()=>{checkMode='all';render();};
 document.getElementById('addClass').onclick=addClass;
