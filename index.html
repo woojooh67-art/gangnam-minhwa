@@ -2985,6 +2985,7 @@ function renderStudentApp(){
             <button class="checkbtn" style="flex:1;padding:8px 10px;margin:0;font-size:12.5px" data-dcid="${u.classId}" data-dsid="${u.sessionId}" data-diso="${u.iso}" data-dlabel="${esc(u.label||'')}" data-dcname="${esc(u.className)}" data-drate="${rRegular}">2~5시만 · ${won(rRegular)}</button>
             <button class="checkbtn" style="flex:1;padding:8px 10px;margin:0;font-size:12.5px;background:var(--purple)" data-dcid="${u.classId}" data-dsid="${u.sessionId}" data-diso="${u.iso}" data-dlabel="${esc(u.label||'')}" data-dcname="${esc(u.className)}" data-drate="${rFull}">풀타임 · ${won(rFull)}</button>
           </div>
+          <div class="note" style="margin:0;font-size:11.5px">💡 풀타임은 점심시간 1시간 포함(총 6시간)이며, 식사비는 별도예요.</div>
         </div>`;
       }
       const rate=rateFor(u);
