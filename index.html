@@ -266,6 +266,7 @@
         <div class="rowlist" id="checkList"></div>
       </div>
       <div class="barbtns" style="margin:14px 0 10px"><button id="holidayBtn" style="border-color:var(--verm);color:var(--verm)">📅 휴강·휴무일 · 특별 일정 메모 관리</button></div>
+      <div class="barbtns" style="margin-bottom:10px"><button id="announceBtn">📢 공지사항 (학생 앱 팝업)</button></div>
       <div class="sechead" style="margin-top:18px">🗓 화실 시간표</div>
       <div id="ttAlways"></div>
       <div class="barbtns" style="margin-top:10px"><button id="ttEdit">🗓 화실 시간표 관리</button></div>
@@ -558,7 +559,7 @@ async function regenerateStudentViews(){
         dropin:!!(st.dropin||st.dropinOnce),dailyRate:data.rates.daily||60000,dailyRateResearch:data.rates.dailyResearch||90000,
         dropinPack:(st.dropinPack&&!isDropinPackExpired(st))?{total:st.dropinPack.total,used:st.dropinPack.used,expiry:st.dropinPack.expiry}:null,dropin8Days:data.rates.dropin8Days||90,
         payments:(st.payments||[]).slice().sort((a,b)=>a.date<b.date?1:-1).map(p=>({date:p.date,amount:p.amount,sessions:p.sessions,plan:p.plan})),
-        makeupDue:makeupDue(st),studioRules:applyRuleTokens(data.studioRules||''),timetableGrid,allSkipped,allUpcomingSkipped,archiveMarks:st.archiveMarks||{},updatedAt:Date.now()
+        makeupDue:makeupDue(st),studioRules:applyRuleTokens(data.studioRules||''),announcement:data.announcement||null,timetableGrid,allSkipped,allUpcomingSkipped,archiveMarks:st.archiveMarks||{},updatedAt:Date.now()
       };
       const safePayload=JSON.parse(JSON.stringify(payload));
       batch.set(db.collection('studentViews').doc(st.uid),safePayload);
@@ -586,6 +587,7 @@ function migrate(d){
       s.iso=todayISO();}});});
   d.classes.forEach(c=>{if(!c.recMemos)c.recMemos={};});
   if(!Array.isArray(d.studioNotes))d.studioNotes=[];
+  if(!d.announcement)d.announcement=null;
   {const t=todayISO(); // 아직 오지 않은 미래 날짜에 잘못 남아있는 '출석' 기록 정리 (미리 회차를 만들 때 자동으로 출석 처리되던 예전 버그 교정)
     d.classes.forEach(c=>{(c.sessions||[]).forEach(s=>{if(s.iso>t){
       Object.keys(c.records||{}).forEach(k=>{if(k.indexOf(s.id+':')===0&&c.records[k]==='present')delete c.records[k];});
@@ -745,6 +747,26 @@ function diagnosticSheet(){
   oroot().querySelectorAll('[data-diagid]').forEach(el=>el.onclick=()=>{
     const st=studentById(el.dataset.diagid);if(st)studentSheet(st);
   });
+}
+function announcementSheet(){
+  function draw(){
+    const a=data.announcement;
+    oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>📢 공지사항</h3>
+      <div class="subt">여기 적어두시면, 학생이 앱에 로그인할 때 팝업 창으로 한 번 떠요. 확인하면 다시 안 떠요 (새 공지를 다시 저장하시면 모든 학생한테 또 한 번씩 떠요).</div>
+      <div class="fgroup"><label>공지 내용 <small style="color:var(--ink-soft)">(비워두고 저장하면 공지가 꺼져요)</small></label><textarea class="msg" id="anTa" style="min-height:140px" placeholder="예: 8/15(토)은 광복절로 휴강입니다. 다음주 정상 수업합니다.">${esc(a?a.text:'')}</textarea></div>
+      ${a?`<div class="note" style="margin:-6px 3px 10px">현재 켜져 있는 공지예요. 학생마다 확인했는지 여부는 각자 앱에서 관리돼요.</div>`:''}
+      <div class="actions"><button class="btn-ghost" id="anNo">취소</button><button class="btn-primary" id="anOk">저장</button></div>
+      </div></div>`;
+    const q=s=>oroot().querySelector(s);
+    q('#anNo').onclick=closeOverlay;
+    q('#anOk').onclick=()=>{
+      const text=q('#anTa').value.trim();
+      if(!text){data.announcement=null;save();render();closeOverlay();toast('공지를 껐어요.');return;}
+      data.announcement={id:uid(),text,createdAt:Date.now()};
+      save();render();closeOverlay();toast('공지를 저장했어요. 학생 앱에 팝업으로 떠요.');
+    };
+  }
+  draw();
 }
 function studioNotesSheet(){
   function draw(){
@@ -2719,6 +2741,7 @@ document.getElementById('rulesEdit').onclick=rulesSheet;
 document.getElementById('ttEdit').onclick=timetableSheet;
 document.getElementById('bulkClearBtn').onclick=bulkClearRecordsSheet;
 document.getElementById('holidayBtn').onclick=holidaySheet;
+document.getElementById('announceBtn').onclick=announcementSheet;
 document.getElementById('diagBtn').onclick=diagnosticSheet;
 document.getElementById('codeReleaseBtn').onclick=codeReleaseSheet;
 document.getElementById('feeSearch').addEventListener('input',e=>{feeQuery=e.target.value.trim();renderFee();});
@@ -3045,7 +3068,7 @@ function renderStudentApp(){
       </div>`;
     }
     dropinSection=`<div class="stucard" style="background:var(--purple-tint);border-color:var(--purple)">
-      <h3 style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;color:var(--purple)" id="dropinToggle">하루수업 신청 <span style="font-size:13px;color:var(--purple)">${dropinOpen?'▲ 접기':'▼ 펼치기'}</span></h3>
+      <h3 style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;color:var(--purple)" id="dropinToggle">${stuData.status==='paused'?'💜 ':''}하루수업 신청 <span style="font-size:13px;color:var(--purple)">${dropinOpen?'▲ 접기':'▼ 펼치기'}</span></h3>
       ${packBar}
       ${dropinOpen?`${regularRows}${researchRows}<div class="note">신청하시면 원장님 확인 후 정식 반영돼요.${stuData.dropinPack?' 선결제 회차가 있으면 자동으로 먼저 차감돼요.':' 수업 오시는 날 회비를 결제해주세요.'}</div>`:''}
     </div>`;
@@ -3290,6 +3313,23 @@ async function enterStudent(u){
     catch(e){console.error(e);stuData._pendingDropinCancel=[];}
   }
   renderStudentApp();
+  maybeShowAnnouncement();
+}
+function maybeShowAnnouncement(){
+  if(!stuData||!stuData.announcement)return;
+  const a=stuData.announcement;
+  let seenIds=[];
+  try{seenIds=JSON.parse(localStorage.getItem('gmh_seen_announcements')||'[]');}catch(e){seenIds=[];}
+  if(seenIds.indexOf(a.id)>=0)return;
+  oroot().innerHTML=`<div class="overlay"><div class="sheet"><h3>📢 공지사항</h3>
+    <div style="white-space:pre-wrap;font-size:14.5px;line-height:1.7;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin:6px 0 16px">${esc(a.text)}</div>
+    <div class="actions"><button class="btn-primary" id="anSeenOk" style="width:100%">확인했어요</button></div>
+    </div></div>`;
+  oroot().querySelector('#anSeenOk').onclick=()=>{
+    seenIds.push(a.id);
+    try{localStorage.setItem('gmh_seen_announcements',JSON.stringify(seenIds.slice(-20)));}catch(e){}
+    closeOverlay();
+  };
 }
 
 /* ---------- auth bootstrap ---------- */
