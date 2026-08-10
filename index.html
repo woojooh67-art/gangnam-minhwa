@@ -554,7 +554,7 @@ async function regenerateStudentViews(){
         makeupLeft:effectiveMakeupLeft(st),allUpcoming:upcomingForStu,myMakeups,myDropins,
         makeupDueExpired:expired,makeupDueSoon:(daysLeft!==null&&daysLeft<=7),delayedUsage:isDelayedUsage(st),paceEnd:expectedPaceEnd(st),makeupDueExtended:!!st.makeupDueOverride,
         dropin:!!(st.dropin||st.dropinOnce),dailyRate:data.rates.daily||60000,dailyRateResearch:data.rates.dailyResearch||90000,
-        dropinPack:(st.dropinPack&&!isDropinPackExpired(st))?{total:st.dropinPack.total,used:st.dropinPack.used,expiry:st.dropinPack.expiry}:null,
+        dropinPack:(st.dropinPack&&!isDropinPackExpired(st))?{total:st.dropinPack.total,used:st.dropinPack.used,expiry:st.dropinPack.expiry}:null,dropin8Days:data.rates.dropin8Days||90,
         payments:(st.payments||[]).slice().sort((a,b)=>a.date<b.date?1:-1).map(p=>({date:p.date,amount:p.amount,sessions:p.sessions,plan:p.plan})),
         makeupDue:makeupDue(st),studioRules:applyRuleTokens(data.studioRules||''),timetableGrid,allSkipped,allUpcomingSkipped,archiveMarks:st.archiveMarks||{},updatedAt:Date.now()
       };
@@ -1035,7 +1035,7 @@ function recomputeDropinPack(st){
   const pays=(st.payments||[]).filter(p=>p.plan==='dropin8');
   if(!pays.length){delete st.dropinPack;return;}
   let expiry=null;
-  pays.forEach(p=>{const exp=addDays(p.date,90);if(!expiry||exp>expiry)expiry=exp;});
+  pays.forEach(p=>{const exp=addDays(p.date,data.rates.dropin8Days||90);if(!expiry||exp>expiry)expiry=exp;});
   const usedBefore=st.dropinPack?st.dropinPack.used:0;
   st.dropinPack={total:pays.length*8,used:usedBefore,expiry};
 }
@@ -2031,10 +2031,10 @@ function studentSheet(st){const fee=feeFor(st);
   };
   let sess=4,amt=planAmount(fee,4),selKey=(!hasRealClassSt?'dropin8':isResearchSt?'1r':'4'),delId=null;
   if(selKey==='1r'){sess=1;amt=data.rates.dailyResearch||90000;}
-  if(selKey==='dropin8'){sess=0;amt=440000;}
+  if(selKey==='dropin8'){sess=0;amt=data.rates.dropin8Price||440000;}
   function draw(){
     const prevSheet=oroot().querySelector('.sheet');const savedScroll=prevSheet?prevSheet.scrollTop:0;
-    const opts=[['1','일일(정규)','1회',1,data.rates.daily||60000],['1r','일일(연구)','1회',1,data.rates.dailyResearch||90000],['4','4회','정가',4,planAmount(fee,4)],['12','12회',data.rates.d3+'%↓',12,planAmount(fee,12)],['24','24회',data.rates.d6+'%↓',24,planAmount(fee,24)],['dropin8','하루수업 8회 선결제','90일 이내 자유 이용',0,440000]];
+    const opts=[['1','일일(정규)','1회',1,data.rates.daily||60000],['1r','일일(연구)','1회',1,data.rates.dailyResearch||90000],['4','4회','정가',4,planAmount(fee,4)],['12','12회',data.rates.d3+'%↓',12,planAmount(fee,12)],['24','24회',data.rates.d6+'%↓',24,planAmount(fee,24)],['dropin8','하루수업 8회 선결제',(data.rates.dropin8Days||90)+'일 이내 자유 이용',0,data.rates.dropin8Price||440000]];
     const hist=(st.payments||[]).slice().sort((a,b)=>a.date<b.date?1:-1);
     const marks=marksOf(st).slice(0,10);
     const paceEndSt=expectedPaceEnd(st);
@@ -2114,7 +2114,7 @@ function studentSheet(st){const fee=feeFor(st);
       oroot().insertAdjacentHTML('beforeend',`<div class="overlay" id="pConfirmOv"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>이대로 저장할까요?</h3>
         <div style="font-size:14.5px;line-height:1.9;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:6px 0 16px">
           <div>📅 결제일: <b>${D}</b></div>
-          ${selKey==='dropin8'?`<div>🔢 하루수업 <b>8회</b> 선결제 · <b>${addDays(D,90)}</b>까지 유효</div>`:`<div>🔢 등록 회차: <b>${S}회</b></div>`}
+          ${selKey==='dropin8'?`<div>🔢 하루수업 <b>8회</b> 선결제 · <b>${addDays(D,data.rates.dropin8Days||90)}</b>까지 유효</div>`:`<div>🔢 등록 회차: <b>${S}회</b></div>`}
           <div>💰 금액: <b>${won(A)}</b></div>
           ${M?`<div>📝 메모: <b>${esc(M)}</b></div>`:''}
         </div>
@@ -2123,7 +2123,7 @@ function studentSheet(st){const fee=feeFor(st);
       oroot().querySelector('#pcNo').onclick=()=>oroot().querySelector('#pConfirmOv').remove();
       oroot().querySelector('#pcYes').onclick=()=>{
         if(selKey==='dropin8'){
-          const exp=addDays(D,90);
+          const exp=addDays(D,data.rates.dropin8Days||90);
           if(!st.dropinPack||isDropinPackExpired(st)||st.dropinPack.used>=st.dropinPack.total){
             st.dropinPack={total:8,used:0,expiry:exp};
           }else{
@@ -2388,12 +2388,14 @@ function classMoveSheet(st){
 /* ---------- settings / class ---------- */
 function openSettings(){oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>요금 · 할인 설정</h3>
   <div class="subt">월요금은 4회 기준입니다. 인상하면 이후 결제부터 적용됩니다.</div>
-  ${data.classes.map(c=>`<div class="setrow"><div class="l">${esc(c.name)}<small>${c.type} · ${esc(c.sched||'')}</small></div><input type="number" data-fee="${c.id}" value="${c.fee}"></div>`).join('')}
+  ${data.classes.filter(c=>!c.isTempContainer).map(c=>`<div class="setrow"><div class="l">${esc(c.name)}<small>${c.type} · ${esc(c.sched||'')}</small></div><input type="number" data-fee="${c.id}" value="${c.fee}"></div>`).join('')}
   <div class="setrow"><div class="l">일일 수업료<small>정규반 1회 참여</small></div><input type="number" id="setDaily" value="${data.rates.daily||60000}"></div>
   <div class="setrow"><div class="l">연구반 일일 수업료<small>연구반 1회 참여(하루)</small></div><input type="number" id="setDailyResearch" value="${data.rates.dailyResearch||90000}"></div>
   <div class="setrow"><div class="l">12회(3개월) 할인<small>%</small></div><input type="number" id="setD3" value="${data.rates.d3}"></div>
   <div class="setrow"><div class="l">24회(6개월) 할인<small>%</small></div><input type="number" id="setD6" value="${data.rates.d6}"></div>
   <div class="setrow"><div class="l">타임당 정원<small>보강 예약 가능 인원 기준</small></div><input type="number" id="setCap" value="${capacityOf()}"></div>
+  <div class="setrow"><div class="l">하루수업 8회 선결제(쿠폰) 가격<small>원</small></div><input type="number" id="setDropin8Price" value="${data.rates.dropin8Price||440000}"></div>
+  <div class="setrow"><div class="l">쿠폰 사용 기한<small>결제일로부터 일수</small></div><input type="number" id="setDropin8Days" value="${data.rates.dropin8Days||90}"></div>
   <div class="actions" style="margin-top:15px"><button class="btn-ghost" id="sNo">취소</button><button class="btn-primary" id="sOk">저장</button></div></div></div>`;
   oroot().querySelector('#sNo').onclick=closeOverlay;
   oroot().querySelector('#sOk').onclick=()=>{oroot().querySelectorAll('input[data-fee]').forEach(inp=>{const c=classById(inp.dataset.fee);if(c)c.fee=Math.max(0,parseInt(inp.value)||0);});
@@ -2402,6 +2404,8 @@ function openSettings(){oroot().innerHTML=`<div class="overlay"><div class="shee
     data.rates.d3=Math.max(0,parseInt(oroot().querySelector('#setD3').value)||0);
     data.rates.d6=Math.max(0,parseInt(oroot().querySelector('#setD6').value)||0);
     data.capacity=Math.max(1,parseInt(oroot().querySelector('#setCap').value)||7);
+    data.rates.dropin8Price=Math.max(0,parseInt(oroot().querySelector('#setDropin8Price').value)||440000);
+    data.rates.dropin8Days=Math.max(1,parseInt(oroot().querySelector('#setDropin8Days').value)||90);
     save();closeOverlay();render();toast('저장되었습니다.');};}
 
 function ruleTokenValues(){
@@ -2412,7 +2416,7 @@ function ruleTokenValues(){
     정규요금:won(modeFee('정규')),연구요금:won(modeFee('연구')),
     하루수업:won(data.rates.daily||60000),하루연구:won(data.rates.dailyResearch||90000),
     할인12:(data.rates.d3||10)+'%',할인24:(data.rates.d6||15)+'%',
-    쿠폰가격:won(440000),쿠폰회차:'8',쿠폰기한:'90일'
+    쿠폰가격:won(data.rates.dropin8Price||440000),쿠폰회차:'8',쿠폰기한:(data.rates.dropin8Days||90)+'일'
   };
 }
 function applyRuleTokens(text){
@@ -3014,7 +3018,7 @@ function renderStudentApp(){
       <div style="display:flex;gap:6px"><button class="logoutbtn" id="stuRefresh" title="새로고침">🔄</button><button class="logoutbtn" id="stuLogout">로그아웃</button></div></div>
     ${stuData.status==='paused'?`<div class="stucard" style="background:var(--ochre-tint);border-color:var(--ochre)"><h3>🌱 현재 휴강중이에요</h3><div class="note" style="color:var(--ink)">언제든 다시 오세요! 재등록해주시면 잔여 회차·보강기한 모두 그날부터 다시 이어져요. 재등록은 원장님께 말씀해주세요.</div>${stuData.remain>0?`<div class="note" style="margin-top:8px;font-weight:700;color:var(--ink)">잔여 <b>${stuData.remain}</b>회 남아있어요.</div>`:''}<div class="note" style="margin-top:8px;color:var(--ink)">💜 휴강중에도 아래 "하루수업 신청"으로 언제든 하루씩 참여하실 수 있어요.</div></div>`:''}
     ${stuData.status==='ended'?`<div class="stucard" style="background:var(--line-soft)"><h3>수강이 종료된 상태예요</h3><div class="note">다시 다니고 싶으시면 언제든 원장님께 연락 주세요.</div></div>`:''}
-    ${(stuData.status!=='paused'&&stuData.status!=='ended'&&stuData.hasRealClass===false)?`<div class="stucard" style="background:var(--purple-tint);border-color:var(--purple)"><h3>🎫 하루수업 쿠폰 이용중</h3><div class="note" style="color:var(--ink)">정규 반 등록 없이 아래 "하루수업 신청"으로 자유롭게 이용하시는 계정이에요.</div><div class="note" style="color:var(--ink);margin-top:6px">⏳ 결제일로부터 <b>90일 이내</b>에 사용하셔야 하며, 기한 내 미사용 회차는 소멸돼요. 부득이한 사정은 원장님과 상의해 주세요.</div></div>`:''}
+    ${(stuData.status!=='paused'&&stuData.status!=='ended'&&stuData.hasRealClass===false)?`<div class="stucard" style="background:var(--purple-tint);border-color:var(--purple)"><h3>🎫 하루수업 쿠폰 이용중</h3><div class="note" style="color:var(--ink)">정규 반 등록 없이 아래 "하루수업 신청"으로 자유롭게 이용하시는 계정이에요.</div><div class="note" style="color:var(--ink);margin-top:6px">⏳ 결제일로부터 <b>${stuData.dropin8Days||90}일 이내</b>에 사용하셔야 하며, 기한 내 미사용 회차는 소멸돼요. 부득이한 사정은 원장님과 상의해 주세요.</div></div>`:''}
     ${(stuData.status==='paused'||stuData.hasRealClass===false)?'':`<div class="stucard"><h3>출석 · 잔여 회차</h3>
       <div class="tally"><span class="p"><b>${stuData.remain}</b>회 남음</span>${approvedMakeup>0?`<span class="a"><b>${stuData.absentTotal}</b>회 결석</span>`:''}${approvedMakeup>0?`<span class="m"><b>${approvedMakeup}</b>회 보강 가능</span>`:''}</div>
       ${stuData.remain<0?`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">⚠ ${stuData.paceEnd?shortDate(stuData.paceEnd)+'까지였던 수강 기간이 지났어요. ':''}결제 없이 ${-stuData.remain}회 더 출석하셨어요. 결제해 주세요.</div>`:stuData.remain===0?`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">⚠ ${stuData.paceEnd?shortDate(stuData.paceEnd)+'까지였던 수강 기간이 끝났어요. ':''}재결제해 주세요.</div>`:''}
