@@ -54,11 +54,12 @@
   .calcell{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:9px;font-size:13.5px;cursor:pointer;box-sizing:border-box;border:1.5px solid transparent;margin:0 auto}
   .calcell:hover{background:var(--line-soft)}
   .calcell.today{border:1.5px solid var(--jade);font-weight:700}
-  .calcell.sel{background:var(--jade);color:#fff;font-weight:700}
+  .calcell.today{border:1.5px solid var(--jade);font-weight:700}
   .calcell.has{background:var(--jade-tint);color:var(--jade-deep);font-weight:700}
   .calcell.temp{background:#FFF3C4;color:#8A6D00;font-weight:700;border-style:dotted;border-color:#C9A400}
   .calcell.expected{border-style:dashed;border-color:var(--ink-soft)}
   .calcell.skipped{background:var(--verm-tint);color:var(--verm);font-weight:700;text-decoration:line-through}
+  .calcell.sel{background:var(--jade)!important;color:#fff!important;font-weight:700;box-shadow:0 0 0 3px var(--jade-deep);transform:scale(1.08);z-index:1}
   .calcell.readonly{cursor:default}
   .calcell.readonly:hover{background:inherit}
   .calcell{position:relative}
