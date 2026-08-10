@@ -245,13 +245,6 @@
 
   <main>
     <section id="view-check">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px">
-        <button class="minibtn" id="editSess" style="border-color:var(--jade);color:var(--jade-deep);font-weight:700;visibility:hidden">✎ 회차 수정</button>
-        <button class="minibtn" id="checkAllToggle" style="display:none">≡ 전체보기</button>
-      </div>
-      <div id="checkCalBox" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px"></div>
-      <div class="note" id="checkCalNote" style="margin:-2px 3px 10px"></div>
-      <div class="barbtns" style="margin-bottom:14px"><button id="holidayBtn" style="border-color:var(--verm);color:var(--verm)">📅 휴강 · 휴무일 관리</button><button id="studioNotesBtn">📌 특별 일정 메모</button></div>
       <div class="sechead">학생 활동 반영</div>
       <div class="barbtns"><button id="mergeSelfChecks">🔄 학생 결석 알림 · 보강 예약 불러오기</button></div>
       <div class="note">· 학생이 앱에서 '결석 예정 알리기' 또는 '보강 예약'을 하면 여기 반영 버튼을 눌러야 정식 반영돼요. 관리자가 직접 체크·수정한 내용은 항상 우선 적용되고 언제든 [출석] 탭에서 고칠 수 있어요.</div>
@@ -260,11 +253,18 @@
       <div class="filters" style="display:flex;align-items:center;gap:8px;margin:16px 0 10px">
         <select id="checkClassSel" class="selin" style="flex:1"></select>
       </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px">
+        <button class="minibtn" id="editSess" style="border-color:var(--jade);color:var(--jade-deep);font-weight:700;visibility:hidden">✎ 회차 수정</button>
+        <button class="minibtn" id="checkAllToggle" style="display:none">≡ 전체보기</button>
+      </div>
+      <div id="checkCalBox" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px"></div>
+      <div class="note" id="checkCalNote" style="margin:-2px 3px 10px"></div>
       <div id="checkDetail">
         <div class="sesshead" style="justify-content:flex-start"><span class="t" id="sessTitle">회차</span><span class="d" id="sessDate"></span></div>
         <div class="tally" id="tally"></div>
         <div class="rowlist" id="checkList"></div>
       </div>
+      <div class="barbtns" style="margin:14px 0 10px"><button id="holidayBtn" style="border-color:var(--verm);color:var(--verm)">📅 휴강 · 휴무일 관리</button><button id="studioNotesBtn">📌 특별 일정 메모</button></div>
       <div class="sechead" style="margin-top:18px">🗓 화실 시간표</div>
       <div id="ttAlways"></div>
       <div class="barbtns" style="margin-top:10px"><button id="ttEdit">🗓 화실 시간표 관리</button></div>
