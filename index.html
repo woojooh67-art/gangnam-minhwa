@@ -2034,7 +2034,7 @@ function studentSheet(st){const fee=feeFor(st);
   if(selKey==='dropin8'){sess=0;amt=data.rates.dropin8Price||440000;}
   function draw(){
     const prevSheet=oroot().querySelector('.sheet');const savedScroll=prevSheet?prevSheet.scrollTop:0;
-    const opts=[['1','하루(정규)','1회',1,data.rates.daily||60000],['1r','하루(연구)','1회',1,data.rates.dailyResearch||90000],['4','4회','정가',4,planAmount(fee,4)],['12','12회',data.rates.d3+'%↓',12,planAmount(fee,12)],['24','24회',data.rates.d6+'%↓',24,planAmount(fee,24)],['dropin8','하루수업 8회 선결제',(data.rates.dropin8Days||90)+'일 이내 자유 이용',0,data.rates.dropin8Price||440000]];
+    const opts=[['4','4회','정가',4,planAmount(fee,4)],['12','12회',data.rates.d3+'%↓',12,planAmount(fee,12)],['24','24회',data.rates.d6+'%↓',24,planAmount(fee,24)],['1','하루(정규)','1회',1,data.rates.daily||60000],['1r','하루(연구)','1회',1,data.rates.dailyResearch||90000],['dropin8','하루수업 8회 선결제',(data.rates.dropin8Days||90)+'일 이내 자유 이용',0,data.rates.dropin8Price||440000]];
     const hist=(st.payments||[]).slice().sort((a,b)=>a.date<b.date?1:-1);
     const marks=marksOf(st).slice(0,10);
     const paceEndSt=expectedPaceEnd(st);
