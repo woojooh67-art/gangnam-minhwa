@@ -2303,10 +2303,10 @@ function editStudent(st){
       <option value="ended"${st.status==='ended'?' selected':''}>종료 (그만둠 · 기록은 보존)</option></select></div>
     <div class="fgroup"><label>특이사항 메모 <small style="color:var(--ink-soft)">(연락처와 별개, 자유롭게)</small></label><input id="esNotes" class="selin" value="${esc(st.notes||'')}" placeholder="예: 2/6 12회차 선결제 이후 휴강, 4/10 재등록"></div>
     <div class="fgroup"><label>수강 반 (여러 반 겸용 가능)</label>
-      ${data.classes.filter(c=>!c.isTempContainer).map(c=>`<label class="chk"><input type="checkbox" data-cid="${c.id}" ${(st.classIds||[]).indexOf(c.id)>=0?'checked':''}> ${esc(c.name)}</label>`).join('')}
-      <button class="minibtn" id="esMoveClass" style="margin-top:8px;color:var(--blue)">🔀 반 이동 (예전 반 기록 정리하러 가기)</button></div>
-    <button class="minibtn" id="esAdvToggle" type="button" style="width:100%;margin:4px 0 12px;color:var(--ink-soft)">⚙ 고급 설정 — 보강기한·회차 예외 처리 ${hasAdvValues?'(설정된 값 있음) ':''}▾</button>
+      ${data.classes.filter(c=>!c.isTempContainer).map(c=>`<label class="chk"><input type="checkbox" data-cid="${c.id}" ${(st.classIds||[]).indexOf(c.id)>=0?'checked':''}> ${esc(c.name)}</label>`).join('')}</div>
+    <button class="minibtn" id="esAdvToggle" type="button" style="width:100%;margin:4px 0 12px;color:var(--ink-soft)">⚙ 고급 설정 — 보강기한·회차·반 이동 예외 처리 ${hasAdvValues?'(설정된 값 있음) ':''}▾</button>
     <div id="esAdvBox" class="hidden">
+      <div class="fgroup"><button class="minibtn" id="esMoveClass" style="color:var(--blue)">🔀 반 이동 (예전 반 기록 정리하러 가기)</button></div>
       <div class="fgroup"><label>보강기한 연장 (개월) · 휴강한 만큼 입력</label><span class="stepwrap" style="margin-top:5px"><button class="stpE" data-d="-1">－</button><input id="esExt" type="number" inputmode="numeric" class="selin" value="${st.extend||0}" style="width:78px;text-align:center;font-weight:700;margin-top:0"><button class="stpE" data-d="1">＋</button></span></div>
       <div class="fgroup"><label>마지막 실제 수업일 (직접 지정) · 비우면 출석 기록에서 자동 계산</label><input id="esLastClass" type="date" class="selin" value="${st.lastClassOverride||''}">
         <div class="note" style="margin:4px 3px 0">반을 옮겼거나, 예전(앱 사용 전) 수업 기록이 없어서 보강기한이 이상하게 계산될 때만 채워주세요. 여기 넣은 날짜 + 4주로 보강기한이 계산돼요. 출석·잔여 회차에는 전혀 영향 없어요.</div></div>
@@ -2324,7 +2324,7 @@ function editStudent(st){
   q('#esAdvToggle').onclick=()=>{
     const box=q('#esAdvBox');const willOpen=box.classList.contains('hidden');
     box.classList.toggle('hidden');
-    q('#esAdvToggle').textContent=willOpen?`⚙ 고급 설정 — 보강기한·회차 예외 처리 ${hasAdvValues?'(설정된 값 있음) ':''}▴`:`⚙ 고급 설정 — 보강기한·회차 예외 처리 ${hasAdvValues?'(설정된 값 있음) ':''}▾`;
+    q('#esAdvToggle').textContent=willOpen?`⚙ 고급 설정 — 보강기한·회차·반 이동 예외 처리 ${hasAdvValues?'(설정된 값 있음) ':''}▴`:`⚙ 고급 설정 — 보강기한·회차·반 이동 예외 처리 ${hasAdvValues?'(설정된 값 있음) ':''}▾`;
   };
   q('#esGoDetail').onclick=()=>studentSheet(st);
   let lastSuggested=suggestedCode;
