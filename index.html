@@ -1503,9 +1503,9 @@ function renderRoster(){const c=curClass(),box=document.getElementById('rosterLi
     const rm=remainSessions(st), ml=makeupLeft(st);
     let sub=tag(st);
     if(st.status!=='ended'){sub.push('잔여 '+rm+'회');if(ml>0)sub.push('보강 '+ml);}
-    if(st.code)sub.push('코드 '+st.code);else sub.push('로그인 코드 없음');
     if(extra)sub.unshift(extra);
-    r.innerHTML=`<span class="nm">${esc(st.name)}</span><span class="sub">${sub.join(' · ')}</span><span class="pill" style="background:var(--line-soft);color:var(--ink-soft);min-width:44px">수정</span>`;
+    const codeLine=st.code?`<small style="display:block;font-weight:400;color:var(--jade-deep);font-size:11px;margin-top:2px">코드 ${esc(st.code)}</small>`:'<small style="display:block;font-weight:400;color:var(--verm);font-size:11px;margin-top:2px">코드 미발급</small>';
+    r.innerHTML=`<span class="nm">${esc(st.name)}${codeLine}</span><span class="sub">${sub.join(' · ')}</span><span class="pill" style="background:var(--line-soft);color:var(--ink-soft);min-width:44px">수정</span>`;
     r.onclick=()=>editStudent(st);return r;};
 
   if(rosterScope==='all'){
