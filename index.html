@@ -1214,7 +1214,9 @@ function renderCheckCal(){
     if(!matches.length){toast('이 요일에는 반이 없어요.');return;}
     const curIdx=matches.findIndex(x=>x.id===data.activeClass);
     const next=matches[(curIdx+1)%matches.length];
-    data.activeClass=next.id;checkMode='single';save();render();
+    data.activeClass=next.id;checkMode='single';
+    checkCalYM[next.id]={y,m};activeSess[next.id]='__none__';
+    save();render();toast(next.name+'로 이동했어요.');
   });
   box.querySelectorAll('.calnav').forEach(b=>b.onclick=()=>{
     let nm=m+parseInt(b.dataset.nav),ny=y;if(nm<1){nm=12;ny--;}else if(nm>12){nm=1;ny++;}
