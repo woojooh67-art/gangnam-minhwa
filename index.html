@@ -1709,9 +1709,8 @@ function renderReport(){const c=curClass();
     let html=unseen.length?unseen.map(rowHtml).join(''):'<div class="note">확인 안 한 새 활동이 없어요.</div>';
     if(seen.length){
       html+=`<div class="note" id="logOlderToggle" style="text-align:center;margin:8px 0;cursor:pointer;color:var(--ink-soft);border-top:1px solid var(--line);padding-top:8px">${logOlderOpen?'▲ 확인된 기록 접기':'▼ 확인된 기록 더보기 ('+seen.length+'건)'}</div>`;
-      if(logOlderOpen)html+=seen.map(rowHtml).join('');
+      if(logOlderOpen)html+=seen.map(rowHtml).join('')+'<div class="note" style="text-align:right;margin-top:4px"><span id="logClearAll" style="color:var(--verm);cursor:pointer">전체 지우기</span></div>';
     }
-    html+='<div class="note" style="text-align:right;margin-top:4px"><span id="logClearAll" style="color:var(--verm);cursor:pointer">전체 지우기</span></div>';
     logBox.innerHTML=html;
     const olderToggle=document.getElementById('logOlderToggle');
     if(olderToggle)olderToggle.onclick=()=>{logOlderOpen=!logOlderOpen;renderReport();};
