@@ -267,11 +267,12 @@
       <div id="rosterModeBox">
         <div class="filters" id="rosterScope"></div>
         <div class="addrow"><input id="nameInput" placeholder="이름 (여러 명은 쉼표로, 뒤에 전화번호도: 홍길동 01012345678)" autocomplete="off"><input id="phoneInput" placeholder="전화번호(선택)" autocomplete="off" style="flex:0 0 130px"><button id="addStudent">추가</button></div>
-        <div class="note" style="margin:-4px 3px 10px">1명만 등록할 때 전화번호를 적으면 그 뒷자리가 로그인 코드로 자동 발급돼요. 여러 명을 한 번에 등록할 땐 전화번호 칸은 무시되고 무작위 코드가 발급돼요.</div>
+        <div class="note" id="addStuNote" style="margin:-4px 3px 10px"></div>
         <input class="search" id="rosterSearch" placeholder="이름 검색" autocomplete="off">
         <div id="rosterList"></div>
       </div>
       <div id="feeModeBox" class="hidden">
+        <div class="note" id="feeSummaryHead" style="margin:0 3px 8px"></div>
         <div class="board" id="feeBoard"></div>
         <div class="filters" id="feeScopeFilters"></div>
         <div class="filters" id="feeFilters"></div>
@@ -1448,6 +1449,9 @@ function renderCheck(){
   tally.innerHTML=`<span class="p">출석 <b>${cnt.present}</b></span><span class="a">결석 <b>${cnt.absent}</b></span><span class="m">보강 <b>${cnt.makeup}</b></span>${cnt.dropin?`<span style="color:var(--purple);font-weight:700">일일권 <b>${cnt.dropin}</b></span>`:''}<span style="color:var(--ink-soft)">· 이름 탭 → 출석/결석/보강/일일권 · <span style="border:1.5px dashed var(--ink-soft);border-radius:4px;padding:0 3px">점선</span>: 아직 안 눌러서 저장 안 됨</span>`;}
 
 function renderFee(){const c=curClass(),board=document.getElementById('feeBoard'),list=document.getElementById('feeList');
+  const sumHead=document.getElementById('feeSummaryHead');
+  if(sumHead){const pausedN=data.students.filter(s=>s.status==='paused').length;
+    sumHead.innerHTML=`전체 <b>${enrolled().length}</b>명 · 재적 ${enrolled().length-pausedN} · 휴강중 ${pausedN} · 종료 (${data.students.filter(s=>s.status==='ended').length})`;}
   const sf=document.getElementById('feeScopeFilters');
   sf.innerHTML=[['all','전체 수강생'],['class','이 반만']].map(o=>`<button class="fchip ${feeScope===o[0]?'on':''}" data-fs="${o[0]}">${o[1]}</button>`).join('');
   sf.querySelectorAll('.fchip').forEach(b=>b.onclick=()=>{feeScope=b.dataset.fs;renderFee();});
@@ -1486,7 +1490,10 @@ function renderRoster(){const c=curClass(),box=document.getElementById('rosterLi
   const sc=document.getElementById('rosterScope');
   sc.innerHTML=[['class','이 반'],['all','전체 명단']].map(o=>`<button class="fchip ${rosterScope===o[0]?'on':''}" data-r="${o[0]}">${o[1]}</button>`).join('');
   sc.querySelectorAll('.fchip').forEach(b=>b.onclick=()=>{rosterScope=b.dataset.r;renderRoster();});
-  document.getElementById('nameInput').parentElement.style.display=(rosterScope==='all')?'none':'flex';
+  const addRow=document.getElementById('nameInput').parentElement;
+  addRow.style.display='flex';
+  const addNote=document.getElementById('addStuNote');
+  if(addNote)addNote.innerHTML=`👉 <b style="color:var(--jade-deep)">"${esc(c.name)}"</b> 반으로 추가돼요. 다른 반에 넣으려면 위쪽 반 선택(◀ 상단)을 먼저 바꿔주세요. 1명만 등록할 때 전화번호를 적으면 그 뒷자리가 로그인 코드로 자동 발급돼요. 여러 명을 한 번에 등록할 땐 전화번호 칸은 무시되고 무작위 코드가 발급돼요.`;
   box.innerHTML='';
   const q=rosterQuery;
   const tag=st=>{const ex=[];if(st.rate)ex.push('특별 '+won(st.rate));if((st.classIds||[]).length>1)ex.push('겸반');
