@@ -318,7 +318,7 @@ const KEY='ggmh_v22';
 const STATUSES=['present','absent','makeup','dropin'];
 const LABEL={present:'출석',late:'지각',absent:'결석',makeup:'보강',dropin:'일일권 출석',none:'재결제 필요'};
 const CLS={present:'st-present',late:'st-late',absent:'st-absent',makeup:'st-makeup',dropin:'st-dropin',none:'st-none'};
-let mem=null,data=null,tab='check',activeSess={},feeFilter='all',feeQuery='',feeScope='all',rosterScope='all',rosterQuery='',repMonth=null,checkCalYM={},checkMode='all',dropinOpen=false;
+let mem=null,data=null,tab='check',activeSess={},feeFilter='all',feeQuery='',feeScope='all',rosterScope='all',rosterQuery='',repMonth=null,repScope='month',checkCalYM={},checkMode='all',dropinOpen=false;
 
 /* ---------- utils ---------- */
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
@@ -1594,12 +1594,21 @@ function renderReport(){const c=curClass();
   document.getElementById('repTitle').textContent=c.name+' 출석 현황';
   const box=document.getElementById('reportBody'),studs=studentsInClass(c.id);
   if(!studs.length||!c.sessions.length){box.innerHTML='<div class="empty">기록이 쌓이면 표시됩니다.</div>';return;}
+  const scopeSessions=c.sessions.filter(s=>{
+    if(repScope==='month')return (s.iso||'').slice(0,7)===curMonthKey();
+    if(repScope==='3m')return s.iso>=addDays(todayISO(),-90);
+    return true;});
+  const scopeLabel=repScope==='month'?'이번달':repScope==='3m'?'최근 3개월':'전체 누적';
   let rows='';
   studs.forEach(st=>{let p=0,a=0,m=0;
-    c.sessions.forEach(s=>{const v=c.records[s.id+':'+st.id];if(v==='present'||v==='late')p++;else if(v==='makeup')m++;else if(v==='absent')a++;});
+    scopeSessions.forEach(s=>{const v=c.records[s.id+':'+st.id];if(v==='present'||v==='late')p++;else if(v==='makeup')m++;else if(v==='absent')a++;});
     rows+=`<tr><td>${esc(st.name)}</td><td class="c-p">${p}</td><td class="c-a">${a}</td><td class="c-m">${m}</td><td>${remainSessions(st)}</td></tr>`;});
-  box.innerHTML=`<table class="sum"><thead><tr><th>이름</th><th>출석</th><th>결석</th><th>보강</th><th>잔여</th></tr></thead><tbody>${rows}</tbody></table>
-    <div class="note">· 이 반 ${c.sessions.length}회차 · 회차 차감은 출석·지각만(결석·보강 차감 없음).</div>`;
+  const scopeChips=[['month','이번달'],['3m','최근 3개월'],['all','전체 누적']]
+    .map(o=>`<button class="fchip ${repScope===o[0]?'on':''}" data-rs="${o[0]}">${o[1]}</button>`).join('');
+  box.innerHTML=`<div class="filters" style="margin-bottom:8px">${scopeChips}</div>
+    <table class="sum"><thead><tr><th>이름</th><th>출석</th><th>결석</th><th>보강</th><th>잔여</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="note">· ${scopeLabel} 기준 ${scopeSessions.length}회차 (반 전체 누적 ${c.sessions.length}회차 중) · 회차 차감은 출석·지각만(결석·보강 차감 없음).</div>`;
+  box.querySelectorAll('[data-rs]').forEach(b=>b.onclick=()=>{repScope=b.dataset.rs;renderReport();});
   const logBox=document.getElementById('activityLog');
   const log=(data.activityLog||[]).slice(0,15);
   if(!log.length){logBox.innerHTML='<div class="note">아직 학생 활동이 없어요.</div>';}
