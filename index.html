@@ -252,7 +252,6 @@
       <div id="checkCalBox" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px"></div>
       <div class="note" id="checkCalNote" style="margin:-2px 3px 10px"></div>
       <div class="barbtns" style="margin-bottom:10px"><button id="holidayBtn" style="border-color:var(--verm);color:var(--verm)">📅 휴강 · 휴무일 관리</button><button id="studioNotesBtn">📌 특별 일정 메모</button></div>
-      <div class="barbtns" style="margin-bottom:10px"><button id="ttEdit">🗓 화실 시간표 관리</button></div>
       <div id="checkDetail">
         <div class="sesshead" style="justify-content:flex-start"><span class="t" id="sessTitle">회차</span><span class="d" id="sessDate"></span></div>
         <div class="tally" id="tally"></div>
@@ -260,6 +259,7 @@
       </div>
       <div class="sechead" style="margin-top:18px">🗓 화실 시간표</div>
       <div id="ttAlways"></div>
+      <div class="barbtns" style="margin-top:10px"><button id="ttEdit">🗓 화실 시간표 관리</button></div>
     </section>
 
     <section id="view-roster" class="hidden">
@@ -1348,14 +1348,14 @@ function renderCheck(){
     if(toggleBtn)toggleBtn.style.display='none';
     if(detailBox)detailBox.style.display='none';
     if(noteBox)noteBox.innerHTML='💡 <span style="color:var(--jade-deep);font-weight:700">초록</span>: 수업 있음 · <span style="border:1.5px dashed var(--ink-soft);border-radius:4px;padding:0 3px">점선</span>: 정규 요일(아직 체크 전) · <span style="background:var(--verm-tint);color:var(--verm);font-weight:700;border-radius:4px;padding:0 4px">분홍</span>: 휴강 있음 · <span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:#C9720A;vertical-align:middle"></span> 점: 국가 공휴일 · 위 <b>요일을 누르면</b> 그 반으로 들어가요';
-    const ttBox=document.getElementById('ttAlways');if(ttBox)ttBox.innerHTML=timetableGridHTML(buildTimetableGrid(),false)+'<div class="note" style="margin-top:6px">고치시려면 "수업료" 탭 → "🗓 화실 시간표 관리"</div>';
+    const ttBox=document.getElementById('ttAlways');if(ttBox)ttBox.innerHTML=timetableGridHTML(buildTimetableGrid(),false);
     return;
   }
   if(toggleBtn)toggleBtn.style.display='inline-block';
   if(detailBox)detailBox.style.display='';
   if(noteBox)noteBox.innerHTML='💡 <span style="color:var(--jade-deep);font-weight:700">초록</span>: 이미 회차 있음 · <span style="border:1.5px dashed var(--ink-soft);border-radius:4px;padding:0 3px">점선</span>: 이 반 정규 요일(미래 날짜를 누르면 휴강 여부만 물어봐요, 회차는 그날 자동 생성) · <span style="background:var(--verm-tint);color:var(--verm);font-weight:700;border-radius:4px;padding:0 4px">분홍</span>: 원장님 휴강 · <span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:#C9720A;vertical-align:middle"></span> 점: 국가 공휴일 · 위 <b>요일을 다시 누르면</b> 그 요일의 다음 반으로 넘어가요';
   const c=curClass();renderCheckCal();
-  const ttBox=document.getElementById('ttAlways');if(ttBox)ttBox.innerHTML=timetableGridHTML(buildTimetableGrid(),false)+'<div class="note" style="margin-top:6px">고치시려면 "수업료" 탭 → "🗓 화실 시간표 관리"</div>';
+  const ttBox=document.getElementById('ttAlways');if(ttBox)ttBox.innerHTML=timetableGridHTML(buildTimetableGrid(),false);
   const sess=curSession(),title=document.getElementById('sessTitle'),date=document.getElementById('sessDate'),
     list=document.getElementById('checkList'),tally=document.getElementById('tally');
   document.getElementById('editSess').style.visibility=sess?'visible':'hidden';
