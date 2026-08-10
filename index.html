@@ -3287,6 +3287,7 @@ async function cancelAbsenceReport(sessionId){
   }catch(e){console.error(e);toast('취소 실패 — 다시 시도해주세요.');}
 }
 async function enterStudent(u){
+  dropinOpen=false;
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('adminApp').classList.add('hidden');
   document.getElementById('studentApp').classList.remove('hidden');
