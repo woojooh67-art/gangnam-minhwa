@@ -1468,7 +1468,7 @@ function renderFee(){const c=curClass(),board=document.getElementById('feeBoard'
     if(feeQuery&&st.name.indexOf(feeQuery)<0)return false;
     if(feeFilter==='all')return st.status!=='ended';
     if(feeFilter==='makeup')return st.status!=='ended'&&makeupLeft(st)>0;
-    return statusOf(st)===feeFilter;});
+    return statusOf(st)===feeFilter;}).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
   list.innerHTML='';
   if(!show.length){list.innerHTML='<div class="empty">해당하는 학생이 없습니다.</div>';return;}
   show.forEach(st=>{const s=statusOf(st),r=remainSessions(st),ml=makeupLeft(st);
