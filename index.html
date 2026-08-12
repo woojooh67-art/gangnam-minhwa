@@ -1049,9 +1049,9 @@ function marksOf(st){const out=[];data.classes.forEach(c=>{
   c.sessions.forEach(s=>{const v=c.records[s.id+':'+st.id];if(v)out.push({iso:s.iso,label:s.label,cls:c.name,mark:v,classId:c.id,sessionId:s.id});});});
   return out.sort((a,b)=>a.iso<b.iso?1:-1);}
 function scopedMarks(st){const all=marksOf(st);return st.cycleStart?all.filter(m=>m.iso>=st.cycleStart):all;}
-function usedSessions(st){return scopedMarks(st).filter(m=>m.mark==='present'||m.mark==='late').length;}
-function consumedSessions(st){return scopedMarks(st).filter(m=>m.mark==='present'||m.mark==='late'||m.mark==='absent').length;}
-function absentCount(st){return scopedMarks(st).filter(m=>m.mark==='absent').length;}
+function usedSessions(st){return scopedMarks(st).filter(m=>m.iso<=todayISO()&&(m.mark==='present'||m.mark==='late')).length;}
+function consumedSessions(st){return scopedMarks(st).filter(m=>m.iso<=todayISO()&&(m.mark==='present'||m.mark==='late'||m.mark==='absent')).length;}
+function absentCount(st){return scopedMarks(st).filter(m=>m.iso<=todayISO()&&m.mark==='absent').length;}
 function marksSincePayment(st){
   const p=lastPayment(st);
   const all=marksOf(st);
@@ -1060,7 +1060,7 @@ function marksSincePayment(st){
 }
 function usedSincePayment(st){return marksSincePayment(st).filter(m=>m.mark==='present'||m.mark==='late').length;}
 function absentSincePayment(st){return marksSincePayment(st).filter(m=>m.mark==='absent').length;}
-function makeupUsed(st){return scopedMarks(st).filter(m=>m.mark==='makeup').length;}
+function makeupUsed(st){return scopedMarks(st).filter(m=>m.iso<=todayISO()&&m.mark==='makeup').length;}
 function makeupLeft(st){return Math.max(0,absentCount(st)-makeupUsed(st));}
 function isDropinPackExpired(st){return !!(st.dropinPack&&st.dropinPack.expiry&&st.dropinPack.expiry<todayISO());}
 function dropinPackActive(st){return !!(st.dropinPack&&!isDropinPackExpired(st)&&st.dropinPack.used<st.dropinPack.total);}
@@ -1462,14 +1462,13 @@ function renderCheck(){
     const hasRec=c.records[k]!==undefined;
     const pillLabel=isFutureSess?`${LABEL[status]} (예정)`:((!hasRec&&status==='present')?'출석(미확정)':LABEL[status]);
     const pillCls=isFutureSess?'pill unconfirmed':((!hasRec&&status==='present')?'pill unconfirmed':'pill');
-    row.innerHTML=`<span class="nm">${esc(st.name)}</span><span class="sub" style="${subCls}">${sub.join(' · ')}</span><span style="display:flex;align-items:center;gap:6px"><span class="${pillCls}">${pillLabel}</span>${(hasRec&&!isFutureSess)?`<span class="clearrec" style="color:var(--ink-soft);font-size:11px;padding:2px 4px;cursor:pointer" title="이 날짜 기록 지우기(패키지 밖 날짜 등)">✕</span>`:''}</span>`;
+    row.innerHTML=`<span class="nm">${esc(st.name)}</span><span class="sub" style="${subCls}">${sub.join(' · ')}</span><span style="display:flex;align-items:center;gap:6px"><span class="${pillCls}">${pillLabel}</span>${hasRec?`<span class="clearrec" style="color:var(--ink-soft);font-size:11px;padding:2px 4px;cursor:pointer" title="이 날짜 기록 지우기(패키지 밖 날짜 등)">✕</span>`:''}</span>`;
     row.onclick=()=>{
-      if(isFutureSess){futureMarkSheet(st,c,sess,k,hasRec?status:null);return;}
       if(!hasRec){c.records[k]=(status==='none')?'present':status;}
       else{const idx=STATUSES.indexOf(status);const next=STATUSES[(idx+1)%4];logStatusChange(st,c,status,next,sess.iso);c.records[k]=next;}
       save();renderCheck();renderFee();renderReport();
     };
-    if(hasRec&&!isFutureSess)row.querySelector('.clearrec').onclick=(e)=>{e.stopPropagation();logAdminClear(st,c,c.records[k],sess.iso);delete c.records[k];save();renderCheck();renderFee();renderReport();toast('이 날짜 기록을 지웠어요.');};
+    if(hasRec)row.querySelector('.clearrec').onclick=(e)=>{e.stopPropagation();logAdminClear(st,c,c.records[k],sess.iso);delete c.records[k];save();renderCheck();renderFee();renderReport();toast('이 날짜 기록을 지웠어요.');};
     list.appendChild(row);});
   if(guests.length){
     const h=document.createElement('div');h.className='note';h.style.margin='14px 3px 6px';
@@ -1797,29 +1796,6 @@ function showKpiList(kind){
 }
 
 /* ---------- 다른 반 보강 참석자 추가 ---------- */
-/* ---------- 미래 날짜 상태 선택 (실수로 휙휙 눌리는 것 방지) ---------- */
-function futureMarkSheet(st,c,sess,k,currentStatus){
-  const opts=[['absent','결석'],['makeup','보강']];
-  oroot().insertAdjacentHTML('beforeend',`<div class="overlay" id="fmOv"><div class="sheet"><button class="quickx" onclick="document.getElementById('fmOv').remove()">✕</button>
-    <h3>${esc(st.name)} · ${shortDate(sess.iso)}</h3>
-    <div class="subt">아직 지나지 않은 날짜예요. 미리 알고 계신 게 있으면 골라주세요. (출석은 그날이 와야 확인할 수 있어서, 미리 찍어둘 수 없어요)</div>
-    <div class="actions" style="flex-direction:column;gap:8px">
-      ${opts.map(o=>`<button class="btn-ghost" data-fm="${o[0]}" style="width:100%;padding:12px;border-radius:11px${currentStatus===o[0]?';background:var(--jade-tint);border-color:var(--jade)!important;color:var(--jade-deep);font-weight:700':''}">${o[1]}${currentStatus===o[0]?' (현재)':''}</button>`).join('')}
-      ${currentStatus?'<button class="btn-ghost" id="fmClear" style="width:100%">기록 지우기 (예정 취소)</button>':''}
-      <button class="btn-ghost" id="fmCancel" style="width:100%">취소</button>
-    </div></div></div>`);
-  const closeThis=()=>{const ov=document.getElementById('fmOv');if(ov)ov.remove();};
-  document.getElementById('fmCancel').onclick=closeThis;
-  if(document.getElementById('fmClear'))document.getElementById('fmClear').onclick=()=>{
-    logAdminClear(st,c,c.records[k],sess.iso);delete c.records[k];save();closeThis();renderCheck();renderFee();renderReport();toast('예정 기록을 지웠어요.');
-  };
-  document.querySelectorAll('[data-fm]').forEach(b=>b.onclick=()=>{
-    const next=b.dataset.fm;
-    if(currentStatus)logStatusChange(st,c,currentStatus,next,sess.iso);
-    c.records[k]=next;save();closeThis();renderCheck();renderFee();renderReport();
-    toast(`${LABEL[next]} (예정)으로 저장했어요.`);
-  });
-}
 function guestSheet(c,sess,isTemp){
   const cands=data.students.filter(x=>(isTemp||(x.classIds||[]).indexOf(c.id)<0) && x.status!=='ended'
     && c.records[sess.id+':'+x.id]===undefined);
