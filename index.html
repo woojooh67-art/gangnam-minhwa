@@ -1447,6 +1447,7 @@ function renderCheck(){
     h.innerHTML='🆕 <b>임시 회차예요.</b><br>원래 반 명단은 안 부르고 비어있어요. 아래 버튼으로 오신 학생을 직접 추가해주세요.';
     list.appendChild(h);
   }
+  const isFutureSess=sess.iso>todayISO();
   studs.forEach(st=>{const k=sess.id+':'+st.id;const rm=remainSessions(st);
     const status=c.records[k]||(rm>0?'present':'none');cnt[status]++;
     const ml=makeupLeft(st);
@@ -1459,8 +1460,8 @@ function renderCheck(){
     const row=document.createElement('div');row.className='srow '+CLS[status];
     const subCls=(rm<=0)?'color:var(--verm);font-weight:700':(rm<=2)?'color:var(--ochre);font-weight:700':'';
     const hasRec=c.records[k]!==undefined;
-    const pillLabel=(!hasRec&&status==='present')?'출석(미확정)':LABEL[status];
-    const pillCls=(!hasRec&&status==='present')?'pill unconfirmed':'pill';
+    const pillLabel=isFutureSess?`${LABEL[status]} (예정)`:((!hasRec&&status==='present')?'출석(미확정)':LABEL[status]);
+    const pillCls=isFutureSess?'pill unconfirmed':((!hasRec&&status==='present')?'pill unconfirmed':'pill');
     row.innerHTML=`<span class="nm">${esc(st.name)}</span><span class="sub" style="${subCls}">${sub.join(' · ')}</span><span style="display:flex;align-items:center;gap:6px"><span class="${pillCls}">${pillLabel}</span>${hasRec?`<span class="clearrec" style="color:var(--ink-soft);font-size:11px;padding:2px 4px;cursor:pointer" title="이 날짜 기록 지우기(패키지 밖 날짜 등)">✕</span>`:''}</span>`;
     row.onclick=()=>{
       if(!hasRec){c.records[k]=(status==='none')?'present':status;}
