@@ -1462,13 +1462,13 @@ function renderCheck(){
     const hasRec=c.records[k]!==undefined;
     const pillLabel=isFutureSess?`${LABEL[status]} (예정)`:((!hasRec&&status==='present')?'출석(미확정)':LABEL[status]);
     const pillCls=isFutureSess?'pill unconfirmed':((!hasRec&&status==='present')?'pill unconfirmed':'pill');
-    row.innerHTML=`<span class="nm">${esc(st.name)}</span><span class="sub" style="${subCls}">${sub.join(' · ')}</span><span style="display:flex;align-items:center;gap:6px"><span class="${pillCls}">${pillLabel}</span>${hasRec?`<span class="clearrec" style="color:var(--ink-soft);font-size:11px;padding:2px 4px;cursor:pointer" title="이 날짜 기록 지우기(패키지 밖 날짜 등)">✕</span>`:''}</span>`;
+    row.innerHTML=`<span class="nm">${esc(st.name)}</span><span class="sub" style="${subCls}">${sub.join(' · ')}</span><span style="display:flex;align-items:center;gap:6px"><span class="${pillCls}">${pillLabel}</span>${(hasRec&&!isFutureSess)?`<span class="clearrec" style="color:var(--ink-soft);font-size:11px;padding:2px 4px;cursor:pointer" title="이 날짜 기록 지우기(패키지 밖 날짜 등)">✕</span>`:''}</span>`;
     row.onclick=()=>{
       if(!hasRec){c.records[k]=(status==='none')?'present':status;}
       else{const idx=STATUSES.indexOf(status);const next=STATUSES[(idx+1)%4];logStatusChange(st,c,status,next,sess.iso);c.records[k]=next;}
       save();renderCheck();renderFee();renderReport();
     };
-    if(hasRec)row.querySelector('.clearrec').onclick=(e)=>{e.stopPropagation();logAdminClear(st,c,c.records[k],sess.iso);delete c.records[k];save();renderCheck();renderFee();renderReport();toast('이 날짜 기록을 지웠어요.');};
+    if(hasRec&&!isFutureSess)row.querySelector('.clearrec').onclick=(e)=>{e.stopPropagation();logAdminClear(st,c,c.records[k],sess.iso);delete c.records[k];save();renderCheck();renderFee();renderReport();toast('이 날짜 기록을 지웠어요.');};
     list.appendChild(row);});
   if(guests.length){
     const h=document.createElement('div');h.className='note';h.style.margin='14px 3px 6px';
