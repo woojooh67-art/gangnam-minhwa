@@ -1052,6 +1052,14 @@ function scopedMarks(st){const all=marksOf(st);return st.cycleStart?all.filter(m
 function usedSessions(st){return scopedMarks(st).filter(m=>m.mark==='present'||m.mark==='late').length;}
 function consumedSessions(st){return scopedMarks(st).filter(m=>m.mark==='present'||m.mark==='late'||m.mark==='absent').length;}
 function absentCount(st){return scopedMarks(st).filter(m=>m.mark==='absent').length;}
+function marksSincePayment(st){
+  const p=lastPayment(st);
+  const all=marksOf(st);
+  if(!p)return all;
+  return all.filter(m=>m.iso>=p.date);
+}
+function usedSincePayment(st){return marksSincePayment(st).filter(m=>m.mark==='present'||m.mark==='late').length;}
+function absentSincePayment(st){return marksSincePayment(st).filter(m=>m.mark==='absent').length;}
 function makeupUsed(st){return scopedMarks(st).filter(m=>m.mark==='makeup').length;}
 function makeupLeft(st){return Math.max(0,absentCount(st)-makeupUsed(st));}
 function isDropinPackExpired(st){return !!(st.dropinPack&&st.dropinPack.expiry&&st.dropinPack.expiry<todayISO());}
@@ -2073,14 +2081,14 @@ function studentSheet(st){const fee=feeFor(st);
     const paceEndSt=expectedPaceEnd(st);
     const ml=makeupLeft(st),due=makeupDue(st);
     oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button>
-      <h3>${esc(st.name)}</h3><div class="subt">${esc(clsNames(st))} · 기준 월요금(4회) ${won(fee)}${st.rate?' · 특별요금':''}${st.status==='paused'?' · 휴강중':''}${st.code?` · <b style="color:var(--jade-deep)">코드 ${st.code}</b>`:' · <span style="color:var(--verm)">코드 미발급</span>'}</div>
+      <h3>${esc(st.name)} · 출결·수업료</h3><div class="subt">${esc(clsNames(st))} · 기준 월요금(4회) ${won(fee)}${st.rate?' · 특별요금':''}${st.status==='paused'?' · 휴강중':''}${st.code?` · <b style="color:var(--jade-deep)">코드 ${st.code}</b>`:' · <span style="color:var(--verm)">코드 미발급</span>'}</div>
       <button class="minibtn" id="stEdit" style="width:100%;margin:8px 0 4px;border-color:var(--blue);color:var(--blue)">✎ 정보 수정</button>
       ${!hasRealClassSt?`<div class="note" style="background:var(--purple-tint);color:var(--purple);padding:8px 11px;border-radius:9px;margin:6px 0 2px;font-weight:600">🎫 정규 요일이 없는 쿠폰 전용 학생이에요 — 하루수업 8회 선결제 외 옵션은 흐리게 표시돼요.</div>`:''}
       ${st.notes?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:8px 11px;border-radius:9px;margin:6px 0 2px;font-weight:600">📌 ${esc(st.notes)}</div>`:''}
       <div class="kpi">
         <div><div class="v ${remainSessions(st)<=0?'c-a':''}">${remainSessions(st)}</div><div class="t">${remainSessions(st)<0?'미리 사용':'잔여 회차'}</div></div>
-        <div><div class="v c-p">${usedSessions(st)}</div><div class="t">출석</div></div>
-        <div><div class="v c-a">${absentCount(st)}</div><div class="t">결석</div></div>
+        <div><div class="v c-p">${usedSincePayment(st)}</div><div class="t">출석<br><small style="font-weight:400">(이번 결제분)</small></div></div>
+        <div><div class="v c-a">${absentSincePayment(st)}</div><div class="t">결석<br><small style="font-weight:400">(이번 결제분)</small></div></div>
         <div><div class="v c-m">${ml}</div><div class="t">보강 가능</div></div>
       </div>
       <div class="field" style="margin-top:2px"><label>실제 잔여 회차 <small style="color:var(--ink-soft)">(결제·출결 기록은 안 건드리고, 지금 맞는 숫자로 바로 맞춰요)</small></label><span class="stepwrap">
