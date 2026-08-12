@@ -1516,17 +1516,18 @@ function renderFee(){const c=curClass(),board=document.getElementById('feeBoard'
   sf.querySelectorAll('.fchip').forEach(b=>b.onclick=()=>{feeScope=b.dataset.fs;renderFee();});
   const all=feeScope==='all'?data.students.slice():studentsInClass(c.id);
   const fl=document.getElementById('feeFilters');
-  const opts=[['all','수강생'],['out','재결제'],['low','곧소진'],['makeup','보강대상'],['paidmonth','이달결제'],['paused','휴강중'],['ended','종료']];
+  const opts=[['all','수강생'],['makeup','보강대상'],['paused','휴강중'],['ended','종료']];
   fl.innerHTML=opts.map(o=>`<button class="fchip ${feeFilter===o[0]?'on':''}" data-f="${o[0]}">${o[1]}</button>`).join('');
   fl.querySelectorAll('.fchip').forEach(b=>b.onclick=()=>{feeFilter=b.dataset.f;renderFee();});
   if(!all.length){board.innerHTML='';list.innerHTML=feeScope==='all'?'<div class="empty"><b>등록된 학생이 없어요.</b></div>':'<div class="empty"><b>이 반에 학생이 없어요.</b><br>[명단] 탭에서 추가하세요.</div>';return;}
   let ok=0,low=0,out=0,rev=0;const mk=curMonthKey();
   all.forEach(st=>{const s=statusOf(st);if(s==='ok')ok++;else if(s==='low')low++;else if(s==='out')out++;else if(s==='ended')return;
     (st.payments||[]).forEach(p=>{if((p.date||'').slice(0,7)===mk)rev+=p.amount;});});
-  board.innerHTML=`<div class="stat"><div class="n c-p">${ok}</div><div class="k">여유</div></div>
-    <div class="stat"><div class="n c-l">${low}</div><div class="k">곧 소진</div></div>
-    <div class="stat"><div class="n c-a">${out}</div><div class="k">재결제</div></div>
-    <div class="stat rev"><div class="n">${won(rev)}</div><div class="k">이번달 수납</div></div>`;
+  board.innerHTML=`<div class="stat" data-fstat="ok" style="cursor:pointer${feeFilter==='ok'?';box-shadow:0 0 0 2px var(--jade)':''}"><div class="n c-p">${ok}</div><div class="k">여유</div></div>
+    <div class="stat" data-fstat="low" style="cursor:pointer${feeFilter==='low'?';box-shadow:0 0 0 2px var(--ochre)':''}"><div class="n c-l">${low}</div><div class="k">곧 소진</div></div>
+    <div class="stat" data-fstat="out" style="cursor:pointer${feeFilter==='out'?';box-shadow:0 0 0 2px var(--verm)':''}"><div class="n c-a">${out}</div><div class="k">재결제</div></div>
+    <div class="stat rev" data-fstat="paidmonth" style="cursor:pointer${feeFilter==='paidmonth'?';box-shadow:0 0 0 2px var(--jade)':''}"><div class="n">${won(rev)}</div><div class="k">이번달 수납</div></div>`;
+  board.querySelectorAll('[data-fstat]').forEach(el=>el.onclick=()=>{feeFilter=feeFilter===el.dataset.fstat?'all':el.dataset.fstat;renderFee();});
   let show=all.filter(st=>{
     if(feeQuery&&st.name.indexOf(feeQuery)<0)return false;
     if(feeFilter==='all')return st.status!=='ended';
