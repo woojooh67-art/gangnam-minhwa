@@ -1805,7 +1805,7 @@ function guestSheet(c,sess,isTemp){
     </div>
     <div style="display:flex;gap:6px">
       <button class="minibtn" style="flex:1;border-color:var(--jade);color:var(--jade-deep)" data-g="${x.id}" data-gmark="present">출석으로 추가 (정규회차 소진)</button>
-      <button class="minibtn" style="flex:1;border-color:var(--blue);color:var(--blue)" data-g="${x.id}" data-gmark="makeup">보강으로 추가 (보강권 사용)</button>
+      ${makeupLeft(x)>0?`<button class="minibtn" style="flex:1;border-color:var(--blue);color:var(--blue)" data-g="${x.id}" data-gmark="makeup">보강으로 추가 (보강권 사용)</button>`:''}
     </div>
   </div>`;
   oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button>
