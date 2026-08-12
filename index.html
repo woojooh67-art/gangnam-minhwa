@@ -226,6 +226,8 @@
     </div>
     <div id="loginFormBox"></div>
     <button id="pwaInstallBtn" class="minibtn" style="display:none;width:100%;margin-top:14px;border-color:var(--jade);color:var(--jade-deep);font-weight:700">📲 앱으로 설치하기</button>
+    <button id="copyLinkBtn" class="minibtn" style="width:100%;margin-top:10px">🔗 이 앱 주소 복사하기</button>
+    <button id="showQrBtn" class="minibtn" style="width:100%;margin-top:10px">📷 QR코드로 보여주기 (학생 초대용)</button>
     <div class="loginhint" id="loginHint">원장님 계정으로 로그인하세요.</div>
   </div>
 </div>
@@ -3354,6 +3356,24 @@ if('serviceWorker' in navigator){
   });
 }
 
+document.getElementById('copyLinkBtn').onclick=async()=>{
+  const url=location.href.split('#')[0];
+  try{
+    await navigator.clipboard.writeText(url);
+    toast('주소를 복사했어요! 카톡 등에 붙여넣기(꾹 눌러서 붙여넣기) 하시면 돼요.');
+  }catch(e){
+    prompt('아래 주소를 길게 눌러 전체 선택 후 복사하세요:',url);
+  }
+};
+document.getElementById('showQrBtn').onclick=()=>{
+  const url=location.href.split('#')[0];
+  const qrSrc='https://api.qrserver.com/v1/create-qr-code/?size=240x240&data='+encodeURIComponent(url);
+  oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>📷 QR코드로 초대하기</h3>
+    <div class="subt">학생이 휴대폰 카메라로 이 QR코드를 찍으면 바로 앱 주소로 연결돼요.</div>
+    <div style="text-align:center;margin:16px 0"><img src="${qrSrc}" alt="QR코드" style="width:220px;height:220px;border-radius:12px;border:1px solid var(--line);padding:10px;background:#fff"></div>
+    <div class="note" style="text-align:center;word-break:break-all">${esc(url)}</div>
+    </div></div>`;
+};
 let deferredInstallPrompt=null;
 window.addEventListener('beforeinstallprompt',(e)=>{
   e.preventDefault();
