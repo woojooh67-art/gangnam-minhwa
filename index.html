@@ -323,7 +323,7 @@
 
   <nav class="tabs">
     <button data-tab="check" class="active"><span class="ic">✓</span>출석<span id="reportBadge" class="hidden" style="background:var(--verm);color:#fff;border-radius:999px;font-size:10px;padding:1px 6px;margin-top:-2px"></span></button>
-    <button data-tab="roster"><span class="ic">☰</span>학생</button>
+    <button data-tab="roster"><span class="ic">☰</span>수업료-학생정보</button>
     <button data-tab="report"><span class="ic">▤</span>기록</button>
   </nav>
 </div>
@@ -335,7 +335,7 @@ const KEY='ggmh_v22';
 const STATUSES=['present','absent','makeup','dropin'];
 const LABEL={present:'출석',late:'지각',absent:'결석',makeup:'보강',dropin:'하루권 출석',none:'재결제 필요'};
 const CLS={present:'st-present',late:'st-late',absent:'st-absent',makeup:'st-makeup',dropin:'st-dropin',none:'st-none'};
-let mem=null,data=null,tab='check',activeSess={},feeFilter='all',feeQuery='',feeScope='all',rosterScope='all',rosterQuery='',repMonth=null,repScope='month',checkCalYM={},checkMode='all',dropinOpen=false,stuMode='roster',logOlderOpen=false;
+let mem=null,data=null,tab='check',activeSess={},feeFilter='all',feeQuery='',feeScope='all',rosterScope='all',rosterQuery='',repMonth=null,repScope='month',checkCalYM={},checkMode='all',dropinOpen=false,stuMode='fee',logOlderOpen=false;
 
 /* ---------- utils ---------- */
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
@@ -1114,7 +1114,7 @@ function statusOf(st){if(st.status==='ended')return 'ended';if(st.status==='paus
 function render(){renderClasses();renderCheck();renderStuMode();renderFee();renderRoster();renderReport();updateReportBadge();}
 function renderStuMode(){
   const box=document.getElementById('stuModeToggle');if(!box)return;
-  box.innerHTML=[['roster','☰ 반별 보기'],['fee','₩ 결제상태별 보기']].map(o=>`<button class="fchip ${stuMode===o[0]?'on':''}" data-sm="${o[0]}" style="flex:1">${o[1]}</button>`).join('');
+  box.innerHTML=[['fee','₩ 결제상태별 보기'],['roster','☰ 반별 보기']].map(o=>`<button class="fchip ${stuMode===o[0]?'on':''}" data-sm="${o[0]}" style="flex:1">${o[1]}</button>`).join('');
   box.querySelectorAll('[data-sm]').forEach(b=>b.onclick=()=>{stuMode=b.dataset.sm;renderStuMode();});
   const rBox=document.getElementById('rosterModeBox'),fBox=document.getElementById('feeModeBox');
   if(rBox)rBox.classList.toggle('hidden',stuMode!=='roster');
@@ -1539,7 +1539,7 @@ function renderFee(){const c=curClass(),board=document.getElementById('feeBoard'
 
 function renderRoster(){const c=curClass(),box=document.getElementById('rosterList');
   const sc=document.getElementById('rosterScope');
-  sc.innerHTML=[['class','이 반'],['all','전체 명단']].map(o=>`<button class="fchip ${rosterScope===o[0]?'on':''}" data-r="${o[0]}">${o[1]}</button>`).join('');
+  sc.innerHTML=[['all','전체 명단'],['class','이 반']].map(o=>`<button class="fchip ${rosterScope===o[0]?'on':''}" data-r="${o[0]}">${o[1]}</button>`).join('');
   sc.querySelectorAll('.fchip').forEach(b=>b.onclick=()=>{rosterScope=b.dataset.r;renderRoster();});
   const addRow=document.getElementById('nameInput').parentElement;
   addRow.style.display='flex';
