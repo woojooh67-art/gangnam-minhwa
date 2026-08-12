@@ -2108,7 +2108,7 @@ function studentSheet(st){const fee=feeFor(st);
       ${hist.length?`<div class="hist"><div class="h">결제 내역 · 총 ${paidSessions(st)}회 구매 / ${usedSessions(st)}회 사용</div>${hist.map(p=>{
         const right=(p.id===delId)
           ?`<span style="display:flex;gap:6px"><button class="hyes" data-id="${p.id}" style="border:none;background:var(--verm);color:#fff;border-radius:8px;padding:6px 11px;font-weight:700;font-family:inherit">삭제</button><button class="hno" style="border:1px solid var(--line);background:var(--card);color:var(--ink-soft);border-radius:8px;padding:6px 11px;font-family:inherit">취소</button></span>`
-          :`<span>${p.plan==='dropin8'?'하루수업 8회 선결제':`${p.sessions}회${planOf(st,p)!==p.sessions?` <small style="color:var(--ink-soft)">(${planOf(st,p)}회권)</small>`:''}`} · ${won(p.amount)} <button class="hx" data-id="${p.id}" style="border:none;background:transparent;color:var(--verm);font-size:15px;padding:4px 7px;cursor:pointer">✕</button></span>`;
+          :`<span>${p.plan==='dropin8'?'하루수업 8회 선결제':`${p.sessions}회${planOf(st,p)!==p.sessions?` <small style="color:var(--ink-soft)">(${planOf(st,p)}회권)</small>`:''}`} · ${won(p.amount)} <button class="hmemo" data-mid="${p.id}" style="border:none;background:transparent;color:var(--ink-soft);font-size:13px;padding:4px 5px;cursor:pointer" title="메모 추가/수정">📝</button><button class="hx" data-id="${p.id}" style="border:none;background:transparent;color:var(--verm);font-size:15px;padding:4px 7px;cursor:pointer">✕</button></span>`;
         return `<div class="hrow"><span>${p.date}${p.memo?` <small style="color:var(--ochre)">📝 ${esc(p.memo)}</small>`:''}</span>${right}</div>`;}).join('')}</div>`:''}
 
       <div class="hist"><div class="h">출결 이력 <small style="font-weight:400;color:var(--ink-soft)">(색칠된 칸: 눌러서 상태 변경 · 빈 칸: 눌러서 출석 기록 만들기)</small></div>
@@ -2189,6 +2189,20 @@ function studentSheet(st){const fee=feeFor(st);
     q('#stMsg').onclick=()=>msgSheet(st);
     q('#stGuide').onclick=()=>appGuideSheet(st);
     oroot().querySelectorAll('.hx').forEach(b=>b.onclick=()=>{delId=b.dataset.id;draw();});
+    oroot().querySelectorAll('.hmemo').forEach(b=>b.onclick=()=>{
+      const p=(st.payments||[]).find(x=>x.id===b.dataset.mid);if(!p)return;
+      oroot().insertAdjacentHTML('beforeend',`<div class="overlay" id="pMemoOv"><div class="sheet"><button class="quickx" onclick="document.getElementById('pMemoOv').remove()">✕</button><h3>결제 메모</h3>
+        <div class="subt">${p.date} · ${p.plan==='dropin8'?'하루수업 8회 선결제':(p.sessions+'회')} · ${won(p.amount)}</div>
+        <div class="fgroup"><label>메모</label><input id="pMemoIn" class="selin" value="${esc(p.memo||'')}" placeholder="예: 카드 결제, 현금 영수증 요청 등"></div>
+        <div class="actions"><button class="btn-ghost" id="pMemoNo">취소</button><button class="btn-primary" id="pMemoOk">저장</button></div>
+        </div></div>`);
+      const closeThis=()=>{const ov=document.getElementById('pMemoOv');if(ov)ov.remove();};
+      document.getElementById('pMemoNo').onclick=closeThis;
+      document.getElementById('pMemoOk').onclick=()=>{
+        const v=document.getElementById('pMemoIn').value.trim();
+        p.memo=v||'';save();closeThis();draw();toast('메모를 저장했어요.');
+      };
+    });
     oroot().querySelectorAll('.hno').forEach(b=>b.onclick=()=>{delId=null;draw();});
     oroot().querySelectorAll('.hyes').forEach(b=>b.onclick=()=>{st.payments=st.payments.filter(x=>x.id!==b.dataset.id);recomputeDropinPack(st);save();delId=null;draw();renderFee();toast('결제 기록을 삭제했습니다.');});
     const newSheet=oroot().querySelector('.sheet');if(newSheet)newSheet.scrollTop=savedScroll;
