@@ -1060,6 +1060,7 @@ function marksSincePayment(st){
 }
 function usedSincePayment(st){return marksSincePayment(st).filter(m=>m.mark==='present'||m.mark==='late').length;}
 function absentSincePayment(st){return marksSincePayment(st).filter(m=>m.mark==='absent').length;}
+function makeupUsedSincePayment(st){return marksSincePayment(st).filter(m=>m.mark==='makeup').length;}
 function makeupUsed(st){return scopedMarks(st).filter(m=>m.iso<=todayISO()&&m.mark==='makeup').length;}
 function makeupLeft(st){return Math.max(0,absentCount(st)-makeupUsed(st));}
 function isDropinPackExpired(st){return !!(st.dropinPack&&st.dropinPack.expiry&&st.dropinPack.expiry<todayISO());}
@@ -2091,7 +2092,7 @@ function studentSheet(st){const fee=feeFor(st);
       <div class="kpi">
         <div><div class="v ${remainSessions(st)<=0?'c-a':''}">${remainSessions(st)}</div><div class="t">${remainSessions(st)<0?'미리 사용':'잔여 회차'}</div></div>
         <div><div class="v c-p">${usedSincePayment(st)}</div><div class="t">출석<br><small style="font-weight:400">(이번 결제분)</small></div></div>
-        <div><div class="v c-a">${absentSincePayment(st)}</div><div class="t">결석<br><small style="font-weight:400">(이번 결제분)</small></div></div>
+        <div><div class="v c-a">${absentSincePayment(st)}</div><div class="t">결석${absentSincePayment(st)>0?`<br><small style="font-weight:600;color:${ml>0?'var(--ochre)':'var(--jade-deep)'}">${ml>0?'보강 대기 '+ml:'보강 완료'}</small>`:'<br><small style="font-weight:400">(이번 결제분)</small>'}</div></div>
         <div><div class="v c-m">${ml}</div><div class="t">보강 가능</div></div>
       </div>
       <div class="field" style="margin-top:2px"><label>실제 잔여 회차 <small style="color:var(--ink-soft)">(결제·출결 기록은 안 건드리고, 지금 맞는 숫자로 바로 맞춰요)</small></label><span class="stepwrap">
