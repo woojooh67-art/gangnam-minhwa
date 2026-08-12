@@ -1799,10 +1799,10 @@ function showKpiList(kind){
 /* ---------- 다른 반 보강 참석자 추가 ---------- */
 /* ---------- 미래 날짜 상태 선택 (실수로 휙휙 눌리는 것 방지) ---------- */
 function futureMarkSheet(st,c,sess,k,currentStatus){
-  const opts=[['present','출석'],['absent','결석'],['makeup','보강'],['dropin','하루권 출석']];
+  const opts=[['absent','결석'],['makeup','보강']];
   oroot().insertAdjacentHTML('beforeend',`<div class="overlay" id="fmOv"><div class="sheet"><button class="quickx" onclick="document.getElementById('fmOv').remove()">✕</button>
     <h3>${esc(st.name)} · ${shortDate(sess.iso)}</h3>
-    <div class="subt">아직 지나지 않은 날짜예요. 미리 기록해두실 상태를 골라주세요.</div>
+    <div class="subt">아직 지나지 않은 날짜예요. 미리 알고 계신 게 있으면 골라주세요. (출석은 그날이 와야 확인할 수 있어서, 미리 찍어둘 수 없어요)</div>
     <div class="actions" style="flex-direction:column;gap:8px">
       ${opts.map(o=>`<button class="btn-ghost" data-fm="${o[0]}" style="width:100%;padding:12px;border-radius:11px${currentStatus===o[0]?';background:var(--jade-tint);border-color:var(--jade)!important;color:var(--jade-deep);font-weight:700':''}">${o[1]}${currentStatus===o[0]?' (현재)':''}</button>`).join('')}
       ${currentStatus?'<button class="btn-ghost" id="fmClear" style="width:100%">기록 지우기 (예정 취소)</button>':''}
