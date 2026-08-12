@@ -1508,7 +1508,7 @@ function renderFee(){const c=curClass(),board=document.getElementById('feeBoard'
   sf.querySelectorAll('.fchip').forEach(b=>b.onclick=()=>{feeScope=b.dataset.fs;renderFee();});
   const all=feeScope==='all'?data.students.slice():studentsInClass(c.id);
   const fl=document.getElementById('feeFilters');
-  const opts=[['all','수강생'],['out','재결제'],['low','곧소진'],['makeup','보강대상'],['paused','휴강중'],['ended','종료']];
+  const opts=[['all','수강생'],['out','재결제'],['low','곧소진'],['makeup','보강대상'],['paidmonth','이달결제'],['paused','휴강중'],['ended','종료']];
   fl.innerHTML=opts.map(o=>`<button class="fchip ${feeFilter===o[0]?'on':''}" data-f="${o[0]}">${o[1]}</button>`).join('');
   fl.querySelectorAll('.fchip').forEach(b=>b.onclick=()=>{feeFilter=b.dataset.f;renderFee();});
   if(!all.length){board.innerHTML='';list.innerHTML=feeScope==='all'?'<div class="empty"><b>등록된 학생이 없어요.</b></div>':'<div class="empty"><b>이 반에 학생이 없어요.</b><br>[명단] 탭에서 추가하세요.</div>';return;}
@@ -1523,6 +1523,7 @@ function renderFee(){const c=curClass(),board=document.getElementById('feeBoard'
     if(feeQuery&&st.name.indexOf(feeQuery)<0)return false;
     if(feeFilter==='all')return st.status!=='ended';
     if(feeFilter==='makeup')return st.status!=='ended'&&makeupLeft(st)>0;
+    if(feeFilter==='paidmonth')return (st.payments||[]).some(p=>(p.date||'').slice(0,7)===mk);
     return statusOf(st)===feeFilter;}).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
   list.innerHTML='';
   if(!show.length){list.innerHTML='<div class="empty">해당하는 학생이 없습니다.</div>';return;}
@@ -1532,6 +1533,12 @@ function renderFee(){const c=curClass(),board=document.getElementById('feeBoard'
       :(r<0?`${-r}회 미리 사용 · 다음 결제 시 차감`:`잔여 ${r}회`);
     if(ml>0){const d=makeupDue(st);sub+=` · 보강 ${ml}회`+(d?(dueExpired(st)?' (기한지남)':' ~'+shortDate(d)):'');}
     if((st.classIds||[]).length>1)sub+=' · 겸반';
+    if(feeFilter==='paidmonth'){
+      const pays=(st.payments||[]).filter(p=>(p.date||'').slice(0,7)===mk);
+      const total=pays.reduce((a,p)=>a+p.amount,0);
+      const dates=pays.map(p=>shortDate(p.date)).join(', ');
+      sub=`이번달 결제 ${won(total)} (${dates})`;
+    }
     if(feeScope==='all')sub=(esc(clsNames(st))||'반 미지정')+' · '+sub;
     const row=document.createElement('div');row.className='srow st-'+s;
     row.innerHTML=`<span class="nm">${esc(st.name)}${st.code?`<small style="display:block;font-weight:400;color:var(--jade-deep);font-size:11px;margin-top:2px">코드 ${st.code}</small>`:'<small style="display:block;font-weight:400;color:var(--verm);font-size:11px;margin-top:2px">코드 미발급</small>'}</span><span class="sub">${sub}</span><span class="pill">${pill}</span>`;
