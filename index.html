@@ -2751,7 +2751,8 @@ async function pickStudentsFromBackup(id){
 function switchTab(t){tab=t;['check','roster','report'].forEach(v=>document.getElementById('view-'+v).classList.toggle('hidden',v!==t));
   document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));
   renderClasses();
-  if(t==='report')renderReport();if(t==='roster'){renderStuMode();renderRoster();renderFee();}}
+  if(t==='report')renderReport();
+  if(t==='roster'){stuMode='fee';feeScope='all';rosterScope='all';feeFilter='all';renderStuMode();renderRoster();renderFee();}}
 
 document.getElementById('classSel').onchange=e=>{
   if(e.target.value==='__all__'){checkMode='all';switchTab('check');render();return;}
