@@ -3050,19 +3050,12 @@ function renderStudentApp(){
       const u=(stuData.allUpcoming||[]).find(x=>x.sessionId===sid);if(!u)return '';
       return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span style="display:flex;align-items:center;gap:8px"><span style="color:var(--blue);font-size:12.5px;font-weight:700">예약 반영대기</span><button class="minibtn" style="color:var(--verm);padding:4px 2px;font-size:12px" data-cancel-msid="${u.sessionId}">취소</button></span></div>`;
     }).join('');
-    const hd=pendingMakeup.length>0?`보강 예약 (예약중 ${pendingMakeup.length}회)`:'보강 예약';
-    let dueBadge='';
-    if(stuData.makeupDue&&!stuData.makeupDueExtended){
-      if(stuData.makeupDueExpired&&stuData.status!=='paused')dueBadge=`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;font-weight:700;margin-bottom:8px">⚠ 보강기한(${stuData.makeupDue})이 지나 보강이 소멸됐어요.</div>`;
-      else if(stuData.makeupDueSoon&&!stuData.makeupDueExpired)dueBadge=`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin-bottom:8px">⚠ 보강기한이 곧 만료돼요 (${stuData.makeupDue}까지)</div>`;
-      else if(!stuData.makeupDueExpired)dueBadge=`<div class="note" style="margin-bottom:8px;font-size:16px">보강기한은 <b style="color:var(--verm);font-size:17px">${fullDateKr(stuData.makeupDue)}</b>까지 입니다.</div>`;
-    }else if(stuData.makeupDue&&stuData.makeupDueExtended){
-      dueBadge=`<div class="note" style="background:var(--jade-tint);color:var(--jade-deep);padding:9px 11px;border-radius:9px;font-weight:700;margin-bottom:8px">💚 ${stuData.makeupDue}까지 보강 가능해요.</div>`;
-    }
+    const isGraceOnly=realEntitlement<=0&&stuData.remain<=0;
+    const hd=isGraceOnly?'하루 당겨 듣기':(pendingMakeup.length>0?`보강 예약 (예약중 ${pendingMakeup.length}회)`:'보강 예약');
     let pendingNote='';
     if(pendingMakeupCancel.length>0)pendingNote='<div class="note">취소 신청하신 만큼 바로 다른 날짜로 예약하실 수 있어요. 원장님이 확인하시면 정식 반영돼요.</div>';
     else if(pendingAbsent.length>0&&pendingMakeup.length===0)pendingNote='<div class="note">결석 알림을 드린 만큼 바로 예약하실 수 있어요. 원장님이 확인하시면 정식 반영돼요.</div>';
-    const actionBtn=quotaLeft>0?`<button class="checkbtn" id="openMakeupPickerBtn">📅 보강 날짜 고르기</button>`:(pendingRows?'':'<div class="note">지금은 예약 가능한 보강이 없어요.</div>');
+    const actionBtn=quotaLeft>0?`<button class="checkbtn" id="openMakeupPickerBtn">${isGraceOnly?'📅 참여 날짜 고르기':'📅 보강 날짜 고르기'}</button>`:(pendingRows?'':'<div class="note">지금은 예약 가능한 보강이 없어요.</div>');
     makeupSection=`<div class="stucard"><h3>${hd}</h3>${graceNotice}${pendingRows}${actionBtn}${pendingNote}</div>`;
   }
   let myMakeupSection='';
@@ -3261,8 +3254,12 @@ function openMakeupPicker(excludeSessionId){
       <div><div class="nm" style="font-size:15px">${esc(u.className)}${u.afternoonOnly?' <small style="color:var(--blue);font-weight:400">(2~5시)</small>':''}</div><div class="sub" style="margin:2px 0 0">${mkDateLabel(u)}${u.avail!==undefined?' · 잔여 '+u.avail+'석':''}</div></div>
       <span class="pill" style="background:var(--jade-tint);color:var(--jade-deep)">${i===0?'가장 빠름':'선택'}</span>
     </div>`).join('');
+  const realEntitlementNow=(stuData.makeupLeft||0)+(stuData._pendingAbsent||[]).length+(stuData._pendingMakeupCancel||[]).length;
+  const isGraceOnly=realEntitlementNow<=0&&stuData.remain<=0;
   let dueBadge='';
-  if(stuData.makeupDue&&!stuData.makeupDueExtended){
+  if(isGraceOnly){
+    if(stuData.paceEnd)dueBadge=`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">⏳ 결석 보강이 아니라, 재결제 전 하루 당겨 듣는 거예요. ${addDays(stuData.paceEnd,7)}까지 가능해요.</div>`;
+  }else if(stuData.makeupDue&&!stuData.makeupDueExtended){
     if(stuData.makeupDueExpired&&stuData.status!=='paused')dueBadge=`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">⚠ 보강기한(${stuData.makeupDue})이 지나 보강이 소멸됐어요.</div>`;
     else if(stuData.makeupDueSoon&&!stuData.makeupDueExpired)dueBadge=`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">⚠ 보강기한이 곧 만료돼요 (${stuData.makeupDue}까지)</div>`;
     else if(!stuData.makeupDueExpired)dueBadge=`<div class="note" style="margin:10px 0;font-size:15px">보강기한은 <b style="color:var(--verm);font-size:16px">${fullDateKr(stuData.makeupDue)}</b>까지예요.</div>`;
@@ -3270,8 +3267,8 @@ function openMakeupPicker(excludeSessionId){
     dueBadge=`<div class="note" style="background:var(--jade-tint);color:var(--jade-deep);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">💚 ${stuData.makeupDue}까지 보강 가능해요.</div>`;
   }
   oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button>
-    <h3>보강 받으실 날짜를 골라주세요</h3>
-    <div class="subt">편하신 날짜를 누르면 그 자리에서 바로 보강 예약이 신청돼요.</div>
+    <h3>${isGraceOnly?'참여하실 날짜를 골라주세요':'보강 받으실 날짜를 골라주세요'}</h3>
+    <div class="subt">${isGraceOnly?'편하신 날짜를 누르면 그 자리에서 바로 신청돼요. 다음 결제 때 이만큼 포함해서 정산해 드릴게요.':'편하신 날짜를 누르면 그 자리에서 바로 보강 예약이 신청돼요.'}</div>
     ${dueBadge}
     <div style="max-height:52vh;overflow:auto">${rows||'<div class="note">지금은 예약 가능한 수업이 없어요. 나중에 "보강 예약" 카드에서 다시 골라주세요.</div>'}</div>
     <div class="actions" style="margin-top:14px"><button class="btn-ghost" id="mpLater" style="flex:1">나중에 할게요</button></div>
