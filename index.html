@@ -1455,13 +1455,13 @@ function renderCheck(){
     else sub.push('잔여 '+rm+'회');
     if(ml>0)sub.push('보강 '+ml);
     if(isDelayedUsage(st))sub.push('⏰지연 소진');
-    const row=document.createElement('div');row.className='srow '+CLS[status];
+    const row=document.createElement('div');row.className='srow '+CLS[status];row.style.cursor='default';
     const subCls=(rm<=0)?'color:var(--verm);font-weight:700':(rm<=2)?'color:var(--ochre);font-weight:700':'';
     const hasRec=c.records[k]!==undefined;
     const pillLabel=isFutureSess?`${LABEL[status]} (예정)`:((!hasRec&&status==='present')?'출석(미확정)':LABEL[status]);
     const pillCls=isFutureSess?'pill unconfirmed':((!hasRec&&status==='present')?'pill unconfirmed':'pill');
-    row.innerHTML=`<span class="nm">${esc(st.name)}</span><span class="sub" style="${subCls}">${sub.join(' · ')}</span><span style="display:flex;align-items:center;gap:6px"><span class="${pillCls}">${pillLabel}</span>${hasRec?`<span class="clearrec" style="color:var(--ink-soft);font-size:11px;padding:2px 4px;cursor:pointer" title="이 날짜 기록 지우기(패키지 밖 날짜 등)">✕</span>`:''}</span>`;
-    row.onclick=()=>{
+    row.innerHTML=`<span class="nm">${esc(st.name)}</span><span class="sub" style="${subCls}">${sub.join(' · ')}</span><span style="display:flex;align-items:center;gap:6px"><span class="${pillCls} statusPill" style="cursor:pointer">${pillLabel}</span>${hasRec?`<span class="clearrec" style="color:var(--ink-soft);font-size:11px;padding:2px 4px;cursor:pointer" title="이 날짜 기록 지우기(패키지 밖 날짜 등)">✕</span>`:''}</span>`;
+    row.querySelector('.statusPill').onclick=()=>{
       if(!hasRec){c.records[k]=(status==='none')?'present':status;}
       else{const idx=STATUSES.indexOf(status);const next=STATUSES[(idx+1)%4];logStatusChange(st,c,status,next,sess.iso);c.records[k]=next;}
       save();renderCheck();renderFee();renderReport();
@@ -1473,9 +1473,9 @@ function renderCheck(){
     h.innerHTML=(isTemp?'<b>추가한 학생</b> ':'<b>다른 반 보강 참석</b> ')+guests.length+'명';list.appendChild(h);
     const isFuture=sess.iso>todayISO();
     guests.forEach(st=>{const k=sess.id+':'+st.id;const status=c.records[k]||'makeup';cnt[status]++;
-      const row=document.createElement('div');row.className='srow '+CLS[status];
-      row.innerHTML=`<span class="nm">${esc(st.name)}</span><span class="sub">${esc(clsNames(st))||'반 미지정'} · 잔여 ${remainSessions(st)}회</span><span class="pill${isFuture?' unconfirmed':''}">${LABEL[status]}${isFuture?' (예정)':''}</span>`;
-      row.onclick=()=>{const next=STATUSES[(Math.max(0,STATUSES.indexOf(status))+1)%4];logStatusChange(st,c,status,next,sess.iso);c.records[k]=next;save();renderCheck();renderFee();renderReport();};
+      const row=document.createElement('div');row.className='srow '+CLS[status];row.style.cursor='default';
+      row.innerHTML=`<span class="nm">${esc(st.name)}</span><span class="sub">${esc(clsNames(st))||'반 미지정'} · 잔여 ${remainSessions(st)}회</span><span class="pill${isFuture?' unconfirmed':''}" style="cursor:pointer">${LABEL[status]}${isFuture?' (예정)':''}</span>`;
+      row.querySelector('.pill').onclick=()=>{const next=STATUSES[(Math.max(0,STATUSES.indexOf(status))+1)%4];logStatusChange(st,c,status,next,sess.iso);c.records[k]=next;save();renderCheck();renderFee();renderReport();};
       const del=document.createElement('div');del.className='note';del.style.textAlign='right';del.style.margin='2px 6px 8px';
       del.innerHTML='<span style="color:var(--verm);cursor:pointer">이 학생 빼기</span>';
       del.onclick=()=>{logAdminClear(st,c,c.records[k],sess.iso);delete c.records[k];save();renderCheck();renderFee();renderReport();toast('빼줬어요.');};
@@ -1489,9 +1489,9 @@ function renderCheck(){
     const h=document.createElement('div');h.className='note';h.style.margin='14px 3px 6px';
     h.innerHTML='<b>휴강·종료</b> '+paused.length+'명 · 그래도 오신 날은 눌러서 체크 가능해요';list.appendChild(h);
     paused.forEach(st=>{const k=sess.id+':'+st.id;const status=c.records[k]||'none';if(status!=='none')cnt[status]++;
-      const row=document.createElement('div');row.className='srow '+CLS[status];
-      row.innerHTML=`<span class="nm">${esc(st.name)} <small style="color:var(--ink-soft)">(${st.status==='ended'?'종료':'휴강중'})</small></span><span class="pill">${LABEL[status]}</span>`;
-      row.onclick=()=>{
+      const row=document.createElement('div');row.className='srow '+CLS[status];row.style.cursor='default';
+      row.innerHTML=`<span class="nm">${esc(st.name)} <small style="color:var(--ink-soft)">(${st.status==='ended'?'종료':'휴강중'})</small></span><span class="pill" style="cursor:pointer">${LABEL[status]}</span>`;
+      row.querySelector('.pill').onclick=()=>{
         if(status==='none'){c.records[k]='present';}
         else{const idx=STATUSES.indexOf(status);const next=STATUSES[(idx+1)%4];logStatusChange(st,c,status,next,sess.iso);c.records[k]=next;}
         save();renderCheck();renderFee();renderReport();
