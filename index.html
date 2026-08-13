@@ -2960,7 +2960,11 @@ function renderStudentApp(){
         else right=`<span class="c-a" style="font-weight:700">결석 처리됨${rmemo?` <small style="color:var(--ink-soft);font-weight:400">· ${esc(rmemo)}</small>`:''} <small style="color:var(--ink-soft);font-weight:400">· 당일이라 취소 불가</small></span>`;
       }
       else if(v==='makeup')right=`<span class="c-m" style="font-weight:700">보강</span>`;
-      else if(v==='present'||v==='late'||v==='dropin')right=`<span class="c-p" style="font-weight:700">${v==='dropin'?'하루권 출석':v==='late'?'지각 출석':'출석 완료'}</span>`;
+      else if(v==='present'||v==='late'||v==='dropin'){
+        const doneLabel=v==='dropin'?'하루권 출석':v==='late'?'지각 출석':'출석 완료';
+        const planLabel=v==='dropin'?'하루권 참여 예정':'참여 예정';
+        right=`<span class="c-p" style="font-weight:700">${s.iso>t?planLabel:doneLabel}</span>`;
+      }
       else right=`<button class="checkbtn" style="width:auto;padding:8px 14px;margin:0;font-size:12.5px" data-cid="${c.id}" data-sid="${s.id}" data-iso="${s.iso}">결석 예정 알리기</button>`;
       const rowHtml=`<div class="stuhist"><span>${esc(c.name)} · ${mkDateLabel(s)}${isLastPaid?' <b style="color:var(--verm)">· 마지막 수업일</b>':''}</span>${right}</div>`;
       if(s.iso<weekCutoff)upcomingRows+=rowHtml;else upcomingRowsMore+=rowHtml;
