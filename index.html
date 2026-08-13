@@ -3034,7 +3034,9 @@ function renderStudentApp(){
   }
   const payRows=(stuData.payments||[]).slice().sort((a,b)=>a.date<b.date?1:-1).slice(0,6).map(p=>`<div class="stuhist"><span>${p.date} · ${p.plan==='dropin8'?'하루수업 8회 선결제':`${p.plan||p.sessions||''}회권`}</span><b>${won(p.amount)}</b></div>`).join('')||'<div class="note">결제 내역이 없어요.</div>';
   let makeupSection='';
-  if(quotaTotal>0&&(realEntitlement>0||stuData.remain>0)){
+  const graceOk=stuData.paceEnd&&t<=addDays(stuData.paceEnd,7);
+  if(quotaTotal>0&&(realEntitlement>0||stuData.remain>0||(stuData.remain<=0&&graceOk))){
+    const graceNotice=(stuData.remain<=0&&graceOk&&!(realEntitlement>0||stuData.remain>0))?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin-bottom:8px">⏳ 결제하신 회차를 다 쓰셨지만, ${addDays(stuData.paceEnd,7)}까지는 재결제 전에도 보강 예약이 가능해요.</div>`:'';
     const pendingRows=pendingMakeup.map(sid=>{
       const u=(stuData.allUpcoming||[]).find(x=>x.sessionId===sid);if(!u)return '';
       return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span style="display:flex;align-items:center;gap:8px"><span style="color:var(--blue);font-size:12.5px;font-weight:700">예약 반영대기</span><button class="minibtn" style="color:var(--verm);padding:4px 2px;font-size:12px" data-cancel-msid="${u.sessionId}">취소</button></span></div>`;
@@ -3052,7 +3054,7 @@ function renderStudentApp(){
     if(pendingMakeupCancel.length>0)pendingNote='<div class="note">취소 신청하신 만큼 바로 다른 날짜로 예약하실 수 있어요. 원장님이 확인하시면 정식 반영돼요.</div>';
     else if(pendingAbsent.length>0&&pendingMakeup.length===0)pendingNote='<div class="note">결석 알림을 드린 만큼 바로 예약하실 수 있어요. 원장님이 확인하시면 정식 반영돼요.</div>';
     const actionBtn=quotaLeft>0?`<button class="checkbtn" id="openMakeupPickerBtn">📅 보강 날짜 고르기</button>`:(pendingRows?'':'<div class="note">지금은 예약 가능한 보강이 없어요.</div>');
-    makeupSection=`<div class="stucard"><h3>${hd}</h3>${pendingRows}${actionBtn}${pendingNote}</div>`;
+    makeupSection=`<div class="stucard"><h3>${hd}</h3>${graceNotice}${pendingRows}${actionBtn}${pendingNote}</div>`;
   }
   let myMakeupSection='';
   const myMakeups=stuData.myMakeups||[];
