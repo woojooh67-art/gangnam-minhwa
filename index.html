@@ -1506,7 +1506,7 @@ function renderCheck(){
       }
     });
   }
-  tally.innerHTML=`<span class="p">출석 <b>${cnt.present}</b></span><span class="a">결석 <b>${cnt.absent}</b></span><span class="m">보강 <b>${cnt.makeup}</b></span>${cnt.dropin?`<span style="color:var(--purple);font-weight:700">하루권 <b>${cnt.dropin}</b></span>`:''}<span style="color:var(--ink-soft)">· 이름 탭 → 출석/결석/보강/하루권 · <span style="border:1.5px dashed var(--ink-soft);border-radius:4px;padding:0 3px">점선</span>: 아직 안 눌러서 저장 안 됨</span>`;}
+  tally.innerHTML=`<span class="p">출석 <b>${cnt.present}</b></span><span class="a">결석 <b>${cnt.absent}</b></span><span class="m">보강 <b>${cnt.makeup}</b></span>${cnt.dropin?`<span style="color:var(--purple);font-weight:700">하루권 <b>${cnt.dropin}</b></span>`:''}<span style="color:var(--ink-soft)">· 오른쪽 상태 표시를 탭하면 출석/결석/보강/하루권 순으로 넘어가요 · <span style="border:1.5px dashed var(--ink-soft);border-radius:4px;padding:0 3px">점선</span>: 아직 안 눌러서 저장 안 됨</span>`;}
 
 function renderFee(){const c=curClass(),board=document.getElementById('feeBoard'),list=document.getElementById('feeList');
   const sumHead=document.getElementById('feeSummaryHead');
