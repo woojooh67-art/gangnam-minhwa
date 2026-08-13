@@ -3015,7 +3015,7 @@ function renderStudentApp(){
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--verm-tint);border:1px solid var(--verm);vertical-align:middle"></span> 휴강</span>
       </div>`;
   }
-  const payRows=(stuData.payments||[]).slice().sort((a,b)=>a.date<b.date?1:-1).slice(0,6).map(p=>`<div class="stuhist"><span>${shortDate(p.date)} · ${p.plan==='dropin8'?'하루수업 8회 선결제':`${p.plan||p.sessions||''}회권`}</span><b>${won(p.amount)}</b></div>`).join('')||'<div class="note">결제 내역이 없어요.</div>';
+  const payRows=(stuData.payments||[]).slice().sort((a,b)=>a.date<b.date?1:-1).slice(0,6).map(p=>`<div class="stuhist"><span>${p.date} · ${p.plan==='dropin8'?'하루수업 8회 선결제':`${p.plan||p.sessions||''}회권`}</span><b>${won(p.amount)}</b></div>`).join('')||'<div class="note">결제 내역이 없어요.</div>';
   let makeupSection='';
   if(quotaTotal>0&&(realEntitlement>0||stuData.remain>0)){
     const pendingRows=pendingMakeup.map(sid=>{
