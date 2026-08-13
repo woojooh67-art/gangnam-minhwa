@@ -1096,10 +1096,11 @@ function recomputeDropinPack(st){
 /* 보강기한: 4·12·24회권 모두 동일한 공식 — 그 패키지의 '마지막 수업일'(출석이든 결석이든 순서대로 다 채운 날) + 4주(28일).
    즉 패키지 기간 내내 아무 때나 보강 가능하고, 마지막 회차가 끝난 뒤에도 4주 여유를 더 줌. */
 function lastCoveredClassDate(st){
-  const dates=scopedMarks(st).filter(m=>m.mark==='present'||m.mark==='late'||m.mark==='absent').map(m=>m.iso).sort();
-  const paid=paidSessions(st);
-  if(paid<=0||!dates.length)return '';
-  const idx=Math.min(paid,dates.length)-1;
+  const p=lastPayment(st);if(!p)return '';
+  const dates=marksOf(st).filter(m=>(m.mark==='present'||m.mark==='late'||m.mark==='absent')&&m.iso>=p.date).map(m=>m.iso).sort();
+  const pl=planOf(st,p);
+  if(!dates.length)return '';
+  const idx=Math.min(pl,dates.length)-1;
   return dates[idx];
 }
 function effectiveMakeupLeft(st){return dueExpired(st)?0:makeupLeft(st);}
