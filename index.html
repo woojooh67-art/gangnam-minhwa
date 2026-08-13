@@ -362,7 +362,16 @@ function todayISO(){const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth
 function shortDate(iso){if(!iso)return '';const p=iso.split('-');return p.length===3?(+p[1])+'/'+(+p[2]):iso}
 function fullDateKr(iso){if(!iso)return '';const p=iso.split('-');return p.length===3?`${p[0]}년 ${+p[1]}월 ${+p[2]}일`:iso}
 function mkDateLabel(u){const sd=shortDate(u.iso);return(u.label&&u.label!==sd)?`${esc(u.label)} (${sd})`:sd;}
-function addMonths(iso,m){const p=iso.split('-').map(Number);const d=new Date(p[0],p[1]-1+m+1,0);return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function addMonths(iso,m){
+  const p=iso.split('-').map(Number);
+  const t=p[1]-1+m;
+  const y=p[0]+Math.floor(t/12);
+  const mo=((t%12)+12)%12;
+  const lastDay=new Date(y,mo+1,0).getDate();
+  const day=Math.min(p[2],lastDay);
+  const d=new Date(y,mo,day);
+  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+}
 function addDays(iso,d){const dt=new Date(iso+'T00:00:00');dt.setDate(dt.getDate()+d);return dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate());}
 function won(n){return (n||0).toLocaleString('ko-KR')+'원'}
 function esc(s){return String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))}
