@@ -729,18 +729,20 @@ function timetableSheet(){
 function diagnosticSheet(){
   const rows=data.students.filter(s=>s.status!=='ended').map(st=>{
     const paid=paidSessions(st),cons=consumedSessions(st),rem=paid-cons;
+    const adj=st.remainAdjust||0;
     const marks=scopedMarks(st).slice().sort((a,b)=>a.iso<b.iso?-1:1);
-    return {st,paid,cons,rem,marks};
-  }).sort((a,b)=>a.rem-b.rem);
+    return {st,paid,cons,rem,adj,marks};
+  }).sort((a,b)=>(a.rem+a.adj)-(b.rem+b.adj));
   let html=`<div class="overlay"><div class="sheet" style="max-width:640px"><button class="quickx" onclick="closeOverlay()">✕</button><h3>🔍 전체 잔여 회차 진단</h3>
-    <div class="subt">잔여가 이상한 학생을 찾기 위한 상세 내역이에요. 리셋 기준일이 있는 학생은 그 이후 기록만 계산에 포함돼요. 마이너스가 크거나, 결제 회차보다 마크 개수가 이상하게 많은 학생을 확인하세요.</div>
+    <div class="subt">잔여가 이상한 학생을 찾기 위한 상세 내역이에요. 리셋 기준일이 있는 학생은 그 이후 기록만 계산에 포함돼요. 마이너스가 크거나, 결제 회차보다 마크 개수가 이상하게 많은 학생을 확인하세요. <b>보정값(⚙)이 있으면 화면에 보이는 최종 잔여가 이 계산값과 달라요</b> — 예전에 "실제 잔여 회차"로 수동 조정했던 값이 남아있는 거예요.</div>
     <div style="max-height:65vh;overflow:auto">`;
   rows.forEach(r=>{
     const warn=r.rem<0;
+    const finalRem=r.rem+r.adj;
     html+=`<div class="srow" data-diagid="${r.st.id}" style="flex-direction:column;align-items:stretch;margin-bottom:10px;cursor:pointer;${warn?'border-color:var(--verm)':''}">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <b>${esc(r.st.name)}${r.st.cycleStart?` <small style="color:var(--blue);font-weight:400">· 리셋 ${shortDate(r.st.cycleStart)}~</small>`:''}</b>
-        <span style="font-weight:700;${warn?'color:var(--verm)':'color:var(--jade-deep)'}">결제 ${r.paid} − 사용 ${r.cons} = 잔여 ${r.rem}</span>
+        <span style="font-weight:700;${warn?'color:var(--verm)':'color:var(--jade-deep)'}">결제 ${r.paid} − 사용 ${r.cons} = ${r.rem}${r.adj?` <span style="color:var(--ochre)">⚙${r.adj>0?'+':''}${r.adj}</span> → 실제 화면 ${finalRem}`:''}</span>
       </div>
       <div style="font-size:11.5px;color:var(--ink-soft);margin-top:4px;line-height:1.6">
         ${r.marks.map(m=>`${m.iso}(${esc(m.cls)}:${LABEL[m.mark]||m.mark})`).join(' · ')||'(마크 없음)'}
