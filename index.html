@@ -374,6 +374,10 @@ function addMonths(iso,m){
 }
 function addDays(iso,d){const dt=new Date(iso+'T00:00:00');dt.setDate(dt.getDate()+d);return dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate());}
 function won(n){return (n||0).toLocaleString('ko-KR')+'원'}
+function loginTimeStr(ts){
+  const d=new Date(ts);
+  return `${d.getMonth()+1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 function esc(s){return String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))}
 function curMonthKey(){const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)}
 
@@ -504,6 +508,17 @@ async function mergeAllStudentActivity(showToast){
           total++;
         }}});
     if(!q6.empty){const b6=db.batch();q6.forEach(doc=>b6.delete(doc.ref));await b6.commit();}
+  });
+  await step('loginEvents',async()=>{
+    const q7=await db.collection('loginEvents').get();
+    const latestByStudent={};
+    q7.forEach(doc=>{const d=doc.data();if(!d.studentId)return;
+      if(!latestByStudent[d.studentId]||d.ts>latestByStudent[d.studentId].ts)latestByStudent[d.studentId]=d;});
+    Object.keys(latestByStudent).forEach(sid=>{const st=studentById(sid);if(!st)return;
+      const d=latestByStudent[sid];
+      if(!st.lastLogin||d.ts>st.lastLogin.ts){st.lastLogin={ts:d.ts,isAdminDevice:!!d.isAdminDevice};}
+    });
+    if(!q7.empty){const b7=db.batch();q7.forEach(doc=>b7.delete(doc.ref));await b7.commit();}
   });
   try{
     const pruneCutoff=addDays(todayISO(),-30);
@@ -2135,6 +2150,7 @@ function studentSheet(st){const fee=feeFor(st);
     const ml=makeupLeft(st),due=makeupDue(st);
     oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button>
       <h3>${esc(st.name)} · 출결·수업료</h3><div class="subt">${esc(clsNames(st))} · 기준 월요금(4회) ${won(fee)}${st.rate?' · 특별요금':''}${st.status==='paused'?' · 휴강중':''}${st.code?` · <b style="color:var(--jade-deep)">코드 ${st.code}</b>`:' · <span style="color:var(--verm)">코드 미발급</span>'}</div>
+      <div class="note" style="margin:-4px 3px 8px;color:var(--ink-soft)">${st.lastLogin?(st.lastLogin.isAdminDevice?`⚠ 마지막 로그인 ${loginTimeStr(st.lastLogin.ts)} (원장님 기기 — 테스트일 수 있어요)`:`✅ 마지막 로그인 ${loginTimeStr(st.lastLogin.ts)} (학생 기기)`):'아직 로그인 기록이 없어요'}</div>
       <button class="minibtn" id="stEdit" style="width:100%;margin:8px 0 4px;border-color:var(--blue);color:var(--blue)">✎ 정보 수정</button>
       ${!hasRealClassSt?`<div class="note" style="background:var(--purple-tint);color:var(--purple);padding:8px 11px;border-radius:9px;margin:6px 0 2px;font-weight:600">🎫 정규 요일이 없는 쿠폰 전용 학생이에요 — 하루수업 8회 선결제 외 옵션은 흐리게 표시돼요.</div>`:''}
       ${st.notes?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:8px 11px;border-radius:9px;margin:6px 0 2px;font-weight:600">📌 ${esc(st.notes)}</div>`:''}
@@ -2908,6 +2924,7 @@ async function enterAdmin(){
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('studentApp').classList.add('hidden');
   document.getElementById('adminApp').classList.remove('hidden');
+  try{localStorage.setItem('gmh_admin_device','1');}catch(e){}
   const loaded=await load();
   if(!loaded.ok){
     toast('⚠ 데이터를 불러오지 못해 안전을 위해 저장을 건너뛰었어요. 인터넷 연결을 확인 후 새로고침해주세요.');
@@ -3424,6 +3441,11 @@ async function enterStudent(u){
   }
   renderStudentApp();
   maybeShowAnnouncement();
+  try{
+    let isAdminDevice=false;
+    try{isAdminDevice=localStorage.getItem('gmh_admin_device')==='1';}catch(e){}
+    await db.collection('loginEvents').add({uid:u,studentId:stuData?stuData.studentId:null,studentName:stuData?stuData.name:null,ts:Date.now(),isAdminDevice,createdAt:Date.now()});
+  }catch(e){console.error(e);}
 }
 function maybeShowAnnouncement(){
   if(!stuData||!stuData.announcement)return;
