@@ -2157,7 +2157,7 @@ function studentSheet(st){const fee=feeFor(st);
         <div id="stuAdminCalBox">${stuAdminCalHTML(st)}</div>
       </div>
       <div class="hist"><div class="h">최근 출결 기록 <small style="font-weight:400;color:var(--ink-soft)">(최근 10건 · 전체 출석 ${usedSessions(st)}회)</small></div>
-        ${marks.length?marks.map(m=>`<div class="hrow"><span>${m.iso} <small style="color:var(--ink-soft)">(${esc(m.cls)})</small></span><span style="font-weight:700;color:${m.mark==='present'||m.mark==='late'?'var(--jade-deep)':m.mark==='absent'?'var(--verm)':m.mark==='makeup'?'var(--blue)':'var(--ink-soft)'}">${LABEL[m.mark]||m.mark}</span></div>`).join(''):'<div class="note">아직 기록이 없어요.</div>'}
+        ${marks.length?marks.map(m=>`<div class="hrow"><span>${m.iso} <small style="color:var(--ink-soft)">(${esc(m.cls)})</small></span><span style="font-weight:700;color:${m.mark==='present'||m.mark==='late'?'var(--jade-deep)':m.mark==='absent'?'var(--verm)':m.mark==='makeup'?'var(--blue)':'var(--ink-soft)'}">${LABEL[m.mark]||m.mark}${m.iso>todayISO()?' (예정)':''}</span></div>`).join(''):'<div class="note">아직 기록이 없어요.</div>'}
       </div>
       </div></div>`;
     const q=s=>oroot().querySelector(s);
