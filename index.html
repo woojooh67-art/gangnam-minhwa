@@ -3166,7 +3166,7 @@ function renderStudentApp(){
       ${(stuData.lastPaymentDate||stuData.remainProjected)?`<div class="note" style="margin:-6px 2px 10px;color:var(--ink-soft)">${stuData.lastPaymentDate?`결제일: ${stuData.lastPaymentDate}`:''}${(stuData.lastPaymentDate&&stuData.remainProjected&&stuData.remain>0)?' · ':''}${(stuData.remainProjected&&stuData.remain>0)?`${stuData.remainProjected}까지 수강 가능해요`:''}</div>`:''}
       ${borrowed>0?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;margin:-2px 0 12px;font-weight:700">⚠ <b>-${borrowed}회</b> · 출석 ${borrowed}회 전에 미리 보강하셨어요.</div>`:''}
       ${(stuData.makeupDue&&approvedMakeup>0)?(stuData.makeupDueExtended
-        ?`<div class="note" style="background:var(--jade-tint);color:var(--jade-deep);padding:9px 11px;border-radius:9px;font-weight:700">💚 원장님께서 배려해주셔서 ${stuData.makeupDue}까지 보강 가능해요. 꼭 이 안에 완료해주세요.</div>`
+        ?`<div class="note" style="background:var(--jade-tint);color:var(--jade-deep);padding:9px 11px;border-radius:9px;font-weight:700">💚 보강기한은 ${stuData.makeupDue}까지예요. 꼭 이 안에 완료해주세요.</div>`
         :stuData.makeupDueExpired
           ?(stuData.status==='paused'
             ?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700">⏳ 보강기한(${stuData.makeupDue})이 지났지만, 휴강중이시니 재등록하시면 그날 기준으로 새로 연장돼요.</div>`
