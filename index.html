@@ -336,6 +336,10 @@ const STATUSES=['present','absent','makeup','dropin'];
 const LABEL={present:'출석',late:'지각',absent:'결석',makeup:'보강',dropin:'하루권 출석',none:'재결제 필요'};
 const CLS={present:'st-present',late:'st-late',absent:'st-absent',makeup:'st-makeup',dropin:'st-dropin',none:'st-none'};
 let mem=null,data=null,tab='check',activeSess={},feeFilter='all',feeQuery='',feeScope='all',rosterScope='all',rosterQuery='',repMonth=null,repScope='month',checkCalYM={},checkMode='all',dropinOpen=false,stuMode='fee',logOlderOpen=false,upcomingMoreOpen=false;
+let _lastPillClickTs=0;
+function pillClickGuard(){ // 연속 두 번 눌리는 실수 방지(0.5초 내 재클릭 무시)
+  const now=Date.now();if(now-_lastPillClickTs<500)return false;_lastPillClickTs=now;return true;
+}
 
 /* ---------- utils ---------- */
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
@@ -1463,6 +1467,7 @@ function renderCheck(){
     const codeLine=st.code?`<small style="display:block;font-weight:400;color:var(--jade-deep);font-size:11px;margin-top:2px">코드 ${esc(st.code)}</small>`:`<small style="display:block;font-weight:400;color:var(--verm);font-size:11px;margin-top:2px">코드 미발급</small>`;
     row.innerHTML=`<span class="nm">${esc(st.name)}${codeLine}</span><span class="sub" style="${subCls}">${sub.join(' · ')}</span><span style="display:flex;align-items:center;gap:6px"><span class="${pillCls} statusPill" style="cursor:pointer">${pillLabel}</span>${hasRec?`<span class="clearrec" style="color:var(--ink-soft);font-size:11px;padding:2px 4px;cursor:pointer" title="이 날짜 기록 지우기(패키지 밖 날짜 등)">✕</span>`:''}</span>`;
     row.querySelector('.statusPill').onclick=()=>{
+      if(!pillClickGuard())return;
       if(!hasRec){c.records[k]=(status==='none')?'present':status;}
       else{const idx=STATUSES.indexOf(status);const next=STATUSES[(idx+1)%4];logStatusChange(st,c,status,next,sess.iso);c.records[k]=next;}
       save();renderCheck();renderFee();renderReport();
@@ -1476,7 +1481,7 @@ function renderCheck(){
     guests.forEach(st=>{const k=sess.id+':'+st.id;const status=c.records[k]||'makeup';cnt[status]++;
       const row=document.createElement('div');row.className='srow '+CLS[status];row.style.cursor='default';
       row.innerHTML=`<span class="nm">${esc(st.name)}${st.code?`<small style="display:block;font-weight:400;color:var(--jade-deep);font-size:11px;margin-top:2px">코드 ${esc(st.code)}</small>`:''}</span><span class="sub">${esc(clsNames(st))||'반 미지정'} · 잔여 ${remainSessions(st)}회</span><span class="pill${isFuture?' unconfirmed':''}" style="cursor:pointer">${LABEL[status]}${isFuture?' (예정)':''}</span>`;
-      row.querySelector('.pill').onclick=()=>{const next=STATUSES[(Math.max(0,STATUSES.indexOf(status))+1)%4];logStatusChange(st,c,status,next,sess.iso);c.records[k]=next;save();renderCheck();renderFee();renderReport();};
+      row.querySelector('.pill').onclick=()=>{if(!pillClickGuard())return;const next=STATUSES[(Math.max(0,STATUSES.indexOf(status))+1)%4];logStatusChange(st,c,status,next,sess.iso);c.records[k]=next;save();renderCheck();renderFee();renderReport();};
       const del=document.createElement('div');del.className='note';del.style.textAlign='right';del.style.margin='2px 6px 8px';
       del.innerHTML='<span style="color:var(--verm);cursor:pointer">이 학생 빼기</span>';
       del.onclick=()=>{logAdminClear(st,c,c.records[k],sess.iso);delete c.records[k];save();renderCheck();renderFee();renderReport();toast('빼줬어요.');};
@@ -1493,6 +1498,7 @@ function renderCheck(){
       const row=document.createElement('div');row.className='srow '+CLS[status];row.style.cursor='default';
       row.innerHTML=`<span class="nm">${esc(st.name)}${st.code?`<small style="display:block;font-weight:400;color:var(--jade-deep);font-size:11px;margin-top:2px">코드 ${esc(st.code)}</small>`:''} <small style="color:var(--ink-soft)">(${st.status==='ended'?'종료':'휴강중'})</small></span><span class="sub">잔여 ${remainSessions(st)}회</span><span class="pill" style="cursor:pointer">${LABEL[status]}</span>`;
       row.querySelector('.pill').onclick=()=>{
+        if(!pillClickGuard())return;
         if(status==='none'){c.records[k]='present';}
         else{const idx=STATUSES.indexOf(status);const next=STATUSES[(idx+1)%4];logStatusChange(st,c,status,next,sess.iso);c.records[k]=next;}
         save();renderCheck();renderFee();renderReport();
