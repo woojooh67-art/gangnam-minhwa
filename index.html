@@ -442,6 +442,7 @@ async function mergeAllStudentActivity(showToast){
     const q2=await db.collection('makeupRequests').get();
     q2.forEach(doc=>{const d=doc.data();const c=classById(d.toClassId);
       if(c){const k=d.toSessionId+':'+d.studentId;c.records[k]='makeup';
+        const stForClear=studentById(d.studentId);if(stForClear&&stForClear.makeupDueOverride)delete stForClear.makeupDueOverride;
         const msg=`${d.studentName||'학생'}님이 ${c.name} · ${d.label||shortDate(d.iso)} 보강을 예약했어요.`;
         pushLog('makeup',msg,d.iso);msgs.push(msg);total++;}});
     if(!q2.empty){const b2=db.batch();q2.forEach(doc=>b2.delete(doc.ref));await b2.commit();}
@@ -1022,6 +1023,7 @@ function logAdminClear(st,c,mark,iso){
   pushLog(mark==='makeup'?'makeup':'admin',`(원장님) ${esc(st.name)}님의 ${shortDate(iso)} '${label}' 기록을 지웠어요${c?' ('+esc(c.name)+')':''}`,iso);
 }
 function logStatusChange(st,c,prevMark,newMark,iso){
+  if(newMark==='makeup'&&st&&st.makeupDueOverride){delete st.makeupDueOverride;}
   if(!st||!prevMark||prevMark===newMark)return;
   if(prevMark!=='makeup'&&prevMark!=='absent')return;
   const prevLabel=LABEL[prevMark]||prevMark,newLabel=LABEL[newMark]||newMark;
@@ -1122,7 +1124,10 @@ function planOf(st,p){ if(p.plan)return p.plan;
   const f=feeFor(st); const g=[1,4,12,24].find(n=>planAmount(f,n)===p.amount);
   if(g)return g; const n=Math.max(1,Math.round((p.sessions||4)/4))*4; return n;}
 function makeupDue(st){
-  if(st.makeupDueOverride)return st.makeupDueOverride;
+  if(st.makeupDueOverride){
+    if(st.makeupDueOverride<todayISO()){delete st.makeupDueOverride;}
+    else return st.makeupDueOverride;
+  }
   const p=lastPayment(st);if(!p)return '';
   const lastClass=st.lastClassOverride||lastCoveredClassDate(st);
   let base;
@@ -1860,6 +1865,7 @@ function guestSheet(c,sess,isTemp){
   oroot().querySelector('#gNo').onclick=closeOverlay;
   oroot().querySelectorAll('[data-g]').forEach(el=>el.onclick=()=>{
     c.records[sess.id+':'+el.dataset.g]=el.dataset.gmark;
+    if(el.dataset.gmark==='makeup'){const stForClear=studentById(el.dataset.g);if(stForClear&&stForClear.makeupDueOverride)delete stForClear.makeupDueOverride;}
     save();closeOverlay();renderCheck();renderFee();renderReport();
     toast(el.dataset.gmark==='present'?'출석으로 추가했습니다.':'보강 참석으로 추가했습니다.');});
 }
