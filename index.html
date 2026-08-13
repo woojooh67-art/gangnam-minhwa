@@ -3258,7 +3258,7 @@ function openMakeupPicker(excludeSessionId){
   const isGraceOnly=realEntitlementNow<=0&&stuData.remain<=0;
   let dueBadge='';
   if(isGraceOnly){
-    if(stuData.paceEnd)dueBadge=`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">⏳ 결석 보강이 아니라, 재결제 전 수업에 미리 참여하시는 거예요. ${addDays(stuData.paceEnd,7)}까지 가능해요. 다음 결제하시면 참여하신 만큼 회차에서 자동으로 차감돼요.</div>`;
+    if(stuData.paceEnd)dueBadge=`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">⏳ 결석 보강이 아니라, 재결제 전 수업에 미리 참여하시는 거예요. ${addDays(stuData.paceEnd,7)}까지 가능해요.</div>`;
   }else if(stuData.makeupDue&&!stuData.makeupDueExtended){
     if(stuData.makeupDueExpired&&stuData.status!=='paused')dueBadge=`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">⚠ 보강기한(${stuData.makeupDue})이 지나 보강이 소멸됐어요.</div>`;
     else if(stuData.makeupDueSoon&&!stuData.makeupDueExpired)dueBadge=`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">⚠ 보강기한이 곧 만료돼요 (${stuData.makeupDue}까지)</div>`;
@@ -3268,7 +3268,7 @@ function openMakeupPicker(excludeSessionId){
   }
   oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button>
     <h3>${isGraceOnly?'참여하실 날짜를 골라주세요':'보강 받으실 날짜를 골라주세요'}</h3>
-    <div class="subt">${isGraceOnly?'편하신 날짜를 누르면 그 자리에서 바로 신청돼요. 다음 결제 때 이만큼 포함해서 정산해 드릴게요.':'편하신 날짜를 누르면 그 자리에서 바로 보강 예약이 신청돼요.'}</div>
+    <div class="subt">${isGraceOnly?'편하신 날짜를 누르면 그 자리에서 바로 신청되고 다음 결제에서 정산됩니다.':'편하신 날짜를 누르면 그 자리에서 바로 보강 예약이 신청돼요.'}</div>
     ${dueBadge}
     <div style="max-height:52vh;overflow:auto">${rows||'<div class="note">지금은 예약 가능한 수업이 없어요. 나중에 "보강 예약" 카드에서 다시 골라주세요.</div>'}</div>
     <div class="actions" style="margin-top:14px"><button class="btn-ghost" id="mpLater" style="flex:1">나중에 할게요</button></div>
