@@ -1123,7 +1123,9 @@ function makeupDue(st){
   }
   return (st.extend&&st.extend>0)?addMonths(base,st.extend):base;}
 function dueExpired(st){const d=makeupDue(st);if(!d)return false;return d<todayISO();}
-function expectedPaceEnd(st){const p=lastPayment(st);if(!p)return '';const pl=planOf(st,p);
+function expectedPaceEnd(st){
+  if(st.lastClassOverride)return st.lastClassOverride;
+  const p=lastPayment(st);if(!p)return '';const pl=planOf(st,p);
   const base=(st.regDateOverride&&st.regDateOverride>p.date)?st.regDateOverride:p.date;
   return addDays(base,pl*7);}
 function projectedRepayDate(st){
