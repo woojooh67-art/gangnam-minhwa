@@ -1097,7 +1097,8 @@ function recomputeDropinPack(st){
    즉 패키지 기간 내내 아무 때나 보강 가능하고, 마지막 회차가 끝난 뒤에도 4주 여유를 더 줌. */
 function lastCoveredClassDate(st){
   const p=lastPayment(st);if(!p)return '';
-  const dates=marksOf(st).filter(m=>(m.mark==='present'||m.mark==='late'||m.mark==='absent')&&m.iso>=p.date).map(m=>m.iso).sort();
+  const t=todayISO();
+  const dates=marksOf(st).filter(m=>(m.mark==='present'||m.mark==='late'||m.mark==='absent')&&m.iso>=p.date&&m.iso<=t).map(m=>m.iso).sort();
   const pl=planOf(st,p);
   if(!dates.length)return '';
   const idx=Math.min(pl,dates.length)-1;
