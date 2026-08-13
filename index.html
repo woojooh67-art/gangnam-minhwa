@@ -3361,9 +3361,9 @@ function maybeShowAnnouncement(){
   let seenIds=[];
   try{seenIds=JSON.parse(localStorage.getItem('gmh_seen_announcements')||'[]');}catch(e){seenIds=[];}
   if(seenIds.indexOf(a.id)>=0)return;
-  oroot().innerHTML=`<div class="overlay"><div class="sheet"><h3>📢 공지사항</h3>
+  oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>📢 공지사항</h3>
     <div style="white-space:pre-wrap;font-size:14.5px;line-height:1.7;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin:6px 0 16px">${esc(a.text)}</div>
-    <div class="actions"><button class="btn-primary" id="anSeenOk" style="width:100%">확인했어요</button></div>
+    <div class="actions"><button class="btn-primary" id="anSeenOk" style="width:100%">확인했어요 (다시 안 보기)</button></div>
     </div></div>`;
   oroot().querySelector('#anSeenOk').onclick=()=>{
     seenIds.push(a.id);
