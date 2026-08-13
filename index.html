@@ -984,9 +984,6 @@ function autoCreateUpcomingSessions(){
         if((c.skippedDates||[]).indexOf(iso)>=0)return;
         s={id:uid(),label:shortDate(iso),iso};c.sessions.push(s);made++;
       }
-      if(iso===todayIso){
-        activeIn(c.id).filter(st=>{const rd=regDate(st);return !rd||rd<=iso;}).forEach(st=>{const k=s.id+':'+st.id;if(c.records[k]===undefined&&remainSessions(st)>0)c.records[k]='present';});
-      }
     });
   }
   return made;
