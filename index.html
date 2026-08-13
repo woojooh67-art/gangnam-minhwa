@@ -1122,7 +1122,7 @@ function planOf(st,p){ if(p.plan)return p.plan;
 function makeupDue(st){
   if(st.makeupDueOverride)return st.makeupDueOverride;
   const p=lastPayment(st);if(!p)return '';
-  const lastClass=st.lastClassOverride||(remainSessions(st)>0?projectedRepayDate(st):lastCoveredClassDate(st));
+  const lastClass=st.lastClassOverride||lastCoveredClassDate(st);
   let base;
   if(lastClass){
     base=addDays(lastClass,28);
