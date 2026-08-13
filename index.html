@@ -562,7 +562,7 @@ async function regenerateStudentViews(){
         remain:remainSessions(st),usedTotal:usedSessions(st),absentTotal:absentCount(st),
         makeupLeft:effectiveMakeupLeft(st),allUpcoming:upcomingForStu,myMakeups,myDropins,
         makeupDueExpired:expired,makeupDueSoon:(daysLeft!==null&&daysLeft<=7),delayedUsage:isDelayedUsage(st),paceEnd:expectedPaceEnd(st),
-        remainProjected:remainSessions(st)>0?addDays(todayISO(),remainSessions(st)*7):null,
+        remainProjected:projectedRepayDate(st),
         makeupDueExtended:!!st.makeupDueOverride,
         dropin:!!(st.dropin||st.dropinOnce),dailyRate:data.rates.daily||60000,dailyRateResearch:data.rates.dailyResearch||90000,
         dropinPack:(st.dropinPack&&!isDropinPackExpired(st))?{total:st.dropinPack.total,used:st.dropinPack.used,expiry:st.dropinPack.expiry}:null,dropin8Days:data.rates.dropin8Days||90,
@@ -1130,6 +1130,16 @@ function dueExpired(st){const d=makeupDue(st);if(!d)return false;return d<todayI
 function expectedPaceEnd(st){const p=lastPayment(st);if(!p)return '';const pl=planOf(st,p);
   const base=(st.regDateOverride&&st.regDateOverride>p.date)?st.regDateOverride:p.date;
   return addDays(base,pl*7);}
+function projectedRepayDate(st){
+  const rem=remainSessions(st);if(rem<=0)return null;
+  const c=(st.classIds||[]).map(classById).find(x=>x&&classWeekday(x)!==null);
+  if(!c)return addDays(todayISO(),rem*7);
+  const dow=classWeekday(c);
+  const d=new Date(todayISO()+'T00:00:00');
+  while(d.getDay()!==dow)d.setDate(d.getDate()+1);
+  const nextIso=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+  return addDays(nextIso,(rem-1)*7);
+}
 function isDelayedUsage(st){if(st.regDateOverride)return false;const p=lastPayment(st);if(!p)return false;if(remainSessions(st)<=0)return false;const end=expectedPaceEnd(st);return end&&todayISO()>end;}
 function statusOf(st){if(st.status==='ended')return 'ended';if(st.status==='paused')return 'paused';const r=remainSessions(st);if(r<=0)return 'out';if(r<=2)return 'low';return 'ok';}
 
