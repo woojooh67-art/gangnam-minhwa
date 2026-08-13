@@ -561,7 +561,9 @@ async function regenerateStudentViews(){
         studentId:st.id,name:st.name,status:st.status,classes,hasRealClass,
         remain:remainSessions(st),usedTotal:usedSessions(st),absentTotal:absentCount(st),
         makeupLeft:effectiveMakeupLeft(st),allUpcoming:upcomingForStu,myMakeups,myDropins,
-        makeupDueExpired:expired,makeupDueSoon:(daysLeft!==null&&daysLeft<=7),delayedUsage:isDelayedUsage(st),paceEnd:expectedPaceEnd(st),makeupDueExtended:!!st.makeupDueOverride,
+        makeupDueExpired:expired,makeupDueSoon:(daysLeft!==null&&daysLeft<=7),delayedUsage:isDelayedUsage(st),paceEnd:expectedPaceEnd(st),
+        remainProjected:remainSessions(st)>0?addDays(todayISO(),remainSessions(st)*7):null,
+        makeupDueExtended:!!st.makeupDueOverride,
         dropin:!!(st.dropin||st.dropinOnce),dailyRate:data.rates.daily||60000,dailyRateResearch:data.rates.dailyResearch||90000,
         dropinPack:(st.dropinPack&&!isDropinPackExpired(st))?{total:st.dropinPack.total,used:st.dropinPack.used,expiry:st.dropinPack.expiry}:null,dropin8Days:data.rates.dropin8Days||90,
         payments:(st.payments||[]).slice().sort((a,b)=>a.date<b.date?1:-1).map(p=>({date:p.date,amount:p.amount,sessions:p.sessions,plan:p.plan})),
@@ -3143,7 +3145,7 @@ function renderStudentApp(){
       <div class="tally"><span class="p"><b>${stuData.remain}</b>회 남음</span>${approvedMakeup>0?`<span class="a"><b>${stuData.absentTotal}</b>회 결석</span>`:''}${approvedMakeup>0?`<span class="m"><b>${approvedMakeup}</b>회 보강 가능</span>`:''}</div>
       ${stuData.remain<0?`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">⚠ ${stuData.paceEnd?shortDate(stuData.paceEnd)+'까지였던 수강 기간이 지났어요. ':''}결제 없이 ${-stuData.remain}회 더 출석하셨어요. 결제해 주세요.</div>`:stuData.remain===0?`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">⚠ ${stuData.paceEnd?shortDate(stuData.paceEnd)+'까지였던 수강 기간이 끝났어요. ':''}재결제해 주세요.</div>`:''}
       <div class="note" style="margin:-6px 2px 10px">보강은 언제든 미리 예약하실 수 있어요.</div>
-      ${(stuData.lastPaymentDate||stuData.lastAttendDate)?`<div class="note" style="margin:-6px 2px 10px;color:var(--ink-soft)">${stuData.lastPaymentDate?`결제일: ${stuData.lastPaymentDate}`:''}${(stuData.lastPaymentDate&&stuData.lastAttendDate)?' · ':''}${stuData.lastAttendDate?`마지막 출석: ${stuData.lastAttendDate}`:''}${(stuData.paceEnd&&stuData.remain>0)?` · 재결제 예정: ${stuData.paceEnd}까지`:''}</div>`:''}
+      ${(stuData.lastPaymentDate||stuData.lastAttendDate)?`<div class="note" style="margin:-6px 2px 10px;color:var(--ink-soft)">${stuData.lastPaymentDate?`결제일: ${stuData.lastPaymentDate}`:''}${(stuData.lastPaymentDate&&stuData.lastAttendDate)?' · ':''}${stuData.lastAttendDate?`마지막 출석: ${stuData.lastAttendDate}`:''}${(stuData.remainProjected&&stuData.remain>0)?` · 재결제 예정: ${stuData.remainProjected}까지`:''}</div>`:''}
       ${borrowed>0?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;margin:-2px 0 12px;font-weight:700">⚠ <b>-${borrowed}회</b> · 출석 ${borrowed}회 전에 미리 보강하셨어요.</div>`:''}
       ${(stuData.makeupDue&&approvedMakeup>0)?(stuData.makeupDueExtended
         ?`<div class="note" style="background:var(--jade-tint);color:var(--jade-deep);padding:9px 11px;border-radius:9px;font-weight:700">💚 원장님께서 배려해주셔서 ${stuData.makeupDue}까지 보강 가능해요. 꼭 이 안에 완료해주세요.</div>`
