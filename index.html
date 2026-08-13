@@ -599,10 +599,6 @@ function migrate(d){
   d.classes.forEach(c=>{if(!c.recMemos)c.recMemos={};});
   if(!Array.isArray(d.studioNotes))d.studioNotes=[];
   if(!d.announcement)d.announcement=null;
-  {const t=todayISO(); // 아직 오지 않은 미래 날짜에 잘못 남아있는 '출석' 기록 정리 (미리 회차를 만들 때 자동으로 출석 처리되던 예전 버그 교정)
-    d.classes.forEach(c=>{(c.sessions||[]).forEach(s=>{if(s.iso>t){
-      Object.keys(c.records||{}).forEach(k=>{if(k.indexOf(s.id+':')===0&&c.records[k]==='present')delete c.records[k];});
-    }});});}
   if(!d.rates)d.rates={d3:10,d6:15};
   if(!d.capacity)d.capacity=7;
   if(!d.income)d.income=[];
@@ -2948,8 +2944,8 @@ function renderStudentApp(){
   const remainNow=stuData.remain||0;
   const lastPaidSessionId=(remainNow>0&&remainNow<=_lastPaidSorted.length)?_lastPaidSorted[remainNow-1].id:null;
   const _allUpcoming=[];
-  (stuData.classes||[]).filter(c=>c.official!==false).forEach(c=>{
-    (c.sessions||[]).filter(s=>s.iso>=t).forEach(s=>_allUpcoming.push({c,s}));
+  (stuData.classes||[]).forEach(c=>{
+    (c.sessions||[]).filter(s=>s.iso>=t&&(c.official!==false||c.records[s.id]!==undefined)).forEach(s=>_allUpcoming.push({c,s}));
   });
   _allUpcoming.sort((a,b)=>a.s.iso<b.s.iso?-1:1);
   _allUpcoming.forEach(({c,s})=>{
