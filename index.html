@@ -1117,7 +1117,7 @@ function planOf(st,p){ if(p.plan)return p.plan;
 function makeupDue(st){
   if(st.makeupDueOverride)return st.makeupDueOverride;
   const p=lastPayment(st);if(!p)return '';
-  const lastClass=st.lastClassOverride||lastCoveredClassDate(st);
+  const lastClass=st.lastClassOverride||(remainSessions(st)>0?projectedRepayDate(st):lastCoveredClassDate(st));
   let base;
   if(lastClass){
     base=addDays(lastClass,28);
@@ -3050,7 +3050,7 @@ function renderStudentApp(){
     if(pendingMakeupCancel.length>0)pendingNote='<div class="note">취소 신청하신 만큼 바로 다른 날짜로 예약하실 수 있어요. 원장님이 확인하시면 정식 반영돼요.</div>';
     else if(pendingAbsent.length>0&&pendingMakeup.length===0)pendingNote='<div class="note">결석 알림을 드린 만큼 바로 예약하실 수 있어요. 원장님이 확인하시면 정식 반영돼요.</div>';
     const actionBtn=quotaLeft>0?`<button class="checkbtn" id="openMakeupPickerBtn">📅 보강 날짜 고르기</button>`:(pendingRows?'':'<div class="note">지금은 예약 가능한 보강이 없어요.</div>');
-    makeupSection=`<div class="stucard"><h3>${hd}</h3>${dueBadge}${pendingRows}${actionBtn}${pendingNote}</div>`;
+    makeupSection=`<div class="stucard"><h3>${hd}</h3>${pendingRows}${actionBtn}${pendingNote}</div>`;
   }
   let myMakeupSection='';
   const myMakeups=stuData.myMakeups||[];
@@ -3248,9 +3248,18 @@ function openMakeupPicker(excludeSessionId){
       <div><div class="nm" style="font-size:15px">${esc(u.className)}${u.afternoonOnly?' <small style="color:var(--blue);font-weight:400">(2~5시)</small>':''}</div><div class="sub" style="margin:2px 0 0">${mkDateLabel(u)}${u.avail!==undefined?' · 잔여 '+u.avail+'석':''}</div></div>
       <span class="pill" style="background:var(--jade-tint);color:var(--jade-deep)">${i===0?'가장 빠름':'선택'}</span>
     </div>`).join('');
+  let dueBadge='';
+  if(stuData.makeupDue&&!stuData.makeupDueExtended){
+    if(stuData.makeupDueExpired&&stuData.status!=='paused')dueBadge=`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">⚠ 보강기한(${stuData.makeupDue})이 지나 보강이 소멸됐어요.</div>`;
+    else if(stuData.makeupDueSoon&&!stuData.makeupDueExpired)dueBadge=`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">⚠ 보강기한이 곧 만료돼요 (${stuData.makeupDue}까지)</div>`;
+    else if(!stuData.makeupDueExpired)dueBadge=`<div class="note" style="margin:10px 0;font-size:15px">보강기한은 <b style="color:var(--verm);font-size:16px">${fullDateKr(stuData.makeupDue)}</b>까지예요.</div>`;
+  }else if(stuData.makeupDue&&stuData.makeupDueExtended){
+    dueBadge=`<div class="note" style="background:var(--jade-tint);color:var(--jade-deep);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">💚 ${stuData.makeupDue}까지 보강 가능해요.</div>`;
+  }
   oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button>
     <h3>보강 받으실 날짜를 골라주세요</h3>
     <div class="subt">편하신 날짜를 누르면 그 자리에서 바로 보강 예약이 신청돼요.</div>
+    ${dueBadge}
     <div style="max-height:52vh;overflow:auto">${rows||'<div class="note">지금은 예약 가능한 수업이 없어요. 나중에 "보강 예약" 카드에서 다시 골라주세요.</div>'}</div>
     <div class="actions" style="margin-top:14px"><button class="btn-ghost" id="mpLater" style="flex:1">나중에 할게요</button></div>
   </div></div>`;
