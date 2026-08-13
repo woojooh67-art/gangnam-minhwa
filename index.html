@@ -1460,7 +1460,8 @@ function renderCheck(){
     const hasRec=c.records[k]!==undefined;
     const pillLabel=isFutureSess?`${LABEL[status]} (예정)`:((!hasRec&&status==='present')?'출석(미확정)':LABEL[status]);
     const pillCls=isFutureSess?'pill unconfirmed':((!hasRec&&status==='present')?'pill unconfirmed':'pill');
-    row.innerHTML=`<span class="nm">${esc(st.name)}</span><span class="sub" style="${subCls}">${sub.join(' · ')}</span><span style="display:flex;align-items:center;gap:6px"><span class="${pillCls} statusPill" style="cursor:pointer">${pillLabel}</span>${hasRec?`<span class="clearrec" style="color:var(--ink-soft);font-size:11px;padding:2px 4px;cursor:pointer" title="이 날짜 기록 지우기(패키지 밖 날짜 등)">✕</span>`:''}</span>`;
+    const codeLine=st.code?`<small style="display:block;font-weight:400;color:var(--jade-deep);font-size:11px;margin-top:2px">코드 ${esc(st.code)}</small>`:`<small style="display:block;font-weight:400;color:var(--verm);font-size:11px;margin-top:2px">코드 미발급</small>`;
+    row.innerHTML=`<span class="nm">${esc(st.name)}${codeLine}</span><span class="sub" style="${subCls}">${sub.join(' · ')}</span><span style="display:flex;align-items:center;gap:6px"><span class="${pillCls} statusPill" style="cursor:pointer">${pillLabel}</span>${hasRec?`<span class="clearrec" style="color:var(--ink-soft);font-size:11px;padding:2px 4px;cursor:pointer" title="이 날짜 기록 지우기(패키지 밖 날짜 등)">✕</span>`:''}</span>`;
     row.querySelector('.statusPill').onclick=()=>{
       if(!hasRec){c.records[k]=(status==='none')?'present':status;}
       else{const idx=STATUSES.indexOf(status);const next=STATUSES[(idx+1)%4];logStatusChange(st,c,status,next,sess.iso);c.records[k]=next;}
@@ -1474,7 +1475,7 @@ function renderCheck(){
     const isFuture=sess.iso>todayISO();
     guests.forEach(st=>{const k=sess.id+':'+st.id;const status=c.records[k]||'makeup';cnt[status]++;
       const row=document.createElement('div');row.className='srow '+CLS[status];row.style.cursor='default';
-      row.innerHTML=`<span class="nm">${esc(st.name)}</span><span class="sub">${esc(clsNames(st))||'반 미지정'} · 잔여 ${remainSessions(st)}회</span><span class="pill${isFuture?' unconfirmed':''}" style="cursor:pointer">${LABEL[status]}${isFuture?' (예정)':''}</span>`;
+      row.innerHTML=`<span class="nm">${esc(st.name)}${st.code?`<small style="display:block;font-weight:400;color:var(--jade-deep);font-size:11px;margin-top:2px">코드 ${esc(st.code)}</small>`:''}</span><span class="sub">${esc(clsNames(st))||'반 미지정'} · 잔여 ${remainSessions(st)}회</span><span class="pill${isFuture?' unconfirmed':''}" style="cursor:pointer">${LABEL[status]}${isFuture?' (예정)':''}</span>`;
       row.querySelector('.pill').onclick=()=>{const next=STATUSES[(Math.max(0,STATUSES.indexOf(status))+1)%4];logStatusChange(st,c,status,next,sess.iso);c.records[k]=next;save();renderCheck();renderFee();renderReport();};
       const del=document.createElement('div');del.className='note';del.style.textAlign='right';del.style.margin='2px 6px 8px';
       del.innerHTML='<span style="color:var(--verm);cursor:pointer">이 학생 빼기</span>';
@@ -1490,7 +1491,7 @@ function renderCheck(){
     h.innerHTML='<b>휴강·종료</b> '+paused.length+'명 · 그래도 오신 날은 눌러서 체크 가능해요';list.appendChild(h);
     paused.forEach(st=>{const k=sess.id+':'+st.id;const status=c.records[k]||'none';if(status!=='none')cnt[status]++;
       const row=document.createElement('div');row.className='srow '+CLS[status];row.style.cursor='default';
-      row.innerHTML=`<span class="nm">${esc(st.name)} <small style="color:var(--ink-soft)">(${st.status==='ended'?'종료':'휴강중'})</small></span><span class="pill" style="cursor:pointer">${LABEL[status]}</span>`;
+      row.innerHTML=`<span class="nm">${esc(st.name)}${st.code?`<small style="display:block;font-weight:400;color:var(--jade-deep);font-size:11px;margin-top:2px">코드 ${esc(st.code)}</small>`:''} <small style="color:var(--ink-soft)">(${st.status==='ended'?'종료':'휴강중'})</small></span><span class="pill" style="cursor:pointer">${LABEL[status]}</span>`;
       row.querySelector('.pill').onclick=()=>{
         if(status==='none'){c.records[k]='present';}
         else{const idx=STATUSES.indexOf(status);const next=STATUSES[(idx+1)%4];logStatusChange(st,c,status,next,sess.iso);c.records[k]=next;}
