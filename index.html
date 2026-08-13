@@ -518,6 +518,7 @@ async function mergeAllStudentActivity(showToast){
         }}});
     if(!q6.empty){const b6=db.batch();q6.forEach(doc=>b6.delete(doc.ref));await b6.commit();}
   });
+  let loginEventsProcessed=false;
   await step('loginEvents',async()=>{
     const q7=await db.collection('loginEvents').get();
     const latestByStudent={};
@@ -525,14 +526,14 @@ async function mergeAllStudentActivity(showToast){
       if(!latestByStudent[d.studentId]||d.ts>latestByStudent[d.studentId].ts)latestByStudent[d.studentId]=d;});
     Object.keys(latestByStudent).forEach(sid=>{const st=studentById(sid);if(!st)return;
       const d=latestByStudent[sid];
-      if(!st.lastLogin||d.ts>st.lastLogin.ts){st.lastLogin={ts:d.ts,isAdminDevice:!!d.isAdminDevice,deviceLabel:d.adminDeviceLabel||''};}
+      if(!st.lastLogin||d.ts>st.lastLogin.ts){st.lastLogin={ts:d.ts,isAdminDevice:!!d.isAdminDevice,deviceLabel:d.adminDeviceLabel||''};loginEventsProcessed=true;}
     });
     if(!q7.empty){const b7=db.batch();q7.forEach(doc=>b7.delete(doc.ref));await b7.commit();}
   });
   try{
     const pruneCutoff=addDays(todayISO(),-30);
     data.students.forEach(sx=>{if(sx.dropinBookings&&sx.dropinBookings.length)sx.dropinBookings=sx.dropinBookings.filter(b=>b.iso>=pruneCutoff);});
-    if(total>0){await save();render();}
+    if(total>0||loginEventsProcessed){await save();render();}
     if(showToast){
       if(failCount>0)toast(total>0?(total+'건 반영했어요 (일부 항목은 실패해서 다시 시도해주세요).'):'불러오기 중 일부 실패했어요. 다시 시도해주세요.');
       else toast(total>0?(total+'건 반영했어요.'):'새로 반영할 게 없어요.');
