@@ -1095,13 +1095,20 @@ function recomputeDropinPack(st){
   const usedBefore=st.dropinPack?st.dropinPack.used:0;
   st.dropinPack={total:pays.length*8,used:usedBefore,expiry};
 }
-/* 보강기한: 4·12·24회권 모두 동일한 공식 — 그 패키지의 '마지막 수업일'(출석이든 결석이든 순서대로 다 채운 날) + 4주(28일).
-   즉 패키지 기간 내내 아무 때나 보강 가능하고, 마지막 회차가 끝난 뒤에도 4주 여유를 더 줌. */
+/* 보강기한: 회권 크기에 따라 기준이 달라요.
+   - 4회권(월 단위): 결석이 있으면 그 결석 날짜 자체 + 4주 (개별 결석마다 바로 기한이 붙는 개념)
+   - 12·24회권(3·6개월): 그 패키지의 '마지막 수업일'(출석이든 결석이든 순서대로 다 채운 날) + 4주 (패키지 전체 끝나고 유예를 주는 개념) */
 function lastCoveredClassDate(st){
   const p=lastPayment(st);if(!p)return '';
   const t=todayISO();
-  const dates=marksOf(st).filter(m=>(m.mark==='present'||m.mark==='late'||m.mark==='absent')&&m.iso>=p.date&&m.iso<=t).map(m=>m.iso).sort();
   const pl=planOf(st,p);
+  const marksInScope=marksOf(st).filter(m=>(m.mark==='present'||m.mark==='late'||m.mark==='absent')&&m.iso>=p.date&&m.iso<=t).sort((a,b)=>a.iso<b.iso?-1:1);
+  if(!marksInScope.length)return '';
+  if(pl<=4){
+    const earliestAbsent=marksInScope.find(m=>m.mark==='absent');
+    if(earliestAbsent)return earliestAbsent.iso;
+  }
+  const dates=marksInScope.map(m=>m.iso);
   if(!dates.length)return '';
   const idx=Math.min(pl,dates.length)-1;
   return dates[idx];
