@@ -379,7 +379,11 @@ function guessDeviceLabel(){
   if(/iPad/.test(ua))return '아이패드';
   if(/iPhone/.test(ua))return '아이폰';
   if(/Android/.test(ua))return '안드로이드 기기';
-  if(/Macintosh/.test(ua))return '맥(Mac)';
+  if(/Macintosh/.test(ua)){
+    // 최신 아이패드는 사파리 기본 설정 때문에 자신을 '맥'이라고 알려줌 — 터치스크린 여부로 구분
+    if(navigator.maxTouchPoints&&navigator.maxTouchPoints>1)return '아이패드';
+    return '맥(Mac)';
+  }
   if(/Windows/.test(ua))return '윈도우 PC';
   return '알 수 없는 기기';
 }
