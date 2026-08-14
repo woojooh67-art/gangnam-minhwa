@@ -1566,9 +1566,9 @@ function renderCheck(){
     const isFuture=sess.iso>todayISO();
     const isToday=sess.iso===todayISO();
     guests.forEach(st=>{const k=sess.id+':'+st.id;const status=c.records[k]||'makeup';cnt[status]++;
-      const needsConfirm=status==='makeup'&&isToday&&!(c.confirmedGuest&&c.confirmedGuest[k]);
+      const needsConfirm=(status==='makeup'||status==='present')&&isToday&&!(c.confirmedGuest&&c.confirmedGuest[k]);
       const row=document.createElement('div');row.className='srow '+CLS[status];row.style.cursor='default';
-      const pillLabel=needsConfirm?'보강 (미확정)':`${LABEL[status]}${isFuture?' (예정)':''}`;
+      const pillLabel=needsConfirm?`${LABEL[status]} (미확정)`:`${LABEL[status]}${isFuture?' (예정)':''}`;
       const pillCls=(isFuture||needsConfirm)?'pill unconfirmed':'pill';
       row.innerHTML=`<span class="nm">${esc(st.name)}${st.code?`<small style="display:block;font-weight:400;color:var(--jade-deep);font-size:11px;margin-top:2px">코드 ${esc(st.code)}</small>`:''}</span><span class="sub">${esc(clsNames(st))||'반 미지정'} · 잔여 ${remainSessions(st)}회</span><span class="${pillCls}" style="cursor:pointer">${pillLabel}</span>`;
       row.querySelector('.pill').onclick=()=>{
