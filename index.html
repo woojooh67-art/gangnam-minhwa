@@ -391,6 +391,11 @@ function loginTimeStr(ts){
   const d=new Date(ts);
   return `${d.getMonth()+1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
+function hasRecentExtraAttendance(st){
+  const cutoff=addDays(todayISO(),-7);
+  const cnt=marksOf(st).filter(m=>m.iso>=cutoff&&m.iso<=todayISO()&&(m.mark==='present'||m.mark==='late'||m.mark==='dropin')).length;
+  return cnt>=2;
+}
 function esc(s){return String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))}
 function curMonthKey(){const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)}
 
@@ -1541,9 +1546,17 @@ function renderCheck(){
     row.innerHTML=`<span class="nm">${esc(st.name)}${codeLine}</span><span class="sub" style="${subCls}">${sub.join(' · ')}</span><span style="display:flex;align-items:center;gap:6px"><span class="${pillCls} statusPill" style="cursor:pointer">${pillLabel}</span>${hasRec?`<span class="clearrec" style="color:var(--ink-soft);font-size:11px;padding:2px 4px;cursor:pointer" title="이 날짜 기록 지우기(패키지 밖 날짜 등)">✕</span>`:''}</span>`;
     row.querySelector('.statusPill').onclick=()=>{
       if(!pillClickGuard())return;
-      if(!hasRec){c.records[k]=(status==='none')?'present':status;}
-      else{const idx=STATUSES.indexOf(status);const next=STATUSES[(idx+1)%4];logStatusChange(st,c,status,next,sess.iso);c.records[k]=next;}
-      save();renderCheck();renderFee();renderReport();
+      const applyChange=()=>{
+        if(!hasRec){c.records[k]=(status==='none')?'present':status;}
+        else{const idx=STATUSES.indexOf(status);const next=STATUSES[(idx+1)%4];logStatusChange(st,c,status,next,sess.iso);c.records[k]=next;}
+        save();renderCheck();renderFee();renderReport();
+      };
+      const willBeAbsent=hasRec?STATUSES[(STATUSES.indexOf(status)+1)%4]==='absent':(status==='absent');
+      if(willBeAbsent&&hasRecentExtraAttendance(st)){
+        confirmSheet(`${esc(st.name)} 학생은 최근 7일 안에 정규 페이스보다 많이 출석한 적이 있어요 (미리 당겨서 들으신 걸 수도 있어요).<br>정말 오늘을 <b>결석</b>으로 표시할까요? (결석 표시하면 보강권이 자동으로 생겨요)`,applyChange,'결석으로 표시');
+      }else{
+        applyChange();
+      }
     };
     if(hasRec)row.querySelector('.clearrec').onclick=(e)=>{e.stopPropagation();logAdminClear(st,c,c.records[k],sess.iso);delete c.records[k];save();renderCheck();renderFee();renderReport();toast('이 날짜 기록을 지웠어요.');};
     list.appendChild(row);});
