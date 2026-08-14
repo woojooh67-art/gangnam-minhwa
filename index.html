@@ -237,7 +237,7 @@
 <div id="adminApp" class="hidden">
 <div class="app">
   <div class="topbar">
-    <div class="brand" style="justify-content:space-between;display:flex;width:100%;align-items:center"><div style="display:flex;align-items:center;gap:9px"><img id="logoImgTop" style="width:44px;height:44px;border-radius:50%;flex:0 0 auto"><div><h1 style="display:inline">강남민화연구소</h1> <span>출석 · 수업료</span></div></div><div style="display:flex;gap:6px"><button class="logoutbtn" id="adminRefresh" title="새로고침">🔄</button><button class="logoutbtn" id="adminLogout">로그아웃</button></div></div>
+    <div class="brand" style="justify-content:space-between;display:flex;width:100%;align-items:center"><div style="display:flex;align-items:center;gap:9px"><img id="logoImgTop" style="width:44px;height:44px;border-radius:50%;flex:0 0 auto"><div><h1 style="display:inline">강남민화연구소</h1> <span>출석 · 수업료</span></div></div><div style="display:flex;gap:6px"><button class="logoutbtn" id="adminRefresh" style="border-color:var(--jade);color:var(--jade-deep);font-weight:700" title="강력 새로고침">🔄 새로고침</button><button class="logoutbtn" id="adminLogout">로그아웃</button></div></div>
     <div class="classrow" id="classRowBox">
       <select id="classSel"></select>
       <button class="iconbtn" id="addClass">＋</button>
@@ -2899,10 +2899,18 @@ document.getElementById('mergeSelfChecks').onclick=()=>mergeAllStudentActivity(t
 document.getElementById('markLogSeen').onclick=markLogSeen;
 document.getElementById('adminLogout').onclick=()=>confirmSheet('로그아웃 할까요?',()=>auth.signOut(),'로그아웃');
 document.getElementById('adminRefresh').onclick=async()=>{
-  const btn=document.getElementById('adminRefresh');btn.textContent='⏳';
-  try{await enterAdmin();toast('새로고침했어요.');}
-  catch(e){console.error(e);toast('새로고침 실패 — 인터넷 연결을 확인해주세요.');}
-  finally{if(document.body.contains(btn))btn.textContent='🔄';}
+  const btn=document.getElementById('adminRefresh');btn.textContent='⏳ 새로고침 중...';
+  try{
+    if('serviceWorker' in navigator){
+      const regs=await navigator.serviceWorker.getRegistrations();
+      for(const r of regs)await r.unregister();
+    }
+    if('caches' in window){
+      const keys=await caches.keys();
+      for(const k of keys)await caches.delete(k);
+    }
+  }catch(e){console.error(e);}
+  location.reload();
 };
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
 
