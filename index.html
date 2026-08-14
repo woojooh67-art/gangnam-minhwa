@@ -3028,7 +3028,7 @@ function startAutoMerge(){
 function stopAutoMerge(){if(_autoMergeInterval){clearInterval(_autoMergeInterval);_autoMergeInterval=null;}}
 
 /* ---------- student view ---------- */
-let stuData=null;let stuCalYM=null;
+let stuData=null;let stuCalYM=null;let cameFromQRCheckin=false;
 let adminStuCalYM={};
 const ARCHIVE_MIN='2025-12',ARCHIVE_MAX='2026-06';
 function earliestPaymentDate(st){const dates=(st.payments||[]).map(p=>p.date).filter(Boolean).sort();return dates.length?dates[0]:null;}
@@ -3263,10 +3263,15 @@ function renderStudentApp(){
   root.innerHTML=`<div class="stuwrap">
     <div class="stutop"><div style="display:flex;align-items:center;gap:10px"><img src="${LOGO_URI}" style="width:52px;height:52px;border-radius:50%;flex:0 0 auto"><div><h2>${esc(stuData.name)}님</h2><small>${esc((stuData.classes||[]).filter(c=>c.official!==false).map(c=>c.name).join(' · '))}</small></div></div>
       <div style="display:flex;gap:6px"><button class="logoutbtn" id="stuRefresh" style="border-color:var(--jade);color:var(--jade-deep);font-weight:700" title="새로고침">🔄 새로고침</button><button class="logoutbtn" id="stuLogout">로그아웃</button></div></div>
-    ${(stuData.status!=='paused'&&stuData.status!=='ended')?`<div class="stucard" style="background:var(--jade-tint);border-color:var(--jade);text-align:center;padding:18px 14px">
+    ${(()=>{
+      if(stuData.status==='paused'||stuData.status==='ended')return '';
+      const isClassDayToday=(stuData.classes||[]).filter(c=>c.official!==false).some(c=>classWeekday(c)===new Date().getDay());
+      if(!isClassDayToday&&!cameFromQRCheckin)return '';
+      return `<div class="stucard" style="background:var(--jade-tint);border-color:var(--jade);text-align:center;padding:18px 14px">
       <button id="stuCheckinBtn" style="width:100%;background:var(--jade);color:#fff;border:none;border-radius:14px;padding:16px;font-size:18px;font-weight:700;cursor:pointer;font-family:inherit">🙋 저 왔어요</button>
       <div class="note" id="stuCheckinNote" style="margin-top:8px;color:var(--jade-deep)">화실 도착하시면 눌러주세요. 원장님이 확인하면 출석 처리돼요.</div>
-    </div>`:''}
+    </div>`;
+    })()}
     ${stuData.status==='paused'?`<div class="stucard" style="background:var(--ochre-tint);border-color:var(--ochre)"><h3>🌱 현재 휴강중이에요</h3><div class="note" style="color:var(--ink)">언제든 다시 오세요! 재등록해주시면 잔여 회차·보강기한 모두 그날부터 다시 이어져요. 재등록은 원장님께 말씀해주세요.</div>${stuData.remain>0?`<div class="note" style="margin-top:8px;font-weight:700;color:var(--ink)">아직 <b>${stuData.remain}회</b> 수업을 더 하실 수 있어요.</div>`:''}<div class="note" style="margin-top:8px;color:var(--ink)">💜 휴강중에도 아래 "하루수업 신청"으로 언제든 하루씩 참여하실 수 있어요.</div></div>`:''}
     ${stuData.status==='ended'?`<div class="stucard" style="background:var(--line-soft)"><h3>수강이 종료된 상태예요</h3><div class="note">다시 다니고 싶으시면 언제든 원장님께 연락 주세요.</div></div>`:''}
     ${(stuData.status!=='paused'&&stuData.status!=='ended'&&stuData.hasRealClass===false)?`<div class="stucard" style="background:var(--purple-tint);border-color:var(--purple)"><h3>🎫 하루수업 쿠폰 이용중</h3><div class="note" style="color:var(--ink)">정규 반 등록 없이 아래 "하루수업 신청"으로 자유롭게 이용하시는 계정이에요.</div><div class="note" style="color:var(--ink);margin-top:6px">⏳ 결제일로부터 <b>${stuData.dropin8Days||90}일 이내</b>에 사용하셔야 하며, 기한 내 미사용 회차는 소멸돼요. 부득이한 사정은 원장님과 상의해 주세요.</div></div>`:''}
@@ -3547,20 +3552,20 @@ async function enterStudent(u){
       stuData._pendingDropinCancel=q6.docs.map(d=>d.data().sessionId);}
     catch(e){console.error(e);stuData._pendingDropinCancel=[];}
   }
-  renderStudentApp();
-  maybeShowAnnouncement();
   try{
     const params=new URLSearchParams(location.search);
     if(params.get('checkin')==='1'){
-      const btn=document.getElementById('stuCheckinBtn');
-      if(btn){
-        btn.scrollIntoView({behavior:'smooth',block:'center'});
-        btn.style.animation='gmhPulse 1s ease-in-out 3';
-      }
+      cameFromQRCheckin=true;
       const url=new URL(location.href);url.searchParams.delete('checkin');
       history.replaceState({},'',url.toString());
     }
   }catch(e){console.error(e);}
+  renderStudentApp();
+  maybeShowAnnouncement();
+  if(cameFromQRCheckin){
+    const btn=document.getElementById('stuCheckinBtn');
+    if(btn){btn.scrollIntoView({behavior:'smooth',block:'center'});btn.style.animation='gmhPulse 1s ease-in-out 3';}
+  }
   try{
     let isAdminDevice=false,adminDeviceLabel='';
     try{isAdminDevice=localStorage.getItem('gmh_admin_device')==='1';adminDeviceLabel=localStorage.getItem('gmh_admin_device_label')||'';}catch(e){}
