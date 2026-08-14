@@ -3333,13 +3333,17 @@ async function reportAbsence(classId,sessionId,iso){
 }
 function openMakeupPicker(excludeSessionId){
   const t=todayISO();const pendingMakeup=stuData._pendingMakeup||[];
-  const slots=(stuData.allUpcoming||[]).filter(u=>u.iso>=t&&u.sessionId!==excludeSessionId&&pendingMakeup.indexOf(u.sessionId)<0&&(u.avail===undefined||u.avail>0)).slice(0,20);
+  const realEntitlementNow=(stuData.makeupLeft||0)+(stuData._pendingAbsent||[]).length+(stuData._pendingMakeupCancel||[]).length;
+  const isGraceOnly=realEntitlementNow<=0&&stuData.remain<=0;
+  const cutoff=isGraceOnly?(stuData.paceEnd?addDays(stuData.paceEnd,7):null):(stuData.makeupDue||null);
+  const windowEnd=addDays(t,14);
+  const effectiveCutoff=cutoff?(cutoff<windowEnd?cutoff:windowEnd):windowEnd;
+  const beyondWindow=cutoff&&cutoff>windowEnd;
+  const slots=(stuData.allUpcoming||[]).filter(u=>u.iso>=t&&u.iso<=effectiveCutoff&&u.sessionId!==excludeSessionId&&pendingMakeup.indexOf(u.sessionId)<0&&(u.avail===undefined||u.avail>0)).slice(0,20);
   const rows=slots.map((u,i)=>`<div class="srow" style="margin-bottom:8px;cursor:pointer" data-mcid="${u.classId}" data-msid="${u.sessionId}" data-miso="${u.iso}" data-mlabel="${esc(u.label||'')}" data-mcname="${esc(u.className)}">
       <div><div class="nm" style="font-size:15px">${esc(u.className)}${u.afternoonOnly?' <small style="color:var(--blue);font-weight:400">(2~5시)</small>':''}</div><div class="sub" style="margin:2px 0 0">${mkDateLabel(u)}${u.avail!==undefined?' · 잔여 '+u.avail+'석':''}</div></div>
       <span class="pill" style="background:var(--jade-tint);color:var(--jade-deep)">${i===0?'가장 빠름':'선택'}</span>
     </div>`).join('');
-  const realEntitlementNow=(stuData.makeupLeft||0)+(stuData._pendingAbsent||[]).length+(stuData._pendingMakeupCancel||[]).length;
-  const isGraceOnly=realEntitlementNow<=0&&stuData.remain<=0;
   let dueBadge='';
   if(isGraceOnly){
     if(stuData.paceEnd)dueBadge=`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">⏳ 결석 보강이 아니라, 재결제 전 수업에 미리 참여하시는 거예요. ${addDays(stuData.paceEnd,7)}까지 가능해요.</div>`;
@@ -3354,7 +3358,8 @@ function openMakeupPicker(excludeSessionId){
     <h3>${isGraceOnly?'참여하실 날짜를 골라주세요':'보강 받으실 날짜를 골라주세요'}</h3>
     <div class="subt">${isGraceOnly?'편하신 날짜를 누르면 그 자리에서 바로 신청되고 다음 결제에서 정산됩니다.':'편하신 날짜를 누르면 그 자리에서 바로 보강 예약이 신청돼요.'}</div>
     ${dueBadge}
-    <div style="max-height:52vh;overflow:auto">${rows||'<div class="note">지금은 예약 가능한 수업이 없어요. 나중에 "보강 예약" 카드에서 다시 골라주세요.</div>'}</div>
+    <div class="note" style="margin:-4px 2px 10px;color:var(--ink-soft)">가까운 2주 안에 예약 가능한 날짜만 먼저 보여드려요.${beyondWindow?' 이 안에 원하시는 날짜가 없으면, 며칠 후 다시 열어서 확인해주세요.':''}</div>
+    <div style="max-height:52vh;overflow:auto">${rows||(beyondWindow?'<div class="note">가까운 2주 안엔 예약 가능한 날짜가 없어요. 며칠 후 다시 확인해주세요.</div>':cutoff?`<div class="note">보강기한(${cutoff}) 안에 예약 가능한 수업이 없어요. 원장님께 문의해주세요.</div>`:'<div class="note">지금은 예약 가능한 수업이 없어요. 나중에 다시 골라주세요.</div>')}</div>
     <div class="actions" style="margin-top:14px"><button class="btn-ghost" id="mpLater" style="flex:1">나중에 할게요</button></div>
   </div></div>`;
   oroot().querySelector('#mpLater').onclick=closeOverlay;
