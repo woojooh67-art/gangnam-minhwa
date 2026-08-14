@@ -1190,7 +1190,10 @@ function projectedRepayDate(st){
   const c=(st.classIds||[]).map(classById).find(x=>x&&classWeekday(x)!==null);
   if(!c)return addDays(todayISO(),rem*7);
   const dow=classWeekday(c);
-  const d=new Date(todayISO()+'T00:00:00');
+  const t=todayISO();
+  const todayConsumed=marksOf(st).some(m=>m.iso===t&&(m.mark==='present'||m.mark==='late'||m.mark==='absent'));
+  const d=new Date(t+'T00:00:00');
+  if(todayConsumed)d.setDate(d.getDate()+1); // 오늘 회차가 이미 소진 처리됐으면, 내일부터 다음 요일을 찾음
   while(d.getDay()!==dow)d.setDate(d.getDate()+1);
   const nextIso=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
   return addDays(nextIso,(rem-1)*7);
