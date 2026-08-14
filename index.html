@@ -3038,7 +3038,11 @@ function renderStudentApp(){
   (stuData.classes||[]).forEach(c=>{
     (c.sessions||[]).filter(s=>s.iso>=t&&(c.official!==false||c.records[s.id]!==undefined)).forEach(s=>_allUpcoming.push({c,s}));
   });
-  _allUpcoming.sort((a,b)=>a.s.iso<b.s.iso?-1:1);
+  const schedTimeVal=c=>{const mt=(c.sched||'').match(/(\d{1,2}):(\d{2})/);return mt?(+mt[1])*60+(+mt[2]):9999;};
+  _allUpcoming.sort((a,b)=>{
+    if(a.s.iso!==b.s.iso)return a.s.iso<b.s.iso?-1:1;
+    return schedTimeVal(a.c)-schedTimeVal(b.c);
+  });
   _allUpcoming.forEach(({c,s})=>{
       const isLastPaid=(s.id===lastPaidSessionId);
       const v=c.records[s.id];
