@@ -1551,10 +1551,23 @@ function renderCheck(){
     const h=document.createElement('div');h.className='note';h.style.margin='14px 3px 6px';
     h.innerHTML=(isTemp?'<b>추가한 학생</b> ':'<b>다른 반 보강 참석</b> ')+guests.length+'명';list.appendChild(h);
     const isFuture=sess.iso>todayISO();
+    const isToday=sess.iso===todayISO();
     guests.forEach(st=>{const k=sess.id+':'+st.id;const status=c.records[k]||'makeup';cnt[status]++;
+      const needsConfirm=status==='makeup'&&isToday&&!(c.confirmedGuest&&c.confirmedGuest[k]);
       const row=document.createElement('div');row.className='srow '+CLS[status];row.style.cursor='default';
-      row.innerHTML=`<span class="nm">${esc(st.name)}${st.code?`<small style="display:block;font-weight:400;color:var(--jade-deep);font-size:11px;margin-top:2px">코드 ${esc(st.code)}</small>`:''}</span><span class="sub">${esc(clsNames(st))||'반 미지정'} · 잔여 ${remainSessions(st)}회</span><span class="pill${isFuture?' unconfirmed':''}" style="cursor:pointer">${LABEL[status]}${isFuture?' (예정)':''}</span>`;
-      row.querySelector('.pill').onclick=()=>{if(!pillClickGuard())return;const next=STATUSES[(Math.max(0,STATUSES.indexOf(status))+1)%4];logStatusChange(st,c,status,next,sess.iso);c.records[k]=next;save();renderCheck();renderFee();renderReport();};
+      const pillLabel=needsConfirm?'보강 (미확정)':`${LABEL[status]}${isFuture?' (예정)':''}`;
+      const pillCls=(isFuture||needsConfirm)?'pill unconfirmed':'pill';
+      row.innerHTML=`<span class="nm">${esc(st.name)}${st.code?`<small style="display:block;font-weight:400;color:var(--jade-deep);font-size:11px;margin-top:2px">코드 ${esc(st.code)}</small>`:''}</span><span class="sub">${esc(clsNames(st))||'반 미지정'} · 잔여 ${remainSessions(st)}회</span><span class="${pillCls}" style="cursor:pointer">${pillLabel}</span>`;
+      row.querySelector('.pill').onclick=()=>{
+        if(!pillClickGuard())return;
+        if(needsConfirm){
+          if(!c.confirmedGuest)c.confirmedGuest={};
+          c.confirmedGuest[k]=true;
+          save();renderCheck();renderFee();renderReport();
+          return;
+        }
+        const next=STATUSES[(Math.max(0,STATUSES.indexOf(status))+1)%4];logStatusChange(st,c,status,next,sess.iso);c.records[k]=next;save();renderCheck();renderFee();renderReport();
+      };
       const del=document.createElement('div');del.className='note';del.style.textAlign='right';del.style.margin='2px 6px 8px';
       del.innerHTML='<span style="color:var(--verm);cursor:pointer">이 학생 빼기</span>';
       del.onclick=()=>{logAdminClear(st,c,c.records[k],sess.iso);delete c.records[k];save();renderCheck();renderFee();renderReport();toast('빼줬어요.');};
