@@ -1588,7 +1588,7 @@ function renderCheck(){
       };
       const del=document.createElement('div');del.className='note';del.style.textAlign='right';del.style.margin='2px 6px 8px';
       del.innerHTML='<span style="color:var(--verm);cursor:pointer">이 학생 빼기</span>';
-      del.onclick=()=>{logAdminClear(st,c,c.records[k],sess.iso);delete c.records[k];save();renderCheck();renderFee();renderReport();toast('빼줬어요.');};
+      del.onclick=()=>{logAdminClear(st,c,c.records[k],sess.iso);delete c.records[k];if(c.confirmedGuest)delete c.confirmedGuest[k];save();renderCheck();renderFee();renderReport();toast('빼줬어요.');};
       list.appendChild(row);list.appendChild(del);});}
   const addG=document.createElement('div');addG.className='barbtns';addG.style.marginTop='12px';
   addG.innerHTML=isTemp?'<button id="addGuest" style="border-color:var(--blue);color:var(--blue)">＋ 학생 추가</button>'
