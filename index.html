@@ -1540,11 +1540,12 @@ function renderCheck(){
     else sub.push('잔여 '+rm+'회');
     if(ml>0)sub.push('보강 '+ml);
     if(isDelayedUsage(st))sub.push('⏰지연 소진');
-    const row=document.createElement('div');row.className='srow '+CLS[status];row.style.cursor='default';
-    const subCls=(rm<=0)?'color:var(--verm);font-weight:700':(rm<=2)?'color:var(--ochre);font-weight:700':'';
     const hasRec=c.records[k]!==undefined;
+    const isPendingReg=isFutureSess||(!hasRec&&status==='present');
+    const row=document.createElement('div');row.className='srow '+(isPendingReg?'st-none':CLS[status]);row.style.cursor='default';
+    const subCls=(rm<=0)?'color:var(--verm);font-weight:700':(rm<=2)?'color:var(--ochre);font-weight:700':'';
     const pillLabel=isFutureSess?`${LABEL[status]} (예정)`:((!hasRec&&status==='present')?'출석(미확정)':LABEL[status]);
-    const pillCls=isFutureSess?'pill unconfirmed':((!hasRec&&status==='present')?'pill unconfirmed':'pill');
+    const pillCls=isPendingReg?'pill unconfirmed':'pill';
     const codeLine=st.code?`<small style="display:block;font-weight:400;color:var(--jade-deep);font-size:11px;margin-top:2px">코드 ${esc(st.code)}</small>`:`<small style="display:block;font-weight:400;color:var(--verm);font-size:11px;margin-top:2px">코드 미발급</small>`;
     row.innerHTML=`<span class="nm">${esc(st.name)}${codeLine}</span><span class="sub" style="${subCls}">${sub.join(' · ')}</span><span style="display:flex;align-items:center;gap:6px"><span class="${pillCls} statusPill" style="cursor:pointer">${pillLabel}</span>${hasRec?`<span class="clearrec" style="color:var(--ink-soft);font-size:11px;padding:2px 4px;cursor:pointer" title="이 날짜 기록 지우기(패키지 밖 날짜 등)">✕</span>`:''}</span>`;
     row.querySelector('.statusPill').onclick=()=>{
@@ -1570,9 +1571,10 @@ function renderCheck(){
     const isToday=sess.iso===todayISO();
     guests.forEach(st=>{const k=sess.id+':'+st.id;const status=c.records[k]||'makeup';cnt[status]++;
       const needsConfirm=(status==='makeup'||status==='present')&&isToday&&!(c.confirmedGuest&&c.confirmedGuest[k]);
-      const row=document.createElement('div');row.className='srow '+CLS[status];row.style.cursor='default';
+      const isPending=isFuture||needsConfirm;
+      const row=document.createElement('div');row.className='srow '+(isPending?'st-none':CLS[status]);row.style.cursor='default';
       const pillLabel=needsConfirm?`${LABEL[status]} (미확정)`:`${LABEL[status]}${isFuture?' (예정)':''}`;
-      const pillCls=(isFuture||needsConfirm)?'pill unconfirmed':'pill';
+      const pillCls=isPending?'pill unconfirmed':'pill';
       row.innerHTML=`<span class="nm">${esc(st.name)}${st.code?`<small style="display:block;font-weight:400;color:var(--jade-deep);font-size:11px;margin-top:2px">코드 ${esc(st.code)}</small>`:''}</span><span class="sub">${esc(clsNames(st))||'반 미지정'} · 잔여 ${remainSessions(st)}회</span><span class="${pillCls}" style="cursor:pointer">${pillLabel}</span>`;
       row.querySelector('.pill').onclick=()=>{
         if(!pillClickGuard())return;
