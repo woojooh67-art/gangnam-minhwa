@@ -1871,10 +1871,19 @@ function renderReport(){const c=curClass();
     const rowHtml=e=>{
       const ago=Math.max(0,Math.round((Date.now()-e.ts)/60000));
       const when=ago<60?ago+'분 전':ago<1440?Math.round(ago/60)+'시간 전':Math.round(ago/1440)+'일 전';
-      const icon=e.type==='absent'?'🔺':e.type==='makeup'?'🔁':e.type==='admin'?'🗑':'✓';
-      return `<div class="hrow" style="${e.seen?'':'font-weight:700'}"><span>${icon} ${esc(e.text)}</span><span style="display:flex;align-items:center;gap:6px"><span style="color:var(--ink-soft);font-size:11px">${when}</span><span data-logdel="${e.id}" style="color:var(--ink-soft);cursor:pointer;font-size:13px;padding:2px 4px" title="이 기록 지우기">✕</span></span></div>`;
+      const icon=e.type==='absent'?'🔺':e.type==='makeup'?'🔁':e.type==='admin'?'🗑':e.type==='selfcheck'?'🙋':'✓';
+      const isCheckin=e.type==='selfcheck';
+      return `<div class="hrow" style="${e.seen?'':'font-weight:700'}${isCheckin?';background:var(--jade-tint);border-radius:8px;padding:8px 10px;margin-bottom:4px':''}"><span>${icon} ${esc(e.text)}</span><span style="display:flex;align-items:center;gap:6px"><span style="color:var(--ink-soft);font-size:11px">${when}</span><span data-logdel="${e.id}" style="color:var(--ink-soft);cursor:pointer;font-size:13px;padding:2px 4px" title="이 기록 지우기">✕</span></span></div>`;
     };
-    let html=unseen.length?unseen.map(rowHtml).join(''):'<div class="note">확인 안 한 새 활동이 없어요.</div>';
+    const unseenCheckins=unseen.filter(e=>e.type==='selfcheck');
+    const unseenRest=unseen.filter(e=>e.type!=='selfcheck');
+    let html='';
+    if(unseenCheckins.length){
+      html+=`<div class="note" style="font-weight:700;color:var(--jade-deep);margin:2px 0 4px">🙋 체크인 (${unseenCheckins.length})</div>`;
+      html+=unseenCheckins.map(rowHtml).join('');
+      html+=`<div class="note" style="font-weight:700;color:var(--ink-soft);margin:10px 0 4px;border-top:1px solid var(--line);padding-top:8px">🔔 결석·보강 알림</div>`;
+    }
+    html+=unseenRest.length?unseenRest.map(rowHtml).join(''):(unseenCheckins.length?'':'<div class="note">확인 안 한 새 활동이 없어요.</div>');
     if(seen.length){
       html+=`<div class="note" id="logOlderToggle" style="text-align:center;margin:8px 0;cursor:pointer;color:var(--ink-soft);border-top:1px solid var(--line);padding-top:8px">${logOlderOpen?'▲ 확인된 기록 접기':'▼ 확인된 기록 더보기 ('+seen.length+'건)'}</div>`;
       if(logOlderOpen)html+=seen.map(rowHtml).join('')+'<div class="note" style="text-align:right;margin-top:4px"><span id="logClearAll" style="color:var(--verm);cursor:pointer">전체 지우기</span></div>';
@@ -2212,7 +2221,7 @@ function studentSheet(st){const fee=feeFor(st);
       ${st.notes?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:8px 11px;border-radius:9px;margin:6px 0 2px;font-weight:600">📌 ${esc(st.notes)}</div>`:''}
       <div class="kpi">
         <div><div class="v ${remainSessions(st)<=0?'c-a':''}">${remainSessions(st)}</div><div class="t">${remainSessions(st)<0?'미리 사용':'잔여 회차'}</div></div>
-        <div><div class="v c-p">${usedSincePayment(st)}</div><div class="t">출석<br><small style="font-weight:400">(이번 결제분)</small></div></div>
+        <div><div class="v c-p">${usedSincePayment(st)}${makeupUsedSincePayment(st)>0?` <small style="color:var(--blue);font-weight:700">(+보강${makeupUsedSincePayment(st)})</small>`:''}</div><div class="t">출석<br><small style="font-weight:400">(이번 결제분)</small></div></div>
         <div><div class="v c-a">${absentSincePayment(st)}</div><div class="t">결석${absentSincePayment(st)>0?`<br><small style="font-weight:600;color:${ml>0?'var(--ochre)':'var(--jade-deep)'}">${ml>0?'보강 대기 '+ml:'보강 완료'}</small>`:'<br><small style="font-weight:400">(이번 결제분)</small>'}</div></div>
         <div><div class="v c-m">${ml}</div><div class="t">보강 가능</div></div>
       </div>
