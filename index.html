@@ -1118,11 +1118,12 @@ function scopedMarks(st){const all=marksOf(st);return st.cycleStart?all.filter(m
 function usedSessions(st){return scopedMarks(st).filter(m=>m.iso<=todayISO()&&(m.mark==='present'||m.mark==='late')).length;}
 function consumedSessions(st){return scopedMarks(st).filter(m=>m.iso<=todayISO()&&(m.mark==='present'||m.mark==='late'||m.mark==='absent')).length;}
 function absentCount(st){return scopedMarks(st).filter(m=>m.iso<=todayISO()&&m.mark==='absent').length;}
+function payEffDate(p){return p.effectiveFrom||p.date;}
 function marksSincePayment(st){
   const p=lastPayment(st);
   const all=marksOf(st);
   if(!p)return all;
-  return all.filter(m=>m.iso>=p.date);
+  return all.filter(m=>m.iso>=payEffDate(p));
 }
 function usedSincePayment(st){return marksSincePayment(st).filter(m=>m.mark==='present'||m.mark==='late').length;}
 function absentSincePayment(st){return marksSincePayment(st).filter(m=>m.mark==='absent').length;}
@@ -1147,7 +1148,7 @@ function lastCoveredClassDate(st){
   const p=lastPayment(st);if(!p)return '';
   const t=todayISO();
   const pl=planOf(st,p);
-  const marksInScope=marksOf(st).filter(m=>(m.mark==='present'||m.mark==='late'||m.mark==='absent')&&m.iso>=p.date&&m.iso<=t).sort((a,b)=>a.iso<b.iso?-1:1);
+  const marksInScope=marksOf(st).filter(m=>(m.mark==='present'||m.mark==='late'||m.mark==='absent')&&m.iso>=payEffDate(p)&&m.iso<=t).sort((a,b)=>a.iso<b.iso?-1:1);
   if(!marksInScope.length)return '';
   if(pl<=4){
     const earliestAbsent=marksInScope.find(m=>m.mark==='absent');
@@ -1187,14 +1188,14 @@ function makeupDue(st){
     base=addDays(lastClass,28);
   }else{
     const pl=planOf(st,p), months=Math.max(1,Math.round(pl/4));
-    base=addMonths(p.date,months);
+    base=addMonths(payEffDate(p),months);
   }
   return (st.extend&&st.extend>0)?addMonths(base,st.extend):base;}
 function dueExpired(st){const d=makeupDue(st);if(!d)return false;return d<todayISO();}
 function expectedPaceEnd(st){
   if(st.lastClassOverride)return st.lastClassOverride;
   const p=lastPayment(st);if(!p)return '';const pl=planOf(st,p);
-  const base=(st.regDateOverride&&st.regDateOverride>p.date)?st.regDateOverride:p.date;
+  const base=(st.regDateOverride&&st.regDateOverride>payEffDate(p))?st.regDateOverride:payEffDate(p);
   return addDays(base,pl*7);}
 function projectedRepayDate(st){
   const rem=remainSessions(st);if(rem<=0)return null;
@@ -2247,6 +2248,7 @@ function studentSheet(st){const fee=feeFor(st);
       <div class="field"><label>등록 회차 <small style="color:var(--ink-soft)">(선택한 권종 그대로 · 특별한 경우만 직접 고치세요)</small></label><span class="stepwrap"><button class="stp" data-d="-1">－</button><input type="number" id="pSess" inputmode="numeric" value="${sess}"><button class="stp" data-d="1">＋</button></span></div>
       <div class="field"><label>금액 <small style="color:var(--ink-soft)">(±1만원)</small></label><span class="stepwrap"><button class="stpA" data-d="-10000">－</button><input type="number" id="pAmt" inputmode="numeric" value="${amt}" style="width:120px!important"><button class="stpA" data-d="10000">＋</button></span></div>
       <div class="field"><label>결제일</label><input type="date" id="pDate" value="${todayISO()}"></div>
+      <div class="fgroup"><label class="chk" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="pEarlyPay"> <span>오늘 수업 마치고 미리 결제 (오늘 회차는 예전 걸로 계산, 새 회차는 내일부터)</span></label></div>
       <div class="field"><label>메모 <small style="color:var(--ink-soft)">(선택, 직접 입력 또는 아래 버튼)</small></label><input id="pMemo" placeholder="메모 없음">
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
           ${['1회차 늦게 결제','2회차 늦게 결제','3회차 늦게 결제','미리 결제'].map(t=>`<button class="minibtn pmemobtn" type="button" data-t="${esc(t)}" style="padding:5px 10px;font-size:12px">${t}</button>`).join('')}
@@ -2294,9 +2296,12 @@ function studentSheet(st){const fee=feeFor(st);
       let A=parseInt(q('#pAmt').value);if(!Number.isFinite(A))A=amt;if(A<0)A=0;
       const D=q('#pDate').value||todayISO();
       const M=(q('#pMemo').value||'').trim();
+      const earlyPay=q('#pEarlyPay').checked;
+      const effFrom=earlyPay?addDays(D,1):D;
       oroot().insertAdjacentHTML('beforeend',`<div class="overlay" id="pConfirmOv"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>이대로 저장할까요?</h3>
         <div style="font-size:14.5px;line-height:1.9;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:6px 0 16px">
           <div>📅 결제일: <b>${D}</b></div>
+          ${earlyPay?`<div>⏩ 새 회차 적용 시작일: <b>${effFrom}</b> (오늘 회차는 예전 걸로 계산)</div>`:''}
           ${selKey==='dropin8'?`<div>🔢 하루수업 <b>8회</b> 선결제 · <b>${addDays(D,data.rates.dropin8Days||90)}</b>까지 유효</div>`:`<div>🔢 등록 회차: <b>${S}회</b></div>`}
           <div>💰 금액: <b>${won(A)}</b></div>
           ${M?`<div>📝 메모: <b>${esc(M)}</b></div>`:''}
@@ -2324,9 +2329,9 @@ function studentSheet(st){const fee=feeFor(st);
           if(rmBefore<0||mkBefore>0){
             pushLog('admin',`(원장님) ${esc(st.name)}님 ${D} 결제 시 이전 잔여 ${rmBefore}회, 보강 ${mkBefore}회를 정리하고 새로 시작했어요.`,D);
           }
-          st.cycleStart=D;
+          st.cycleStart=effFrom;
         }
-        st.payments.push({id:uid(),sessions:S,amount:A,date:D,plan:S,memo:M});save();renderFee();renderReport();studentSheet(st);toast('결제가 저장되었습니다.');};};
+        st.payments.push({id:uid(),sessions:S,amount:A,date:D,plan:S,memo:M,effectiveFrom:earlyPay?effFrom:undefined});save();renderFee();renderReport();studentSheet(st);toast('결제가 저장되었습니다.');};};
     q('#stEdit').onclick=()=>editStudent(st);
     q('#stToolsToggle').onclick=()=>{
       const box=q('#stToolsBox');const willOpen=box.classList.contains('hidden');
