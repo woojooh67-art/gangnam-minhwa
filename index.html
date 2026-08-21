@@ -2348,13 +2348,18 @@ function studentSheet(st){const fee=feeFor(st);
       oroot().insertAdjacentHTML('beforeend',`<div class="overlay" id="pMemoOv"><div class="sheet"><button class="quickx" onclick="document.getElementById('pMemoOv').remove()">✕</button><h3>결제 메모</h3>
         <div class="subt">${p.date} · ${p.plan==='dropin8'?'하루수업 8회 선결제':(p.sessions+'회')} · ${won(p.amount)}</div>
         <div class="fgroup"><label>메모</label><input id="pMemoIn" class="selin" value="${esc(p.memo||'')}" placeholder="예: 카드 결제, 현금 영수증 요청 등"></div>
+        <div class="fgroup"><label class="chk" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="pMemoEarly" ${p.effectiveFrom?'checked':''}> <span>이 결제일에 수업 마치고 미리 결제한 것 (그날 회차는 예전 걸로, 새 회차는 다음날부터 적용)</span></label></div>
         <div class="actions"><button class="btn-ghost" id="pMemoNo">취소</button><button class="btn-primary" id="pMemoOk">저장</button></div>
         </div></div>`);
       const closeThis=()=>{const ov=document.getElementById('pMemoOv');if(ov)ov.remove();};
       document.getElementById('pMemoNo').onclick=closeThis;
       document.getElementById('pMemoOk').onclick=()=>{
         const v=document.getElementById('pMemoIn').value.trim();
-        p.memo=v||'';save();closeThis();draw();toast('메모를 저장했어요.');
+        p.memo=v||'';
+        const early=document.getElementById('pMemoEarly').checked;
+        p.effectiveFrom=early?addDays(p.date,1):undefined;
+        if(st.cycleStart===p.date&&early)st.cycleStart=p.effectiveFrom;
+        save();closeThis();draw();renderFee();toast('저장했어요.');
       };
     });
     oroot().querySelectorAll('.hno').forEach(b=>b.onclick=()=>{delId=null;draw();});
