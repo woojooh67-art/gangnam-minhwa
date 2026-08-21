@@ -1108,7 +1108,7 @@ function feeFor(st){if(st.rate&&st.rate>0)return st.rate;const c=classById((st.c
 function planAmount(fee,sess){if(sess===1)return (data.rates&&data.rates.daily)||60000;if(sess===4)return fee;if(sess===12)return Math.round(fee*3*(1-data.rates.d3/100));if(sess===24)return Math.round(fee*6*(1-data.rates.d6/100));return Math.round(fee/4*sess);}
 function paidSessions(st){
   const ps=(st.payments||[]);
-  const scoped=st.cycleStart?ps.filter(p=>p.date>=st.cycleStart):ps;
+  const scoped=st.cycleStart?ps.filter(p=>payEffDate(p)>=st.cycleStart):ps;
   return scoped.reduce((a,p)=>a+(p.sessions||0),0);
 }
 function marksOf(st){const out=[];data.classes.forEach(c=>{
