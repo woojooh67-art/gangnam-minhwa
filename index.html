@@ -1656,12 +1656,20 @@ function renderFee(){const c=curClass(),board=document.getElementById('feeBoard'
     if(feeFilter==='all')return st.status!=='ended';
     if(feeFilter==='makeup')return st.status!=='ended'&&makeupLeft(st)>0;
     if(feeFilter==='paidmonth')return (st.payments||[]).some(p=>(p.date||'').slice(0,7)===mk);
-    return statusOf(st)===feeFilter;}).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+    return statusOf(st)===feeFilter;}).sort((a,b)=>{
+      if(feeFilter==='paused'){
+        const da=a.pausedSince?new Date(a.pausedSince).getTime():0,db=b.pausedSince?new Date(b.pausedSince).getTime():0;
+        if(da!==db)return da-db; // 오래된 휴강(장기)부터
+      }
+      return a.name.localeCompare(b.name,'ko');
+    });
   list.innerHTML='';
   if(!show.length){list.innerHTML='<div class="empty">해당하는 학생이 없습니다.</div>';return;}
   show.forEach(st=>{const s=statusOf(st),r=remainSessions(st),ml=makeupLeft(st);
     const pill=s==='ended'?'종료':s==='paused'?'휴강중':(r<0?'선사용':s==='out'?'재결제':s==='low'?'곧소진':'여유');
-    let sub=s==='ended'?'종료 · 기록 보존됨':s==='paused'?`잔여 ${r}회 보존 중`
+    const pausedDays=(s==='paused'&&st.pausedSince)?Math.floor((Date.now()-new Date(st.pausedSince+'T00:00:00').getTime())/86400000):null;
+    const longPaused=pausedDays!==null&&pausedDays>=60;
+    let sub=s==='ended'?'종료 · 기록 보존됨':s==='paused'?`잔여 ${r}회 보존 중`+(pausedDays!==null?` · 휴강 ${pausedDays}일째`:'')
       :(r<0?`${-r}회 미리 사용 · 다음 결제 시 차감`:`잔여 ${r}회`);
     if(ml>0){const d=makeupDue(st);sub+=` · 보강 ${ml}회`+(d?(dueExpired(st)?' (기한지남)':' ~'+shortDate(d)):'');}
     if((st.classIds||[]).length>1)sub+=' · 겸반';
@@ -1673,7 +1681,8 @@ function renderFee(){const c=curClass(),board=document.getElementById('feeBoard'
     }
     if(feeScope==='all')sub=(esc(clsNames(st))||'반 미지정')+' · '+sub;
     const row=document.createElement('div');row.className='srow st-'+s;
-    row.innerHTML=`<span class="nm">${esc(st.name)}${st.code?`<small style="display:block;font-weight:400;color:var(--jade-deep);font-size:11px;margin-top:2px">코드 ${st.code}</small>`:'<small style="display:block;font-weight:400;color:var(--verm);font-size:11px;margin-top:2px">코드 미발급</small>'}</span><span class="sub">${sub}</span><span class="pill">${pill}</span>`;
+    if(longPaused)row.style.cssText='border-color:var(--ochre);background:var(--ochre-tint)';
+    row.innerHTML=`<span class="nm">${esc(st.name)}${longPaused?' <small style="color:var(--ochre);font-weight:700">⚠ 장기휴강</small>':''}${st.code?`<small style="display:block;font-weight:400;color:var(--jade-deep);font-size:11px;margin-top:2px">코드 ${st.code}</small>`:'<small style="display:block;font-weight:400;color:var(--verm);font-size:11px;margin-top:2px">코드 미발급</small>'}</span><span class="sub">${sub}</span><span class="pill">${pill}</span>`;
     row.onclick=()=>studentSheet(st);list.appendChild(row);});}
 
 function renderRoster(){const c=curClass(),box=document.getElementById('rosterList');
@@ -2586,7 +2595,10 @@ function editStudent(st){
       else pushLog('admin',`(원장님) ${esc(st.name)}님의 회차 리셋 기준일을 없애서, 다시 전체 누적으로 계산해요.`,todayISO());
     }
     st.cycleStart=newCycleStart;
-    st.status=q('#esStat').value;st.extend=Math.max(0,parseInt(q('#esExt').value)||0);st.lastClassOverride=q('#esLastClass').value||'';st.makeupDueOverride=q('#esDueOverride').value||'';st.regDateOverride=q('#esRegDate').value||'';st.memo=q('#esMemo').value.trim();st.notes=q('#esNotes').value.trim();
+    const newStat=q('#esStat').value;
+    if(st.status!=='paused'&&newStat==='paused')st.pausedSince=todayISO();
+    if(st.status==='paused'&&newStat!=='paused')delete st.pausedSince;
+    st.status=newStat;st.extend=Math.max(0,parseInt(q('#esExt').value)||0);st.lastClassOverride=q('#esLastClass').value||'';st.makeupDueOverride=q('#esDueOverride').value||'';st.regDateOverride=q('#esRegDate').value||'';st.memo=q('#esMemo').value.trim();st.notes=q('#esNotes').value.trim();
     const cids=[...oroot().querySelectorAll('input[data-cid]:checked')].map(x=>x.dataset.cid);
     if(!cids.length&&!nowPaused){toast('최소 한 개 반을 선택하세요. (휴강중·종료 상태면 반 없이도 저장 가능해요)');return;}
     st.classIds=cids;
