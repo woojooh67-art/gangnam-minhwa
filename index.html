@@ -2305,7 +2305,7 @@ function studentSheet(st){const fee=feeFor(st);
       ${hist.length?`<div class="hist"><div class="h">결제 내역 · 총 ${paidSessions(st)}회 구매 / ${usedSessions(st)}회 사용</div>${hist.map(p=>{
         const right=(p.id===delId)
           ?`<span style="display:flex;gap:6px"><button class="hyes" data-id="${p.id}" style="border:none;background:var(--verm);color:#fff;border-radius:8px;padding:6px 11px;font-weight:700;font-family:inherit">삭제</button><button class="hno" style="border:1px solid var(--line);background:var(--card);color:var(--ink-soft);border-radius:8px;padding:6px 11px;font-family:inherit">취소</button></span>`
-          :`<span>${p.plan==='dropin8'?'하루수업 8회 선결제':`${p.sessions}회${planOf(st,p)!==p.sessions?` <small style="color:var(--ink-soft)">(${planOf(st,p)}회권)</small>`:''}`} · ${won(p.amount)} <button class="hmemo" data-mid="${p.id}" style="border:none;background:transparent;color:var(--ink-soft);font-size:13px;padding:4px 5px;cursor:pointer" title="메모 추가/수정">📝</button><button class="hx" data-id="${p.id}" style="border:none;background:transparent;color:var(--verm);font-size:15px;padding:4px 7px;cursor:pointer">✕</button></span>`;
+          :`<span>${p.plan==='dropin8'?'하루수업 8회 선결제':`${p.sessions}회${planOf(st,p)!==p.sessions?` <small style="color:var(--ink-soft)">(${planOf(st,p)}회권)</small>`:''}`} · ${won(p.amount)} <button class="hmemo" data-mid="${p.id}" style="border:none;background:transparent;color:var(--ink-soft);font-size:13px;padding:4px 5px;cursor:pointer" title="메모·회차 수정">📝</button><button class="hx" data-id="${p.id}" style="border:none;background:transparent;color:var(--verm);font-size:15px;padding:4px 7px;cursor:pointer">✕</button></span>`;
         return `<div class="hrow"><span>${p.date}${p.memo?` <small style="color:var(--ochre)">📝 ${esc(p.memo)}</small>`:''}</span>${right}</div>`;}).join('')}</div>`:''}
 
       <div class="hist"><div class="h">출결 이력 <small style="font-weight:400;color:var(--ink-soft)">(색칠된 칸: 눌러서 상태 변경 · 빈 칸: 눌러서 출석 기록 만들기)</small></div>
@@ -2391,8 +2391,9 @@ function studentSheet(st){const fee=feeFor(st);
     oroot().querySelectorAll('.hx').forEach(b=>b.onclick=()=>{delId=b.dataset.id;draw();});
     oroot().querySelectorAll('.hmemo').forEach(b=>b.onclick=()=>{
       const p=(st.payments||[]).find(x=>x.id===b.dataset.mid);if(!p)return;
-      oroot().insertAdjacentHTML('beforeend',`<div class="overlay" id="pMemoOv"><div class="sheet"><button class="quickx" onclick="document.getElementById('pMemoOv').remove()">✕</button><h3>결제 메모</h3>
+      oroot().insertAdjacentHTML('beforeend',`<div class="overlay" id="pMemoOv"><div class="sheet"><button class="quickx" onclick="document.getElementById('pMemoOv').remove()">✕</button><h3>결제 메모 · 회차 수정</h3>
         <div class="subt">${p.date} · ${p.plan==='dropin8'?'하루수업 8회 선결제':(p.sessions+'회')} · ${won(p.amount)}</div>
+        ${p.plan==='dropin8'?'':`<div class="fgroup"><label>계산에 넣을 회차 수 <small style="font-weight:400;color:var(--ink-soft)">(${planOf(st,p)}회권)</small></label><input id="pSessIn" type="number" min="0" max="99" step="1" class="selin" value="${p.sessions||0}" style="width:110px"><div class="note" style="margin-top:4px">· 보통은 권종 그대로(예: 24회권 → 24) 두시면 돼요.<br>· 앱이 세기 시작하기 전에 이미 쓴 횟수가 있으면, 그만큼 뺀 남은 횟수를 넣어주세요.</div></div>`}
         <div class="fgroup"><label>메모</label><input id="pMemoIn" class="selin" value="${esc(p.memo||'')}" placeholder="예: 카드 결제, 현금 영수증 요청 등"></div>
         <div class="fgroup"><label class="chk" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="pMemoEarly" ${p.effectiveFrom?'checked':''}> <span>이 결제일에 수업 마치고 미리 결제한 것 (그날 회차는 예전 걸로, 새 회차는 다음날부터 적용)</span></label></div>
         <div class="actions"><button class="btn-ghost" id="pMemoNo">취소</button><button class="btn-primary" id="pMemoOk">저장</button></div>
@@ -2402,6 +2403,12 @@ function studentSheet(st){const fee=feeFor(st);
       document.getElementById('pMemoOk').onclick=()=>{
         const v=document.getElementById('pMemoIn').value.trim();
         p.memo=v||'';
+        const sIn=document.getElementById('pSessIn');
+        if(sIn){
+          const n=parseInt(sIn.value,10);
+          if(isNaN(n)||n<0||n>99){toast('회차는 0~99 사이 숫자로 넣어주세요.');return;}
+          if(n!==p.sessions){if(!p.plan)p.plan=planOf(st,p);p.sessions=n;}
+        }
         const early=document.getElementById('pMemoEarly').checked;
         p.effectiveFrom=early?addDays(p.date,1):undefined;
         if(st.cycleStart===p.date&&early)st.cycleStart=p.effectiveFrom;
