@@ -1597,6 +1597,7 @@ function renderCheck(){
     const pillCls=isPendingReg?'pill unconfirmed':'pill';
     const codeLine=st.code?`<small style="display:block;font-weight:400;color:var(--jade-deep);font-size:11px;margin-top:2px">코드 ${esc(st.code)}</small>`:`<small style="display:block;font-weight:400;color:var(--verm);font-size:11px;margin-top:2px">코드 미발급</small>`;
     row.innerHTML=`<span class="nm">${esc(st.name)}${codeLine}</span><span class="sub" style="${subCls}">${sub.join(' · ')}</span><span style="display:flex;align-items:center;gap:6px"><span class="${pillCls} statusPill" style="cursor:pointer">${pillLabel}</span>${hasRec?`<span class="clearrec" style="color:var(--ink-soft);font-size:11px;padding:2px 4px;cursor:pointer" title="이 날짜 기록 지우기(패키지 밖 날짜 등)">✕</span>`:''}</span>`;
+    {const nmEl=row.querySelector('.nm');if(nmEl){nmEl.style.cursor='pointer';nmEl.title='눌러서 출결·수업료 보기';nmEl.onclick=(e)=>{e.stopPropagation();studentSheet(st);};}}
     row.querySelector('.statusPill').onclick=()=>{
       if(!pillClickGuard())return;
       const applyChange=()=>{
@@ -1625,6 +1626,7 @@ function renderCheck(){
       const pillLabel=needsConfirm?`${LABEL[status]} (미확정)`:`${LABEL[status]}${isFuture?' (예정)':''}`;
       const pillCls=isPending?'pill unconfirmed':'pill';
       row.innerHTML=`<span class="nm">${esc(st.name)}${st.code?`<small style="display:block;font-weight:400;color:var(--jade-deep);font-size:11px;margin-top:2px">코드 ${esc(st.code)}</small>`:''}</span><span class="sub">${esc(clsNames(st))||'반 미지정'} · 잔여 ${remainSessions(st)}회</span><span class="${pillCls}" style="cursor:pointer">${pillLabel}</span>`;
+    {const nmEl=row.querySelector('.nm');if(nmEl){nmEl.style.cursor='pointer';nmEl.title='눌러서 출결·수업료 보기';nmEl.onclick=(e)=>{e.stopPropagation();studentSheet(st);};}}
       row.querySelector('.pill').onclick=()=>{
         if(!pillClickGuard())return;
         if(needsConfirm){
@@ -1650,6 +1652,7 @@ function renderCheck(){
     paused.forEach(st=>{const k=sess.id+':'+st.id;const status=c.records[k]||'none';if(status!=='none')cnt[status]++;
       const row=document.createElement('div');row.className='srow '+CLS[status];row.style.cursor='default';
       row.innerHTML=`<span class="nm">${esc(st.name)}${st.code?`<small style="display:block;font-weight:400;color:var(--jade-deep);font-size:11px;margin-top:2px">코드 ${esc(st.code)}</small>`:''} <small style="color:var(--ink-soft)">(${st.status==='ended'?'종료':'휴강중'})</small></span><span class="sub">잔여 ${remainSessions(st)}회</span><span class="pill" style="cursor:pointer">${LABEL[status]}</span>`;
+    {const nmEl=row.querySelector('.nm');if(nmEl){nmEl.style.cursor='pointer';nmEl.title='눌러서 출결·수업료 보기';nmEl.onclick=(e)=>{e.stopPropagation();studentSheet(st);};}}
       row.querySelector('.pill').onclick=()=>{
         if(!pillClickGuard())return;
         if(status==='none'){c.records[k]='present';}
