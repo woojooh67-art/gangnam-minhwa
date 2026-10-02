@@ -1088,6 +1088,22 @@ function getTempClass(){
   }
   return c;
 }
+function createTempSession(iso,memo){
+  const cc=getTempClass();
+  const s={id:uid(),label:shortDate(iso)+' 임시'+(memo?' · '+memo:''),iso,temp:true};cc.sessions.push(s);
+  closeOverlay();data.activeClass=cc.id;checkMode='single';activeSess[cc.id]=s.id;
+  const [ty,tm]=iso.split('-').map(Number);checkCalYM[cc.id]={y:ty,m:tm};
+  save();render();toast('임시수업을 만들었어요. 학생을 직접 추가해주세요.');
+}
+function tempSessionSheet(defIso){
+  oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>＋ 임시수업 만들기</h3>
+    <div class="subt">정규반이 있는 날에도 따로 만들 수 있어요. (예: 오전반이 있는 날 오후 임시수업)</div>
+    <div class="fgroup"><label>날짜</label><input id="tsDate" type="date" class="selin" value="${defIso||todayISO()}"></div>
+    <div class="fgroup"><label>구분 이름 <small style="font-weight:400;color:var(--ink-soft)">(선택 · 예: 오후, 특강)</small></label><input id="tsMemo" class="selin" maxlength="20" placeholder="비워두셔도 돼요"></div>
+    <div class="actions"><button class="btn-ghost" id="tsNo">취소</button><button class="btn-primary" id="tsOk">만들기</button></div></div></div>`;
+  const q=x=>oroot().querySelector(x);q('#tsNo').onclick=closeOverlay;
+  q('#tsOk').onclick=()=>{const iso=q('#tsDate').value;if(!iso){toast('날짜를 골라주세요.');return;}createTempSession(iso,q('#tsMemo').value.trim());};
+}
 function curClass(){return classById(data.activeClass)||data.classes[0];}
 function curSession(){
   const c=curClass();
@@ -1238,9 +1254,6 @@ function renderClasses(){const sel=document.getElementById('classSel');sel.inner
     const allOpt=document.createElement('option');allOpt.value='__all__';allOpt.textContent='반 선택';
     if(checkMode==='all')allOpt.selected=true;
     sel.appendChild(allOpt);
-    const pausedOpt=document.createElement('option');pausedOpt.value='__paused__';pausedOpt.textContent='🌙 휴강중 학생 모아보기';
-    if(checkMode==='paused')pausedOpt.selected=true;
-    sel.appendChild(pausedOpt);
   }
   const sortedClasses=data.classes.filter(x=>!x.isTempContainer).slice().sort((a,b)=>classSortKey(a)-classSortKey(b));
   sortedClasses.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;if(!(tab==='check'&&(checkMode==='all'||checkMode==='paused'))&&c.id===data.activeClass)o.selected=true;sel.appendChild(o);});
@@ -1253,9 +1266,6 @@ function renderClasses(){const sel=document.getElementById('classSel');sel.inner
     const allOpt2=document.createElement('option');allOpt2.value='__all__';allOpt2.textContent='반 선택';
     if(checkMode==='all')allOpt2.selected=true;
     checkSel.appendChild(allOpt2);
-    const pausedOpt2=document.createElement('option');pausedOpt2.value='__paused__';pausedOpt2.textContent='🌙 휴강중 학생 모아보기';
-    if(checkMode==='paused')pausedOpt2.selected=true;
-    checkSel.appendChild(pausedOpt2);
     sortedClasses.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;if(checkMode!=='all'&&checkMode!=='paused'&&c.id===data.activeClass)o.selected=true;checkSel.appendChild(o);});
   }
   const meta=document.getElementById('classMeta');
@@ -1321,8 +1331,9 @@ function renderAllClassesCal(){
   const wd=['일','월','화','수','목','금','토'];
   const box=document.getElementById('checkCalBox');
   box.innerHTML=`<div class="calhead"><button class="calnav" type="button" data-nav="-1">‹</button><div class="calmonth">${y}년 ${m}월 · 전체 반</div><button class="calnav" type="button" data-nav="1">›</button></div>
-    <div style="text-align:center;margin:-4px 0 8px"><button class="minibtn" type="button" id="calToday1" style="padding:2px 10px;font-size:11.5px">오늘</button></div>
+    <div style="text-align:center;margin:-4px 0 8px"><button class="minibtn" type="button" id="calToday1" style="padding:2px 10px;font-size:11.5px">오늘</button> <button class="minibtn" type="button" id="calTemp1" style="padding:2px 10px;font-size:11.5px;border-color:var(--blue);color:var(--blue)">＋ 임시수업</button></div>
     <table class="calTable"><tr>${wd.map((w,i)=>`<th data-dow="${i}" style="cursor:pointer" title="눌러서 이 요일의 반으로 이동">${w}</th>`).join('')}</tr>${rowsHtml}</table>`;
+  box.querySelector('#calTemp1').onclick=()=>tempSessionSheet(todayISO());
   box.querySelector('#calToday1').onclick=()=>{const [ty,tm]=todayISO().split('-').map(Number);checkCalYM['__all__']={y:ty,m:tm};renderAllClassesCal();};
   function jumpToClass(cid,iso){
     const [jy,jm]=iso.split('-').map(Number);
@@ -1336,11 +1347,21 @@ function renderAllClassesCal(){
     const iso=cell.dataset.iso;
     const dow=new Date(iso+'T00:00:00').getDay();
     const matches=data.classes.filter(x=>classWeekday(x)===dow);
+    const tc=data.classes.find(x=>x.isTempContainer);
+    const temps=tc?tc.sessions.filter(x=>x.iso===iso):[];
+    if(temps.length){
+      oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>${shortDate(iso)} · 어느 수업이에요?</h3>
+        ${matches.map(x=>`<div class="srow" style="margin-bottom:8px;cursor:pointer" data-goc="${x.id}"><span class="nm">${esc(x.name)}</span><span class="pill" style="background:var(--jade-tint);color:var(--jade-deep)">이동</span></div>`).join('')}
+        ${temps.map(x=>`<div class="srow" style="margin-bottom:8px;cursor:pointer;border-color:var(--blue)" data-got="${x.id}"><span class="nm">${esc(x.label)}</span><span class="pill" style="background:var(--blue-tint,#e6f0fa);color:var(--blue)">보기</span></div>`).join('')}
+        <div class="actions" style="margin-top:10px;flex-direction:column;gap:8px"><button class="minibtn" id="goNewTemp" style="width:100%;border-color:var(--blue);color:var(--blue)">＋ 이 날 임시수업 하나 더 만들기</button><button class="btn-ghost" onclick="closeOverlay()" style="width:100%">취소</button></div></div></div>`;
+      oroot().querySelectorAll('[data-goc]').forEach(r=>r.onclick=()=>{closeOverlay();jumpToClass(r.dataset.goc,iso);});
+      oroot().querySelectorAll('[data-got]').forEach(r=>r.onclick=()=>{closeOverlay();activeSess[tc.id]=r.dataset.got;const [ty,tm]=iso.split('-').map(Number);checkCalYM[tc.id]={y:ty,m:tm};data.activeClass=tc.id;checkMode='single';save();render();});
+      oroot().querySelector('#goNewTemp').onclick=()=>tempSessionSheet(iso);
+      return;
+    }
     if(!matches.length){
       confirmSheet(`${shortDate(iso)} · ${wd[dow]}요일엔 수업하는 반이 없어요.<br>임시수업을 만들까요?`,()=>{
-        const cc=getTempClass();
-        const s={id:uid(),label:shortDate(iso)+' (임시)',iso,temp:true};cc.sessions.push(s);
-        closeOverlay();data.activeClass=cc.id;checkMode='single';activeSess[cc.id]=s.id;save();render();toast('임시수업을 만들었어요. 학생을 직접 추가해주세요.');
+        createTempSession(iso,'');
       },'임시수업 만들기');
       return;
     }
@@ -1421,8 +1442,9 @@ function renderCheckCal(){
   const wd=['일','월','화','수','목','금','토'];
   const box=document.getElementById('checkCalBox');
   box.innerHTML=`<div class="calhead"><button class="calnav" type="button" data-nav="-1">‹</button><div class="calmonth">${y}년 ${m}월</div><button class="calnav" type="button" data-nav="1">›</button></div>
-    <div style="text-align:center;margin:-4px 0 8px"><button class="minibtn" type="button" id="calToday2" style="padding:2px 10px;font-size:11.5px">오늘</button></div>
+    <div style="text-align:center;margin:-4px 0 8px"><button class="minibtn" type="button" id="calToday2" style="padding:2px 10px;font-size:11.5px">오늘</button> <button class="minibtn" type="button" id="calTemp2" style="padding:2px 10px;font-size:11.5px;border-color:var(--blue);color:var(--blue)">＋ 임시수업</button></div>
     <table class="calTable"><tr>${wd.map((w,i)=>`<th data-dow="${i}" style="cursor:pointer" title="눌러서 이 요일의 다른 반으로 이동">${w}</th>`).join('')}</tr>${rowsHtml}</table>`;
+  box.querySelector('#calTemp2').onclick=()=>{const cs=curSession();tempSessionSheet(cs?cs.iso:todayISO());};
   box.querySelector('#calToday2').onclick=()=>{const [ty,tm]=todayISO().split('-').map(Number);checkCalYM[c.id]={y:ty,m:tm};
     const todaySess=c.sessions.find(s=>s.iso===todayISO());activeSess[c.id]=todaySess?todaySess.id:'__none__';renderCheckCal();renderCheck();};
   box.querySelectorAll('th[data-dow]').forEach(th=>th.onclick=()=>{
@@ -1440,7 +1462,15 @@ function renderCheckCal(){
     checkCalYM[c.id]={y:ny,m:nm};activeSess[c.id]='__none__';renderCheckCal();renderCheck();});
   box.querySelectorAll('.calcell[data-iso]').forEach(cell=>cell.onclick=()=>{
     const iso=cell.dataset.iso;
-    const sessObj=c.sessions.find(s=>s.iso===iso);
+    const sameDay=c.sessions.filter(s=>s.iso===iso);
+    if(sameDay.length>1){
+      oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>${shortDate(iso)} · 어느 수업이에요?</h3>
+        ${sameDay.map(x=>`<div class="srow" style="margin-bottom:8px;cursor:pointer" data-ps="${x.id}"><span class="nm">${esc(x.label)}</span><span class="pill" style="background:var(--jade-tint);color:var(--jade-deep)">보기</span></div>`).join('')}
+        <div class="actions" style="margin-top:10px"><button class="btn-ghost" onclick="closeOverlay()" style="flex:1">취소</button></div></div></div>`;
+      oroot().querySelectorAll('[data-ps]').forEach(r=>r.onclick=()=>{activeSess[c.id]=r.dataset.ps;closeOverlay();renderCheckCal();renderCheck();});
+      return;
+    }
+    const sessObj=sameDay[0];
     if(sessObj){activeSess[c.id]=sessObj.id;renderCheck();return;}
     const dow=new Date(iso+'T00:00:00').getDay();
     if(skipped.indexOf(iso)>=0){
@@ -1480,9 +1510,7 @@ function renderCheckCal(){
       }
       // 이 요일엔 수업하는 반이 아예 없음 → 임시수업 컨테이너에 바로 생성
       confirmSheet(`${shortDate(iso)} · ${wd[dow]}요일엔 수업하는 반이 없어요.<br>임시수업을 만들까요?`,()=>{
-        const cc=getTempClass();
-        const s={id:uid(),label:shortDate(iso)+' (임시)',iso,temp:true};cc.sessions.push(s);
-        closeOverlay();data.activeClass=cc.id;checkMode='single';activeSess[cc.id]=s.id;save();render();toast('임시수업을 만들었어요. 학생을 직접 추가해주세요.');
+        createTempSession(iso,'');
       },'임시수업 만들기');
       return;
     }
@@ -1564,7 +1592,7 @@ function renderCheck(){
     return;
   }
   const isTemp=!!sess.temp;
-  const studs=isTemp?[]:activeIn(c.id).filter(s=>{const rd=regDate(s);return !rd||rd<=sess.iso;}),paused=isTemp?[]:studentsInClass(c.id).filter(s=>s.status==='paused'||s.status==='ended');
+  const studs=isTemp?[]:activeIn(c.id).filter(s=>{const rd=regDate(s);return !rd||rd<=sess.iso;}),paused=isTemp?[]:studentsInClass(c.id).filter(s=>(s.status==='paused'||s.status==='ended')&&c.records[sess.id+':'+s.id]!==undefined);
   const guests=isTemp
     ?data.students.filter(x=>c.records[sess.id+':'+x.id]!==undefined)
     :data.students.filter(x=>(x.classIds||[]).indexOf(c.id)<0 && c.records[sess.id+':'+x.id]!==undefined);
@@ -1646,9 +1674,22 @@ function renderCheck(){
     :'<button id="addGuest" style="border-color:var(--blue);color:var(--blue)">＋ 다른 반 학생 보강 참석</button>';
   list.appendChild(addG);
   addG.querySelector('#addGuest').onclick=()=>guestSheet(c,sess,isTemp);
+  if(isTemp){
+    const delT=document.createElement('div');delT.style.cssText='text-align:center;margin:14px 0 4px';
+    delT.innerHTML='<button class="minibtn" type="button" style="border-color:var(--verm);color:var(--verm)">🗑 이 임시수업 삭제</button>';
+    list.appendChild(delT);
+    delT.querySelector('button').onclick=()=>{
+      const nRec=Object.keys(c.records).filter(k=>k.indexOf(sess.id+':')===0).length;
+      confirmSheet(`'${esc(sess.label)}' 임시수업을 삭제할까요?`+(nRec?`<br><b style="color:var(--verm)">이 수업에 출석 기록 ${nRec}건이 있어요.</b> 같이 지워지고, 그 학생들의 잔여 회차가 다시 늘어나요.`:'<br>아직 출석 기록이 없어서 지워도 영향이 없어요.'),()=>{
+        c.sessions=c.sessions.filter(x=>x.id!==sess.id);
+        Object.keys(c.records).forEach(k=>{if(k.indexOf(sess.id+':')===0)delete c.records[k];});
+        activeSess[c.id]='__none__';checkMode='all';save();closeOverlay();render();toast('임시수업을 삭제했어요.');
+      },'삭제');
+    };
+  }
   if(paused.length){
     const h=document.createElement('div');h.className='note';h.style.margin='14px 3px 6px';
-    h.innerHTML='<b>휴강·종료</b> '+paused.length+'명 · 그래도 오신 날은 눌러서 체크 가능해요';list.appendChild(h);
+    h.innerHTML='<b>휴강·종료</b> '+paused.length+'명 · 이 날 기록이 있어서 보여요';list.appendChild(h);
     paused.forEach(st=>{const k=sess.id+':'+st.id;const status=c.records[k]||'none';if(status!=='none')cnt[status]++;
       const row=document.createElement('div');row.className='srow '+CLS[status];row.style.cursor='default';
       row.innerHTML=`<span class="nm">${esc(st.name)}${st.code?`<small style="display:block;font-weight:400;color:var(--jade-deep);font-size:11px;margin-top:2px">코드 ${esc(st.code)}</small>`:''} <small style="color:var(--ink-soft)">(${st.status==='ended'?'종료':'휴강중'})</small></span><span class="sub">잔여 ${remainSessions(st)}회</span><span class="pill" style="cursor:pointer">${LABEL[status]}</span>`;
@@ -1976,7 +2017,7 @@ function showKpiList(kind){
 
 /* ---------- 다른 반 보강 참석자 추가 ---------- */
 function guestSheet(c,sess,isTemp){
-  const cands=data.students.filter(x=>(isTemp||(x.classIds||[]).indexOf(c.id)<0) && x.status!=='ended'
+  const cands=data.students.filter(x=>(isTemp||(x.classIds||[]).indexOf(c.id)<0||x.status==='paused') && x.status!=='ended'
     && c.records[sess.id+':'+x.id]===undefined);
   const withMk=cands.filter(x=>makeupLeft(x)>0), rest=cands.filter(x=>makeupLeft(x)<=0);
   const row=x=>`<div class="srow" style="flex-direction:column;align-items:stretch;gap:6px">
@@ -2752,7 +2793,8 @@ function editClass(){const c=curClass();oroot().innerHTML=`<div class="overlay">
   const q=s=>oroot().querySelector(s);q('#ecNo').onclick=closeOverlay;
   q('#ecOk').onclick=()=>{c.name=q('#ecName').value.trim()||c.name;c.sched=q('#ecSched').value.trim();c.fee=parseInt(q('#ecFee').value)||c.fee;save();closeOverlay();render();toast('저장되었습니다.');};
   q('#ecDel').onclick=()=>{if(data.classes.length<=1){toast('마지막 반은 삭제할 수 없어요.');return;}
-    confirmSheet(`'${esc(c.name)}' 반을 삭제할까요?<br>이 반 출석 기록이 지워지고 학생은 이 반에서 제외됩니다.`,()=>{
+    const nRec=Object.keys(c.records||{}).length;
+    confirmSheet(`'${esc(c.name)}' 반을 삭제할까요?<br>학생은 이 반에서 제외됩니다.`+(nRec?`<br><b style="color:var(--verm)">⚠ 이 반에 출석 기록 ${nRec}건이 있어요.</b> 같이 지워져서 학생들 잔여 회차가 틀어질 수 있어요. 삭제 전에 [기록] 탭에서 백업해 두세요.`:'<br>출석 기록이 없어서 지워도 영향이 없어요.'),()=>{
       data.students.forEach(s=>{s.classIds=(s.classIds||[]).filter(x=>x!==c.id);});
       data.classes=data.classes.filter(x=>x.id!==c.id);data.activeClass=data.classes[0].id;save();closeOverlay();render();toast('반이 삭제되었습니다.');});};}
 
