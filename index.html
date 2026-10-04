@@ -1635,7 +1635,19 @@ function renderCheck(){
       };
       const willBeAbsent=hasRec?STATUSES[(STATUSES.indexOf(status)+1)%4]==='absent':(status==='absent');
       if(willBeAbsent&&hasRecentExtraAttendance(st)){
-        confirmSheet(`${esc(st.name)} 학생은 최근 7일 안에 정규 페이스보다 많이 출석한 적이 있어요 (미리 당겨서 들으신 걸 수도 있어요).<br>정말 오늘을 <b>결석</b>으로 표시할까요? (결석 표시하면 보강권이 자동으로 생겨요)`,applyChange,'결석으로 표시');
+        oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>${esc(st.name)} · 오늘 어떻게 표시할까요?</h3>
+          <div class="subt">최근 7일 안에 정규보다 많이 나오신 적이 있어요. (미리 당겨 들으셨을 수도 있어요)</div>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px">
+            <button class="btn-primary" id="mkPick" style="background:var(--blue);border-color:var(--blue)">🔁 보강으로 표시 <small style="font-weight:400">(남은 보강 사용)</small></button>
+            <button class="btn-ghost" id="abPick" style="color:var(--verm);border-color:var(--verm)">결석으로 표시 <small style="font-weight:400">(보강권이 생겨요)</small></button>
+            <button class="btn-ghost" onclick="closeOverlay()">취소</button>
+          </div></div></div>`;
+        oroot().querySelector('#abPick').onclick=()=>{closeOverlay();applyChange();};
+        oroot().querySelector('#mkPick').onclick=()=>{
+          closeOverlay();logStatusChange(st,c,status,'makeup',sess.iso);c.records[k]='makeup';
+          if(st.makeupDueOverride)delete st.makeupDueOverride;
+          save();renderCheck();renderFee();renderReport();toast('보강으로 표시했어요.');
+        };
       }else{
         applyChange();
       }
