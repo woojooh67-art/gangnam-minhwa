@@ -1297,6 +1297,19 @@ function cycleMapOf(st){
     else{let j=pays.length-1;while(j>0&&cum[j]>pos)j--;e={n:pos-cum[j]+1,t:pays[j].sessions,i:j};}
     (days[m.iso]=days[m.iso]||[]).push(e);
   });
+  /* 리셋 기준일 이전의 지난 결제분들도 각자 결제 기간 안에서 1/N, 2/N… 번호를 붙여 보여줘요 (잔여 계산과는 무관, 기록 표시용) */
+  if(st.cycleStart){
+    const old=(st.payments||[]).filter(p=>p.plan!=='dropin8'&&(p.sessions||0)>0&&!dropPayIds.has(p.id)&&payEffDate(p)<st.cycleStart)
+      .slice().sort((a,b)=>{const x=payEffDate(a),y=payEffDate(b);return x<y?-1:x>y?1:0;});
+    const allM=marksOf(st).filter(m=>m.mark==='present'||m.mark==='late'||m.mark==='makeup').sort((a,b)=>a.iso<b.iso?-1:a.iso>b.iso?1:0);
+    old.forEach((p,idx)=>{
+      const from=payEffDate(p),to=idx+1<old.length?payEffDate(old[idx+1]):st.cycleStart;
+      let k=0;
+      allM.forEach(m=>{if(m.iso<from||m.iso>=to)return;k++;
+        const e=k<=p.sessions?{n:k,t:p.sessions,i:idx}:{x:1};
+        (days[m.iso]=days[m.iso]||[]).push(e);});
+    });
+  }
   const payDays={};(st.payments||[]).forEach(p=>{if(p.date)payDays[p.date]=1;});
   return {days,pays:payDays};
 }
@@ -1312,6 +1325,7 @@ function cycLabelHTML(cm,iso){
   }
   if(es.some(e=>e.o))parts.push('<span style="color:var(--ink-soft)">다음결제</span>');
   if(es.some(e=>e.c))parts.push('<span style="color:var(--ink-soft)">이월</span>');
+  if(es.some(e=>e.x))parts.push('<span style="color:var(--ink-soft)">초과</span>');
   return `<div class="cyclbl">${pay?'<span class="cycpay" title="결제일">₩</span>':''}${parts.join(' ')}</div>`;
 }
 const CYC_LEGEND='<span><b style="color:var(--jade-deep)">3/4</b> = 이번 결제분의 3번째 수업</span><span><span class="cycpay">₩</span> 결제일</span>';
