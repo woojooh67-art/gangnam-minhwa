@@ -2534,14 +2534,38 @@ function studentSheet(st){const fee=feeFor(st);
           save();renderFee();renderReport();studentSheet(st);toast('선결제가 저장되었습니다.');
           return;
         }
-        const rmBefore=remainSessions(st),mkBefore=makeupLeft(st);
-        if(rmBefore<=0){
-          if(rmBefore<0||mkBefore>0){
+        const rmBefore=remainSessions(st),mkBefore=makeupLeft(st),mkLive=effectiveMakeupLeft(st);
+        const commitPay=(fresh)=>{
+          if(fresh){
             pushLog('admin',`(원장님) ${esc(st.name)}님 ${D} 결제 시 이전 잔여 ${rmBefore}회, 보강 ${mkBefore}회를 정리하고 새로 시작했어요.`,D);
+            st.cycleStart=effFrom;
+            delete st.remainAdjust; // 이전 결제 기간의 수동 보정값은 새 회차로 넘어가지 않게
+          }else{
+            pushLog('admin',`(원장님) ${esc(st.name)}님 ${D} 결제 시 이전에 남은 ${rmBefore+mkLive}회를 이어서 쓰도록(이월) 했어요.`,D);
           }
-          st.cycleStart=effFrom;
-        }
-        st.payments.push({id:uid(),sessions:S,amount:A,date:D,plan:S,memo:M,effectiveFrom:earlyPay?effFrom:undefined});save();renderFee();renderReport();studentSheet(st);toast('결제가 저장되었습니다.');};};
+          st.payments.push({id:uid(),sessions:S,amount:A,date:D,plan:S,memo:M,effectiveFrom:earlyPay?effFrom:undefined});save();renderFee();renderReport();studentSheet(st);toast('결제가 저장되었습니다.');
+        };
+        const leftTotal=rmBefore>=0?rmBefore+mkLive:0;
+        if(leftTotal<=0){commitPay(true);return;}
+        const cov=oroot().querySelector('#pConfirmOv');if(cov)cov.remove();
+        oroot().insertAdjacentHTML('beforeend',`<div class="overlay" id="pCarryOv"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>이전 결제에서 남은 회차가 있어요</h3>
+          <div style="font-size:14.5px;line-height:1.9;background:var(--ochre-tint);border:1px solid var(--ochre);border-radius:10px;padding:12px 14px;margin:6px 0 12px">
+            ${esc(st.name)}님은 지금 <b>${leftTotal}회</b>가 남아 있어요.${mkLive>0?`<br><small>(그중 ${mkLive}회는 못 오신 날 남은 회차예요)</small>`:''}
+          </div>
+          <div class="note" style="margin:0 2px 14px;line-height:1.7">
+            <b>이어서 쓰기</b>: 남은 ${leftTotal}회를 먼저 쓰고, 그다음부터 새 ${S}회가 시작돼요. (달력에 "이월"로 표시)<br>
+            <b>새로 시작</b>: 남은 회차는 정리하고, ${shortDate(effFrom)}부터 새 ${S}회만 계산해요.
+          </div>
+          <div class="actions" style="flex-direction:column;gap:8px">
+            <button class="btn-primary" id="pcFresh" style="width:100%">정리하고 새로 시작</button>
+            <button class="btn-ghost" id="pcCarry" style="width:100%">남은 ${leftTotal}회 이어서 쓰기 (이월)</button>
+            <button class="btn-ghost" id="pcCarryNo" style="width:100%">취소</button>
+          </div></div></div>`);
+        const cq=x=>oroot().querySelector(x);
+        cq('#pcFresh').onclick=()=>{cq('#pCarryOv').remove();commitPay(true);};
+        cq('#pcCarry').onclick=()=>{cq('#pCarryOv').remove();commitPay(false);};
+        cq('#pcCarryNo').onclick=()=>cq('#pCarryOv').remove();
+      };};
     q('#stEdit').onclick=()=>editStudent(st);
     q('#stToolsToggle').onclick=()=>{
       const box=q('#stToolsBox');const willOpen=box.classList.contains('hidden');
