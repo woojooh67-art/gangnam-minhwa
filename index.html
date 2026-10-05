@@ -3465,6 +3465,7 @@ function bindInstallCard(){
   const o=document.getElementById('installOpen');if(o)o.onclick=()=>installHelpSheet();
   const h=document.getElementById('installHide');if(h)h.onclick=()=>{try{localStorage.setItem('gmh_hide_install','1');}catch(e){}const c=document.getElementById('installCard');if(c)c.remove();};
 }
+const STU_WINDOW_DAYS=6; // 학생 화면: 오늘부터 일주일(오늘 + 6일)만 보여주고 예약 받기
 function renderStudentApp(){
   const root=document.getElementById('studentApp');
   if(!stuData){root.innerHTML=`<div class="stuwrap"><div class="stucard"><h3>아직 준비된 정보가 없어요</h3>
@@ -3490,7 +3491,7 @@ function renderStudentApp(){
   const lastPaidSessionId=(remainNow>0&&remainNow<=_lastPaidSorted.length)?_lastPaidSorted[remainNow-1].id:null;
   const _allUpcoming=[];
   (stuData.classes||[]).forEach(c=>{
-    (c.sessions||[]).filter(s=>s.iso>=t&&(c.official!==false||c.records[s.id]!==undefined)).forEach(s=>_allUpcoming.push({c,s}));
+    (c.sessions||[]).filter(s=>s.iso>=t&&(s.iso<=addDays(t,STU_WINDOW_DAYS)||c.records[s.id]!==undefined)&&(c.official!==false||c.records[s.id]!==undefined)).forEach(s=>_allUpcoming.push({c,s}));
   });
   const schedTimeVal=c=>{const mt=(c.sched||'').match(/(\d{1,2}):(\d{2})/);return mt?(+mt[1])*60+(+mt[2]):9999;};
   _allUpcoming.sort((a,b)=>{
@@ -3641,7 +3642,7 @@ function renderStudentApp(){
   let dropinSection='';
   {
     const pendingDropin=stuData._pendingDropin||[];
-    const slots=(stuData.allUpcoming||[]).filter(u=>u.iso>=t);
+    const slots=(stuData.allUpcoming||[]).filter(u=>u.iso>=t&&u.iso<=addDays(t,STU_WINDOW_DAYS));
     const rateFor=u=>(u.classType==='연구'&&!u.afternoonOnly)?(stuData.dailyRateResearch||90000):(stuData.dailyRate||60000);
     const clsLabel=u=>`${esc(u.className)}${u.afternoonOnly?' <small style="color:var(--blue);font-weight:600">(2~5시만)</small>':''}`;
     const rowFor=u=>{
@@ -3825,7 +3826,7 @@ function openMakeupPicker(excludeSessionId){
   const realEntitlementNow=(stuData.makeupLeft||0)+(stuData._pendingAbsent||[]).length+(stuData._pendingMakeupCancel||[]).length;
   const isGraceOnly=realEntitlementNow<=0&&stuData.remain<=0;
   const cutoff=isGraceOnly?(stuData.paceEnd?addDays(stuData.paceEnd,7):null):(stuData.makeupDue||null);
-  const windowEnd=addDays(t,14);
+  const windowEnd=addDays(t,STU_WINDOW_DAYS);
   const effectiveCutoff=cutoff?(cutoff<windowEnd?cutoff:windowEnd):windowEnd;
   const beyondWindow=cutoff&&cutoff>windowEnd;
   const slots=(stuData.allUpcoming||[]).filter(u=>u.iso>=t&&u.iso<=effectiveCutoff&&u.sessionId!==excludeSessionId&&pendingMakeup.indexOf(u.sessionId)<0&&(u.avail===undefined||u.avail>0)).slice(0,20);
@@ -3848,7 +3849,7 @@ function openMakeupPicker(excludeSessionId){
     <div class="subt">${isGraceOnly?'편하신 날짜를 누르면 그 자리에서 바로 신청되고 다음 결제에서 정산됩니다.':'편하신 날짜를 누르면 그 자리에서 바로 예약이 신청돼요.'}</div>
     ${dueBadge}
     <div class="note" style="margin:-4px 2px 10px;color:var(--ink-soft)">지금 예약하실 수 있는 날짜만 보여드려요.${beyondWindow?' 원하시는 날짜가 안 보이면, 며칠 후 다시 열어서 확인해주세요.':''}</div>
-    <div style="max-height:52vh;overflow:auto">${rows||(beyondWindow?'<div class="note">가까운 2주 안엔 예약 가능한 날짜가 없어요. 며칠 후 다시 확인해주세요.</div>':cutoff?`<div class="note">이용기한(${cutoff}) 안에 예약 가능한 수업이 없어요. 원장님께 문의해주세요.</div>`:'<div class="note">지금은 예약 가능한 수업이 없어요. 나중에 다시 골라주세요.</div>')}</div>
+    <div style="max-height:52vh;overflow:auto">${rows||(beyondWindow?'<div class="note">이번 일주일 안에는 예약 가능한 날짜가 없어요. 며칠 후 다시 확인해주세요.</div>':cutoff?`<div class="note">이용기한(${cutoff}) 안에 예약 가능한 수업이 없어요. 원장님께 문의해주세요.</div>`:'<div class="note">지금은 예약 가능한 수업이 없어요. 나중에 다시 골라주세요.</div>')}</div>
     <div class="actions" style="margin-top:14px"><button class="btn-ghost" id="mpLater" style="flex:1">나중에 할게요</button></div>
   </div></div>`;
   oroot().querySelector('#mpLater').onclick=closeOverlay;
