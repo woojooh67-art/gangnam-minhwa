@@ -945,7 +945,7 @@ function holidaySheet(){
       ${mode==='class'?`<div class="fgroup"><label>대상 반 <button class="minibtn" id="hAllChk" style="margin-left:6px;padding:2px 8px;font-size:11.5px">전체 선택/해제</button></label>
         ${data.classes.filter(c=>!c.isTempContainer).map(c=>`<label class="chk"><input type="checkbox" data-hcid="${c.id}" checked> ${esc(c.name)} <small style="color:var(--ink-soft)">(${esc(c.sched||'')})</small></label>`).join('')}</div>`
       :`<div class="fgroup"><label>휴무 사유 (선택)</label><input id="hLabel" class="selin" placeholder="예: 명절 연휴, 개인 사정"></div>`}
-      <div class="actions"><button class="btn-ghost" id="hNo">취소</button><button class="btn-primary" id="hList">📋 목록 보기</button><button class="btn-danger" id="hOk">휴강 처리</button></div>
+      <div class="actions"><button class="btn-ghost" id="hNo">취소</button><button class="btn-primary" id="hList">📋 등록된 휴강일</button><button class="btn-danger" id="hOk">휴강 처리</button></div>
       <button class="btn-ghost" id="hAuto" style="width:100%;margin-top:10px;border-color:var(--verm);color:var(--verm);font-weight:700">🇰🇷 공휴일 한 번에 등록 (앞으로 1년)</button>
       </div></div>`;
     const q=s=>oroot().querySelector(s);
@@ -1089,37 +1089,36 @@ function bulkClearRecordsSheet(){
   };
 }
 function bulkUncancelListSheet(){
+  const t=todayISO(),DOW='일월화수목금토';
   const items=[];
-  data.classes.forEach(c=>{(c.skippedDates||[]).forEach(iso=>{items.push({type:'class',classId:c.id,className:c.name,iso});});});
-  (data.studioClosedDates||[]).forEach(x=>{items.push({type:'all',iso:x.iso,className:'🏖 화실 전체: '+(x.label||'휴무')});});
-  items.sort((a,b)=>a.iso<b.iso?-1:(a.iso>b.iso?1:a.className.localeCompare(b.className)));
-  if(!items.length){toast('현재 휴강 처리된 날짜가 없어요.');return;}
-  oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>📋 휴강 목록에서 되돌리기</h3>
-    <div class="subt">현재 휴강 처리되어 있는 날짜들이에요. 되돌리고 싶은 항목만 선택하고(기본은 전체 선택) 되돌리세요.</div>
-    <div style="max-height:50vh;overflow:auto">
-      ${items.map((it,i)=>`<label class="chk"><input type="checkbox" data-ucidx="${i}" checked> ${shortDate(it.iso)} · ${esc(it.className)}</label>`).join('')}
+  data.classes.forEach(c=>{(c.skippedDates||[]).forEach(iso=>{items.push({type:'class',classId:c.id,name:c.name,iso});});});
+  (data.studioClosedDates||[]).forEach(x=>{items.push({type:'all',iso:x.iso,name:'화실 전체'+(x.label?' · '+x.label:'')});});
+  if(!items.length){toast('등록된 휴강일이 없어요.');holidaySheet();return;}
+  const up=items.filter(x=>x.iso>=t).sort((a,b)=>a.iso<b.iso?-1:a.iso>b.iso?1:a.name.localeCompare(b.name));
+  const past=items.filter(x=>x.iso<t).sort((a,b)=>a.iso<b.iso?1:-1);
+  const row=(it,i)=>{const hol=publicHolidayLabel(it.iso);
+    return `<div class="srow" style="margin-bottom:8px;align-items:center"><span class="nm" style="font-size:14.5px">${shortDate(it.iso)}(${DOW[new Date(it.iso+'T00:00:00').getDay()]}) <small style="font-weight:400;color:var(--ink-soft)">${esc(it.name)}${hol?' · '+esc(hol):''}</small></span>
+      <button class="minibtn" data-unc="${i}" style="border-color:var(--verm);color:var(--verm);font-weight:700;padding:5px 12px">휴강 취소</button></div>`;};
+  const all=[...up,...past];
+  oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>📋 등록된 휴강일</h3>
+    <div class="subt">잘못 등록한 날은 <b>휴강 취소</b>를 누르면 원래 수업일로 돌아가요.</div>
+    <div style="max-height:56vh;overflow:auto">
+      <div class="sechead" style="margin-top:4px">앞으로 (${up.length})</div>
+      ${up.length?up.map((it,i)=>row(it,i)).join(''):'<div class="note">앞으로 예정된 휴강일이 없어요.</div>'}
+      ${past.length?`<details style="margin-top:10px"><summary style="cursor:pointer;color:var(--ink-soft);font-weight:700">지난 휴강일 (${past.length})</summary><div style="margin-top:8px">${past.map((it,i)=>row(it,up.length+i)).join('')}</div></details>`:''}
     </div>
-    <div class="actions"><button class="btn-ghost" id="ucNo">닫기</button><button class="btn-primary" id="ucOk">선택 항목 되돌리기</button></div>
+    <div class="actions" style="margin-top:12px"><button class="btn-ghost" id="ucNo" style="flex:1">닫기</button></div>
     </div></div>`;
   oroot().querySelector('#ucNo').onclick=()=>holidaySheet();
-  oroot().querySelector('#ucOk').onclick=()=>{
-    const checked=[...oroot().querySelectorAll('[data-ucidx]:checked')].map(el=>items[parseInt(el.dataset.ucidx)]);
-    if(!checked.length){toast('항목을 선택해주세요.');return;}
-    confirmSheet(`선택하신 ${checked.length}건의 휴강을 취소하고 정상 수업으로 되돌릴까요? (오신 분만 체크하시면 되고, 안 오신 분은 결석 처리되지 않아요.)`,()=>{
-      checked.forEach(it=>{
-        if(it.type==='all'){
-          data.studioClosedDates=(data.studioClosedDates||[]).filter(x=>x.iso!==it.iso);
-          return;
-        }
-        const c=classById(it.classId);if(!c)return;
-        c.skippedDates=(c.skippedDates||[]).filter(x=>x!==it.iso);
-        if(!c.sessions.find(s=>s.iso===it.iso)){
-          const s={id:uid(),label:shortDate(it.iso),iso:it.iso};c.sessions.push(s);
-        }
-      });
-      save();closeOverlay();render();toast(`${checked.length}건 되돌렸어요.`);
-    },'되돌리기');
-  };
+  oroot().querySelectorAll('[data-unc]').forEach(btn=>btn.onclick=()=>{
+    const it=all[+btn.dataset.unc];
+    if(!confirm(`${shortDate(it.iso)} ${it.name} 휴강을 취소할까요?\n원래 수업일로 돌아가요.`))return;
+    if(it.type==='all'){data.studioClosedDates=(data.studioClosedDates||[]).filter(x=>x.iso!==it.iso);}
+    else{const c=classById(it.classId);if(c){c.skippedDates=(c.skippedDates||[]).filter(x=>x!==it.iso);
+      if(!c.sessions.find(s=>s.iso===it.iso)){c.sessions.push({id:uid(),label:shortDate(it.iso),iso:it.iso});}}}
+    pushLog('admin',`(원장님) ${shortDate(it.iso)} ${esc(it.name)} 휴강을 취소했어요.`,it.iso);
+    save();render();toast('휴강을 취소했어요.');bulkUncancelListSheet();
+  });
 }
 function autoCreateUpcomingSessions(){
   let made=0;const todayIso=todayISO();
