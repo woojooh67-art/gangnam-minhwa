@@ -3761,10 +3761,10 @@ function renderStudentApp(){
     <div class="stucard"><h3>다가오는 수업</h3>${upcomingRows||'<div class="note">이번주는 예정된 수업이 없어요.</div>'}
       ${upcomingRowsMore?`<div class="note" id="upcomingMoreToggle" style="text-align:center;margin:8px 0 0;cursor:pointer;color:var(--ink-soft);border-top:1px solid var(--line);padding-top:8px">${upcomingMoreOpen?'▲ 접기':'▼ 다음주 이후 더보기'}</div>${upcomingMoreOpen?upcomingRowsMore:''}`:''}
       <div class="note">결석하실 것 같으면 미리 눌러서 알려주세요. 참석 예정이면 아무것도 안 누르셔도 돼요.</div></div>`}
-    ${skippedNotice}
-    ${timetableSection}
     ${isPaused?'':makeupSection}
     ${isPaused?'':myMakeupSection}
+    ${timetableSection}
+    ${skippedNotice}
     ${isPaused?'':myDropinSection}
     ${dropinSection}
     <div class="stucard"><details><summary>최근 출석 이력</summary><div id="stuHistCal">${stuCalGrid()}</div></details></div>
@@ -3789,6 +3789,12 @@ function renderStudentApp(){
   const stuRefreshBtn=document.getElementById('stuRefresh');
   if(stuRefreshBtn)stuRefreshBtn.onclick=async()=>{
     stuRefreshBtn.textContent='⏳ 불러오는 중...';
+    /* 앱 화면(코드)까지 최신으로: 저장된 예전 화면을 지우고 다시 불러와요. 로그인은 유지돼요. */
+    try{
+      if('serviceWorker' in navigator){const regs=await navigator.serviceWorker.getRegistrations();for(const r of regs)await r.unregister();}
+      if('caches' in window){const keys=await caches.keys();for(const k of keys)await caches.delete(k);}
+    }catch(e){console.error(e);}
+    location.reload();return;
     try{await enterStudent(auth.currentUser.uid);toast('새로고침했어요.');}
     catch(e){console.error(e);toast('새로고침 실패 — 인터넷 연결을 확인해주세요.');}
     finally{if(document.body.contains(stuRefreshBtn))stuRefreshBtn.textContent='🔄 새로고침';}
