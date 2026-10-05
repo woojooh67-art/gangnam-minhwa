@@ -1230,13 +1230,39 @@ function lastPayment(st){const ps=(st.payments||[]).slice().sort((a,b)=>a.date<b
 function planOf(st,p){ if(p.plan)return p.plan;
   const f=feeFor(st); const g=[1,4,12,24].find(n=>planAmount(f,n)===p.amount);
   if(g)return g; const n=Math.max(1,Math.round((p.sessions||4)/4))*4; return n;}
+/* 회차권 이용기한: 결제한 회차의 '마지막 수업일' + 4주.
+   - 남은 회차가 있으면: 정규 요일대로(휴강·휴무일 제외) 계속 나왔을 때 마지막 회차가 될 날짜
+   - 다 썼으면: 실제로 마지막 회차를 쓴 날짜 */
+function projectedLastClassDate(st,rem){
+  const cls=(st.classIds||[]).map(classById).filter(x=>x&&classWeekday(x)!==null);
+  if(!cls.length)return addDays(todayISO(),Math.max(0,rem-1)*7);
+  const t=todayISO();
+  const usedToday=new Set(marksOf(st).filter(m=>m.iso===t&&(m.mark==='present'||m.mark==='late'||m.mark==='absent'||m.mark==='makeup')).map(m=>m.classId));
+  const d=new Date(t+'T00:00:00');let n=0,last='';
+  for(let i=0;i<500&&n<rem;i++){
+    const iso=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());const dow=d.getDay();
+    cls.forEach(c=>{if(n>=rem)return;if(classWeekday(c)!==dow)return;if(isClosedDay(c,iso))return;if(iso===t&&usedToday.has(c.id))return;n++;last=iso;});
+    d.setDate(d.getDate()+1);
+  }
+  return last||t;
+}
+function packageLastClassDate(st){
+  const p=lastPayment(st);if(!p)return '';
+  const rem=remainSessions(st);
+  if(rem>0)return projectedLastClassDate(st,rem);
+  const t=todayISO();
+  const used=marksOf(st).filter(m=>(m.mark==='present'||m.mark==='late'||m.mark==='absent')&&m.iso>=payEffDate(p)&&m.iso<=t).map(m=>m.iso).sort();
+  if(!used.length)return '';
+  const pl=planOf(st,p);
+  return used[Math.min(pl,used.length)-1];
+}
 function makeupDue(st){
   if(st.makeupDueOverride){
     if(st.makeupDueOverride<todayISO()){delete st.makeupDueOverride;}
     else return st.makeupDueOverride;
   }
   const p=lastPayment(st);if(!p)return '';
-  const lastClass=st.lastClassOverride||lastCoveredClassDate(st);
+  const lastClass=st.lastClassOverride||packageLastClassDate(st);
   let base;
   if(lastClass){
     base=addDays(lastClass,28);
@@ -3261,6 +3287,7 @@ function renderStudentApp(){
   const t=todayISO();const pendingAbsent=stuData._pendingAbsent||[];const pendingMakeup=stuData._pendingMakeup||[];
   const pendingMakeupCancel=stuData._pendingMakeupCancel||[];const pendingAbsentCancel=stuData._pendingAbsentCancel||[];
   const approvedMakeup=stuData.makeupLeft||0;
+  const totalLeft=(stuData.remain||0)+approvedMakeup;
   const preBookAllowance=1; // 결석 전에 미리 보강받는 경우를 위한 여유분
   const quotaTotal=approvedMakeup+pendingAbsent.length+pendingMakeupCancel.length+preBookAllowance;
   const quotaLeft=Math.max(0,quotaTotal-pendingMakeup.length);
@@ -3295,7 +3322,7 @@ function renderStudentApp(){
         else if(s.iso>t)right=`<span style="display:flex;align-items:center;gap:8px"><span class="c-a" style="font-weight:700">결석 처리됨${rmemo?` <small style="color:var(--ink-soft);font-weight:400">· ${esc(rmemo)}</small>`:''}</span><button class="minibtn" style="color:var(--verm);padding:4px 2px;font-size:12px" data-racid="${s.id}" data-racclassid="${c.id}" data-raciso="${s.iso}" data-raclabel="${esc(s.label||'')}" data-racname="${esc(c.name)}">취소 요청</button></span>`;
         else right=`<span class="c-a" style="font-weight:700">결석 처리됨${rmemo?` <small style="color:var(--ink-soft);font-weight:400">· ${esc(rmemo)}</small>`:''} <small style="color:var(--ink-soft);font-weight:400">· 당일이라 취소 불가</small></span>`;
       }
-      else if(v==='makeup')right=`<span class="c-m" style="font-weight:700">${s.iso>t?'보강 예정':'보강 완료'}</span>`;
+      else if(v==='makeup')right=`<span class="c-m" style="font-weight:700">${s.iso>t?'다른 날 수업 예정':'다른 날 수업 완료'}</span>`;
       else if(v==='present'||v==='late'||v==='dropin'){
         const doneLabel=v==='dropin'?'하루권 출석':v==='late'?'지각 출석':'출석 완료';
         const planLabel=v==='dropin'?'하루권 참여 예정':'참여 예정';
@@ -3363,7 +3390,7 @@ function renderStudentApp(){
       <div class="note" style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap">
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--jade);vertical-align:middle"></span> 출석</span>
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--verm);vertical-align:middle"></span> 결석</span>
-        <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--blue);vertical-align:middle"></span> 보강</span>
+        <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--blue);vertical-align:middle"></span> 다른 날 수업</span>
       <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--purple);vertical-align:middle"></span> 하루권</span>
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--verm-tint);border:1px solid var(--verm);vertical-align:middle"></span> 휴강</span>
         ${CYC_LEGEND}
@@ -3379,11 +3406,11 @@ function renderStudentApp(){
       return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span style="display:flex;align-items:center;gap:8px"><span style="color:var(--blue);font-size:12.5px;font-weight:700">예약 반영대기</span><button class="minibtn" style="color:var(--verm);padding:4px 2px;font-size:12px" data-cancel-msid="${u.sessionId}">취소</button></span></div>`;
     }).join('');
     const isGraceOnly=realEntitlement<=0&&stuData.remain<=0;
-    const hd=isGraceOnly?'수업 미리 참여하기':(pendingMakeup.length>0?`보강 예약 (예약중 ${pendingMakeup.length}회)`:'보강 예약');
+    const hd=isGraceOnly?'수업 미리 참여하기':(pendingMakeup.length>0?`다른 날 수업 예약 (예약중 ${pendingMakeup.length}회)`:'다른 날 수업 예약');
     let pendingNote='';
     if(pendingMakeupCancel.length>0)pendingNote='<div class="note">취소 신청하신 만큼 바로 다른 날짜로 예약하실 수 있어요. 원장님이 확인하시면 정식 반영돼요.</div>';
     else if(pendingAbsent.length>0&&pendingMakeup.length===0)pendingNote='<div class="note">결석 알림을 드린 만큼 바로 예약하실 수 있어요. 원장님이 확인하시면 정식 반영돼요.</div>';
-    const actionBtn=quotaLeft>0?`<button class="checkbtn" id="openMakeupPickerBtn">${isGraceOnly?'📅 참여 날짜 고르기':'📅 보강 날짜 고르기'}</button>`:(pendingRows?'':'<div class="note">지금은 예약 가능한 보강이 없어요.</div>');
+    const actionBtn=quotaLeft>0?`<button class="checkbtn" id="openMakeupPickerBtn">${isGraceOnly?'📅 참여 날짜 고르기':'📅 다른 날짜 고르기'}</button>`:(pendingRows?'':'<div class="note">지금은 다른 날로 예약할 수 있는 회차가 없어요.</div>');
     makeupSection=`<div class="stucard"><h3>${hd}</h3>${graceNotice}${pendingRows}${actionBtn}${pendingNote}</div>`;
   }
   let myMakeupSection='';
@@ -3394,9 +3421,9 @@ function renderStudentApp(){
       const cancelling=pendingCancel.indexOf(u.sessionId)>=0;
       if(cancelling)return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span style="color:var(--verm);font-size:12.5px;font-weight:700">취소 반영대기</span></div>`;
       if(u.iso>t)return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><button class="minibtn" style="color:var(--verm)" data-mcxid="${u.classId}" data-msxid="${u.sessionId}" data-mxiso="${u.iso}" data-mxlabel="${esc(u.label||'')}" data-mxcname="${esc(u.className)}">예약 취소</button></div>`;
-      return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span class="c-m" style="font-weight:700">보강 · 당일이라 변경 불가</span></div>`;
+      return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span class="c-m" style="font-weight:700">다른 날 수업 · 당일이라 변경 불가</span></div>`;
     }).join('');
-    myMakeupSection=`<div class="stucard"><h3>예약된 보강</h3>${rows}<div class="note">수업 하루 전까지는 직접 취소하실 수 있어요. 취소 후 다시 원하는 날짜로 예약해 주세요.</div></div>`;
+    myMakeupSection=`<div class="stucard"><h3>예약된 다른 날 수업</h3>${rows}<div class="note">수업 하루 전까지는 직접 취소하실 수 있어요. 취소 후 다시 원하는 날짜로 예약해 주세요.</div></div>`;
   }
   let myDropinSection='';
   const myDropins=stuData.myDropins||[];
@@ -3415,14 +3442,14 @@ function renderStudentApp(){
     const dowOf=dl=>({'월':1,'화':2,'수':3,'목':4,'금':5,'토':6,'일':0})[dl];
     const myDows=new Set((stuData.classes||[]).map(c=>classWeekday(c)).filter(d=>d!==null));
     stuTtScrollDay=stuData.timetableGrid.dayLabels.findIndex(dl=>myDows.has(dowOf(dl)));
-    timetableSection=`<div class="stucard"><h3>🗓 화실 시간표</h3>${timetableGridHTML(stuData.timetableGrid,false,true)}<div class="note">결석·보강 날짜 고르실 때 참고하세요. 좌우로 밀어서 다른 요일도 볼 수 있어요.</div></div>`;
+    timetableSection=`<div class="stucard"><h3>🗓 화실 시간표</h3>${timetableGridHTML(stuData.timetableGrid,false,true)}<div class="note">수업 날짜 고르실 때 참고하세요. 좌우로 밀어서 다른 요일도 볼 수 있어요.</div></div>`;
   }
   let skippedNotice='';
   {
     const upcoming=(stuData.allUpcomingSkipped||[]).slice().sort((a,b)=>a.iso<b.iso?-1:1);
     if(upcoming.length){
       const rows=upcoming.map(u=>`<div class="stuhist"><span>${esc(u.className)} · ${shortDate(u.iso)}</span><b style="color:var(--verm)">휴강</b></div>`).join('');
-      skippedNotice=`<div class="stucard"><h3>📅 예정된 휴강 (화실 전체)</h3>${rows}<div class="note">원장님 사정으로 휴강되는 날짜예요. 다른 반 보강 예약 시에도 참고해주세요.</div></div>`;
+      skippedNotice=`<div class="stucard"><h3>📅 예정된 휴강 (화실 전체)</h3>${rows}<div class="note">원장님 사정으로 휴강되는 날짜예요. 다른 날 수업 예약 시에도 참고해주세요.</div></div>`;
     }
   }
   let dropinSection='';
@@ -3491,25 +3518,17 @@ function renderStudentApp(){
       <div class="note" id="stuCheckinNote" style="margin-top:8px;color:var(--jade-deep)">화실 도착하시면 눌러주세요. 원장님이 확인하면 출석 처리돼요.</div>
     </div>`;
     })()}
-    ${stuData.status==='paused'?`<div class="stucard" style="background:var(--ochre-tint);border-color:var(--ochre)"><h3>🌱 현재 휴강중이에요</h3><div class="note" style="color:var(--ink)">언제든 다시 오세요! 재등록해주시면 잔여 회차·보강기한 모두 그날부터 다시 이어져요. 재등록은 원장님께 말씀해주세요.</div>${stuData.remain>0?`<div class="note" style="margin-top:8px;font-weight:700;color:var(--ink)">아직 <b>${stuData.remain}회</b> 수업을 더 하실 수 있어요.</div>`:''}<div class="note" style="margin-top:8px;color:var(--ink)">💜 휴강중에도 아래 "하루수업 신청"으로 언제든 하루씩 참여하실 수 있어요.</div></div>`:''}
+    ${stuData.status==='paused'?`<div class="stucard" style="background:var(--ochre-tint);border-color:var(--ochre)"><h3>🌱 현재 휴강중이에요</h3><div class="note" style="color:var(--ink)">언제든 다시 오세요! 재등록해주시면 잔여 회차·이용기한 모두 그날부터 다시 이어져요. 재등록은 원장님께 말씀해주세요.</div>${stuData.remain>0?`<div class="note" style="margin-top:8px;font-weight:700;color:var(--ink)">아직 <b>${stuData.remain}회</b> 수업을 더 하실 수 있어요.</div>`:''}<div class="note" style="margin-top:8px;color:var(--ink)">💜 휴강중에도 아래 "하루수업 신청"으로 언제든 하루씩 참여하실 수 있어요.</div></div>`:''}
     ${stuData.status==='ended'?`<div class="stucard" style="background:var(--line-soft)"><h3>수강이 종료된 상태예요</h3><div class="note">다시 다니고 싶으시면 언제든 원장님께 연락 주세요.</div></div>`:''}
     ${(stuData.status!=='paused'&&stuData.status!=='ended'&&stuData.hasRealClass===false)?`<div class="stucard" style="background:var(--purple-tint);border-color:var(--purple)"><h3>🎫 하루수업 쿠폰 이용중</h3><div class="note" style="color:var(--ink)">정규 반 등록 없이 아래 "하루수업 신청"으로 자유롭게 이용하시는 계정이에요.</div><div class="note" style="color:var(--ink);margin-top:6px">⏳ 결제일로부터 <b>${stuData.dropin8Days||90}일 이내</b>에 사용하셔야 하며, 기한 내 미사용 회차는 소멸돼요. 부득이한 사정은 원장님과 상의해 주세요.</div></div>`:''}
     ${(stuData.status==='paused'||stuData.hasRealClass===false)?'':`<div class="stucard"><h3>출석 · 잔여 회차</h3>
-      <div class="tally"><span class="p"><b>${stuData.remain}</b>회 남음</span>${approvedMakeup>0?`<span class="a"><b>${stuData.absentTotal}</b>회 결석</span>`:''}${approvedMakeup>0?`<span class="m"><b>${approvedMakeup}</b>회 보강 가능</span>`:''}</div>
-      ${stuData.remain<0?`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">⚠ ${stuData.paceEnd?shortDate(stuData.paceEnd)+'까지였던 수강 기간이 지났어요. ':''}결제 없이 ${-stuData.remain}회 더 출석하셨어요. 결제해 주세요.</div>`:stuData.remain===0?`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">⚠ ${stuData.paceEnd?shortDate(stuData.paceEnd)+'까지였던 수강 기간이 끝났어요. ':''}재결제해 주세요.</div>`:''}
-      <div class="note" style="margin:-6px 2px 10px">보강은 언제든 미리 예약하실 수 있어요.</div>
-      ${(stuData.lastPaymentDate||stuData.remainProjected)?`<div class="note" style="margin:-6px 2px 10px;color:var(--ink-soft)">${stuData.lastPaymentDate?`결제일: ${stuData.lastPaymentDate}`:''}${(stuData.lastPaymentDate&&stuData.remainProjected&&stuData.remain>0)?' · ':''}${(stuData.remainProjected&&stuData.remain>0)?`${stuData.remainProjected}까지 수강 가능해요`:''}</div>`:''}
-      ${borrowed>0?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;margin:-2px 0 12px;font-weight:700">⚠ <b>-${borrowed}회</b> · 출석 ${borrowed}회 전에 미리 보강하셨어요.</div>`:''}
-      ${(stuData.makeupDue&&approvedMakeup>0)?(stuData.makeupDueExtended
-        ?`<div class="note" style="background:var(--jade-tint);color:var(--jade-deep);padding:9px 11px;border-radius:9px;font-weight:700">💚 보강기한은 ${stuData.makeupDue}까지예요. 꼭 이 안에 완료해주세요.</div>`
-        :stuData.makeupDueExpired
-          ?(stuData.status==='paused'
-            ?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700">⏳ 보강기한(${stuData.makeupDue})이 지났지만, 휴강중이시니 재등록하시면 그날 기준으로 새로 연장돼요.</div>`
-            :`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;font-weight:700">⚠ 보강기한(${stuData.makeupDue})이 지나 보강이 소멸됐어요.</div>`)
-          :stuData.makeupDueSoon
-            ?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700">⚠ 보강기한이 곧 만료돼요 (${stuData.makeupDue}까지)</div>`
-            :`<div class="note">보강기한: ${stuData.makeupDue}</div>`)
-      :''}
+      <div class="tally"><span class="p"><b>${totalLeft}</b>회 남음</span></div>
+      ${totalLeft<0?`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">⚠ 결제 없이 ${-totalLeft}회 더 출석하셨어요. 결제해 주세요.</div>`:totalLeft===0?`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">⚠ 결제하신 회차를 모두 사용하셨어요. 재결제해 주세요.</div>`:''}
+      ${(totalLeft>0&&stuData.makeupDue)?(stuData.makeupDueSoon&&!stuData.makeupDueExpired
+        ?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin:-6px 0 10px">⏳ ${stuData.makeupDue}까지 이용하실 수 있어요. 기한이 얼마 남지 않았어요.</div>`
+        :`<div class="note" style="margin:-6px 2px 10px;font-weight:700;color:var(--ink)">📅 ${stuData.makeupDue}까지 이용하실 수 있어요.</div>`):''}
+      <div class="note" style="margin:-4px 2px 10px;color:var(--ink-soft)">못 오신 날의 회차는 그대로 남아요. 기한 안에 편한 날 오셔서 쓰시면 돼요.${stuData.lastPaymentDate?` · 결제일 ${stuData.lastPaymentDate}`:''}</div>
+      ${borrowed>0?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;margin:-2px 0 12px;font-weight:700">⚠ 남은 회차보다 ${borrowed}회 먼저 예약하셨어요.</div>`:''}
       ${stuData.delayedUsage?`<div class="note" style="color:var(--ochre)">⏰ 정상 수업 종료일은 지났습니다. 남은 회차 수강 중입니다.</div>`:''}</div>
     <div class="stucard"><h3>다가오는 수업</h3>${upcomingRows||'<div class="note">이번주는 예정된 수업이 없어요.</div>'}
       ${upcomingRowsMore?`<div class="note" id="upcomingMoreToggle" style="text-align:center;margin:8px 0 0;cursor:pointer;color:var(--ink-soft);border-top:1px solid var(--line);padding-top:8px">${upcomingMoreOpen?'▲ 접기':'▼ 다음주 이후 더보기'}</div>${upcomingMoreOpen?upcomingRowsMore:''}`:''}
@@ -3602,7 +3621,7 @@ async function reportAbsence(classId,sessionId,iso){
     const approvedMakeup=stuData.makeupLeft||0;
     const pendingMakeup=stuData._pendingMakeup||[];
     const quotaLeft=Math.max(0,approvedMakeup+stuData._pendingAbsent.length-pendingMakeup.length);
-    if(quotaLeft>0){toast('결석 예정으로 알렸어요. 이어서 보강 날짜를 골라주세요.');openMakeupPicker(sessionId);}
+    if(quotaLeft>0){toast('결석 예정으로 알렸어요. 남은 회차는 다른 날 쓰실 수 있어요.');openMakeupPicker(sessionId);}
     else toast('결석 예정으로 알렸어요. 원장님이 확인하면 정식 반영돼요.');
   }catch(e){console.error(e);toast('전송 실패 — 인터넷 연결을 확인해주세요.');}
 }
@@ -3621,20 +3640,20 @@ function openMakeupPicker(excludeSessionId){
     </div>`).join('');
   let dueBadge='';
   if(isGraceOnly){
-    if(stuData.paceEnd)dueBadge=`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">⏳ 결석 보강이 아니라, 재결제 전 수업에 미리 참여하시는 거예요. ${addDays(stuData.paceEnd,7)}까지 가능해요.</div>`;
+    if(stuData.paceEnd)dueBadge=`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">⏳ 남은 회차가 아니라, 재결제 전 수업에 미리 참여하시는 거예요. ${addDays(stuData.paceEnd,7)}까지 가능해요.</div>`;
   }else if(stuData.makeupDue&&!stuData.makeupDueExtended){
-    if(stuData.makeupDueExpired&&stuData.status!=='paused')dueBadge=`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">⚠ 보강기한(${stuData.makeupDue})이 지나 보강이 소멸됐어요.</div>`;
-    else if(stuData.makeupDueSoon&&!stuData.makeupDueExpired)dueBadge=`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">⚠ 보강기한이 곧 만료돼요 (${stuData.makeupDue}까지)</div>`;
+    if(stuData.makeupDueExpired&&stuData.status!=='paused')dueBadge=`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">⚠ 이용기한(${stuData.makeupDue})이 지나 남은 회차가 소멸됐어요.</div>`;
+    else if(stuData.makeupDueSoon&&!stuData.makeupDueExpired)dueBadge=`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">⚠ 이용기한이 곧 끝나요 (${stuData.makeupDue}까지)</div>`;
     else if(!stuData.makeupDueExpired)dueBadge='';
   }else if(stuData.makeupDue&&stuData.makeupDueExtended){
-    dueBadge=`<div class="note" style="background:var(--jade-tint);color:var(--jade-deep);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">💚 ${stuData.makeupDue}까지 보강 가능해요.</div>`;
+    dueBadge=`<div class="note" style="background:var(--jade-tint);color:var(--jade-deep);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">💚 ${stuData.makeupDue}까지 이용 가능해요.</div>`;
   }
   oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button>
-    <h3>${isGraceOnly?'참여하실 날짜를 골라주세요':'보강 받으실 날짜를 골라주세요'}</h3>
-    <div class="subt">${isGraceOnly?'편하신 날짜를 누르면 그 자리에서 바로 신청되고 다음 결제에서 정산됩니다.':'편하신 날짜를 누르면 그 자리에서 바로 보강 예약이 신청돼요.'}</div>
+    <h3>${isGraceOnly?'참여하실 날짜를 골라주세요':'오실 날짜를 골라주세요'}</h3>
+    <div class="subt">${isGraceOnly?'편하신 날짜를 누르면 그 자리에서 바로 신청되고 다음 결제에서 정산됩니다.':'편하신 날짜를 누르면 그 자리에서 바로 예약이 신청돼요.'}</div>
     ${dueBadge}
     <div class="note" style="margin:-4px 2px 10px;color:var(--ink-soft)">지금 예약하실 수 있는 날짜만 보여드려요.${beyondWindow?' 원하시는 날짜가 안 보이면, 며칠 후 다시 열어서 확인해주세요.':''}</div>
-    <div style="max-height:52vh;overflow:auto">${rows||(beyondWindow?'<div class="note">가까운 2주 안엔 예약 가능한 날짜가 없어요. 며칠 후 다시 확인해주세요.</div>':cutoff?`<div class="note">보강기한(${cutoff}) 안에 예약 가능한 수업이 없어요. 원장님께 문의해주세요.</div>`:'<div class="note">지금은 예약 가능한 수업이 없어요. 나중에 다시 골라주세요.</div>')}</div>
+    <div style="max-height:52vh;overflow:auto">${rows||(beyondWindow?'<div class="note">가까운 2주 안엔 예약 가능한 날짜가 없어요. 며칠 후 다시 확인해주세요.</div>':cutoff?`<div class="note">이용기한(${cutoff}) 안에 예약 가능한 수업이 없어요. 원장님께 문의해주세요.</div>`:'<div class="note">지금은 예약 가능한 수업이 없어요. 나중에 다시 골라주세요.</div>')}</div>
     <div class="actions" style="margin-top:14px"><button class="btn-ghost" id="mpLater" style="flex:1">나중에 할게요</button></div>
   </div></div>`;
   oroot().querySelector('#mpLater').onclick=closeOverlay;
@@ -3647,7 +3666,7 @@ async function bookMakeup(classId,sessionId,iso,label,className){
     await db.collection('makeupRequests').add({uid:auth.currentUser.uid,studentId:stuData.studentId,studentName:stuData.name,toClassId:classId,toSessionId:sessionId,iso,label,className,createdAt:Date.now()});
     if(!stuData._pendingMakeup)stuData._pendingMakeup=[];
     stuData._pendingMakeup.push(sessionId);renderStudentApp();
-    toast('보강 예약을 신청했어요. 원장님이 확인하면 정식 반영돼요.');
+    toast('수업 예약을 신청했어요. 원장님이 확인하면 정식 반영돼요.');
   }catch(e){console.error(e);toast('전송 실패 — 인터넷 연결을 확인해주세요.');}
 }
 async function cancelMakeup(sessionId){
@@ -3657,7 +3676,7 @@ async function cancelMakeup(sessionId){
       const batch=db.batch();q.forEach(d=>batch.delete(d.ref));await batch.commit();
       stuData._pendingMakeup=(stuData._pendingMakeup||[]).filter(id=>id!==sessionId);
       renderStudentApp();
-      toast('보강 예약을 취소했어요.');
+      toast('수업 예약을 취소했어요.');
     }else{
       /* 원장님이 이미 확인·반영해서 확정된 상태일 수 있음 — 최신 정보로 다시 확인 */
       let m=(stuData.myMakeups||[]).find(x=>x.sessionId===sessionId);
@@ -3672,7 +3691,7 @@ async function cancelMakeup(sessionId){
       }
       stuData._pendingMakeup=(stuData._pendingMakeup||[]).filter(id=>id!==sessionId);
       if(m)await requestMakeupCancel(m.classId,m.sessionId,m.iso,m.label,m.className);
-      else{renderStudentApp();toast('보강 예약을 취소했어요.');}
+      else{renderStudentApp();toast('수업 예약을 취소했어요.');}
     }
   }catch(e){console.error(e);toast('취소 실패 — 다시 시도해주세요.');}
 }
@@ -3716,7 +3735,7 @@ async function requestMakeupCancel(classId,sessionId,iso,label,className){
     await db.collection('makeupCancelRequests').add({uid:auth.currentUser.uid,studentId:stuData.studentId,studentName:stuData.name,classId,sessionId,iso,label,className,createdAt:Date.now()});
     if(!stuData._pendingMakeupCancel)stuData._pendingMakeupCancel=[];
     stuData._pendingMakeupCancel.push(sessionId);renderStudentApp();
-    toast('보강 예약 취소를 신청했어요. 원장님이 확인하면 정식 반영돼요.');
+    toast('수업 예약 취소를 신청했어요. 원장님이 확인하면 정식 반영돼요.');
   }catch(e){console.error(e);toast('전송 실패 — 인터넷 연결을 확인해주세요.');}
 }
 async function requestDropinCancel(classId,sessionId,iso,label,className){
