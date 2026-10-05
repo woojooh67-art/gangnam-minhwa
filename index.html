@@ -625,7 +625,7 @@ async function regenerateStudentViews(){
         dropin:!!(st.dropin||st.dropinOnce),dailyRate:data.rates.daily||60000,dailyRateResearch:data.rates.dailyResearch||90000,
         dropinPack:(st.dropinPack&&!isDropinPackExpired(st))?{total:st.dropinPack.total,used:st.dropinPack.used,expiry:st.dropinPack.expiry}:null,dropin8Days:data.rates.dropin8Days||90,
         payments:(st.payments||[]).slice().sort((a,b)=>a.date<b.date?1:-1).map(p=>({date:p.date,amount:p.amount,sessions:p.sessions,plan:p.plan})),
-        makeupDue:makeupDue(st),studioRules:applyRuleTokens(data.studioRules||''),announcement:data.announcement||null,
+        makeupDue:makeupDue(st),lastClassBase:(st.makeupDueOverride?'':(activeLastClassOverride(st)||packageLastClassDate(st)||'')),studioRules:applyRuleTokens(data.studioRules||''),announcement:data.announcement||null,
         lastPaymentDate:(lastPayment(st)||{}).date||null,
         lastAttendDate:(marksOf(st).filter(m=>m.mark==='present'||m.mark==='late').sort((a,b)=>a.iso<b.iso?1:-1)[0]||{}).iso||null,
         timetableGrid,allSkipped,allUpcomingSkipped,archiveMarks:st.archiveMarks||{},cycleMap:cycleMapOf(st),updatedAt:Date.now()
@@ -1256,13 +1256,19 @@ function packageLastClassDate(st){
   const pl=planOf(st,p);
   return used[Math.min(pl,used.length)-1];
 }
+/* '마지막 실제 수업일' 직접 지정값은 그 결제 기간에만 유효 — 새 결제일보다 이전 날짜면 지난 기간 값이라 무시 */
+function activeLastClassOverride(st){
+  const o=st.lastClassOverride;if(!o)return '';
+  const p=lastPayment(st);if(p&&o<payEffDate(p))return '';
+  return o;
+}
 function makeupDue(st){
   if(st.makeupDueOverride){
     if(st.makeupDueOverride<todayISO()){delete st.makeupDueOverride;}
     else return st.makeupDueOverride;
   }
   const p=lastPayment(st);if(!p)return '';
-  const lastClass=st.lastClassOverride||packageLastClassDate(st);
+  const lastClass=activeLastClassOverride(st)||packageLastClassDate(st);
   let base;
   if(lastClass){
     base=addDays(lastClass,28);
@@ -1273,7 +1279,7 @@ function makeupDue(st){
   return (st.extend&&st.extend>0)?addMonths(base,st.extend):base;}
 function dueExpired(st){const d=makeupDue(st);if(!d)return false;return d<todayISO();}
 function expectedPaceEnd(st){
-  if(st.lastClassOverride)return st.lastClassOverride;
+  if(activeLastClassOverride(st))return activeLastClassOverride(st);
   const p=lastPayment(st);if(!p)return '';const pl=planOf(st,p);
   const base=(st.regDateOverride&&st.regDateOverride>payEffDate(p))?st.regDateOverride:payEffDate(p);
   /* 실제 수업 요일(겸반 포함)대로 세고, 휴강·화실 휴무일은 건너뜀. 마지막 예정 수업 + 1주가 정상 진행 기간 */
@@ -2549,6 +2555,7 @@ function studentSheet(st){const fee=feeFor(st);
             pushLog('admin',`(원장님) ${esc(st.name)}님 ${D} 결제 시 이전 잔여 ${rmBefore}회, 보강 ${mkBefore}회를 정리하고 새로 시작했어요.`,D);
             st.cycleStart=effFrom;
             delete st.remainAdjust; // 이전 결제 기간의 수동 보정값은 새 회차로 넘어가지 않게
+            delete st.lastClassOverride;
           }else{
             pushLog('admin',`(원장님) ${esc(st.name)}님 ${D} 결제 시 이전에 남은 ${rmBefore+mkLive}회를 이어서 쓰도록(이월) 했어요.`,D);
           }
@@ -3557,9 +3564,11 @@ function renderStudentApp(){
     ${(stuData.status==='paused'||stuData.hasRealClass===false)?'':`<div class="stucard"><h3>출석 · 잔여 회차</h3>
       <div class="tally"><span class="p"><b>${totalLeft}</b>회 남음</span></div>
       ${totalLeft<0?`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">⚠ 결제 없이 ${-totalLeft}회 더 출석하셨어요. 결제해 주세요.</div>`:totalLeft===0?`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">⚠ 결제하신 회차를 모두 사용하셨어요. 재결제해 주세요.</div>`:''}
-      ${(totalLeft>0&&stuData.makeupDue)?(stuData.makeupDueSoon&&!stuData.makeupDueExpired
-        ?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin:-6px 0 10px">⏳ ${stuData.makeupDue}까지 이용하실 수 있어요. 기한이 얼마 남지 않았어요.</div>`
-        :`<div class="note" style="margin:-6px 2px 10px;font-weight:700;color:var(--ink)">📅 ${stuData.makeupDue}까지 이용하실 수 있어요.</div>`):''}
+      ${(totalLeft>0&&stuData.makeupDue)?(()=>{const md=x=>{const q=(x||'').split('-');return q.length===3?`${+q[1]}월 ${+q[2]}일`:x;};
+        const baseTxt=stuData.lastClassBase?`<div style="font-weight:400;font-size:12px;margin-top:3px;color:var(--ink-soft)">마지막 수업 예정일(${md(stuData.lastClassBase)}) 이후 4주 여유 기간까지 포함한 날짜예요.</div>`:'';
+        return (stuData.makeupDueSoon&&!stuData.makeupDueExpired)
+          ?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin:-6px 0 10px">📅 이용 기한: ${md(stuData.makeupDue)}까지 · 남은 회차를 이 날짜 안에 써주세요.${baseTxt}</div>`
+          :`<div class="note" style="margin:-6px 2px 10px;font-weight:700;color:var(--ink)">📅 이용 기한: ${md(stuData.makeupDue)}까지${baseTxt}</div>`;})():''}
       <div class="note" style="margin:-4px 2px 10px;color:var(--ink-soft)">못 오신 날의 회차는 그대로 남아요. 기한 안에 편한 날 오셔서 쓰시면 돼요.${stuData.lastPaymentDate?` · 결제일 ${stuData.lastPaymentDate}`:''}</div>
       ${borrowed>0?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;margin:-2px 0 12px;font-weight:700">⚠ 남은 회차보다 ${borrowed}회 먼저 예약하셨어요.</div>`:''}
       ${stuData.delayedUsage?`<div class="note" style="color:var(--ochre)">⏰ 정상 수업 종료일은 지났습니다. 남은 회차 수강 중입니다.</div>`:''}</div>
