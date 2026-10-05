@@ -53,6 +53,9 @@
   .calTable td{height:40px;text-align:center;padding:2px 1px}
   .calcell{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:9px;font-size:13.5px;cursor:pointer;box-sizing:border-box;border:1.5px solid transparent;margin:0 auto}
   .calcell:hover{background:var(--line-soft)}
+  .calTable.cyc td{height:auto;vertical-align:top;padding:3px 1px 2px}
+  .cyclbl{font-size:10px;line-height:12px;font-weight:700;margin-top:2px;min-height:12px;white-space:nowrap;overflow:hidden}
+  .cycpay{display:inline-block;background:var(--ochre);color:#fff;border-radius:3px;padding:0 2px;margin-right:2px;font-size:9px;line-height:11px;vertical-align:1px}
   .calcell.today{border:1.5px solid var(--jade);font-weight:700}
   .calcell.today{border:1.5px solid var(--jade);font-weight:700}
   .calcell.has{background:var(--jade-tint);color:var(--jade-deep);font-weight:700}
@@ -625,7 +628,7 @@ async function regenerateStudentViews(){
         makeupDue:makeupDue(st),studioRules:applyRuleTokens(data.studioRules||''),announcement:data.announcement||null,
         lastPaymentDate:(lastPayment(st)||{}).date||null,
         lastAttendDate:(marksOf(st).filter(m=>m.mark==='present'||m.mark==='late').sort((a,b)=>a.iso<b.iso?1:-1)[0]||{}).iso||null,
-        timetableGrid,allSkipped,allUpcomingSkipped,archiveMarks:st.archiveMarks||{},updatedAt:Date.now()
+        timetableGrid,allSkipped,allUpcomingSkipped,archiveMarks:st.archiveMarks||{},cycleMap:cycleMapOf(st),updatedAt:Date.now()
       };
       const safePayload=JSON.parse(JSON.stringify(payload));
       batch.set(db.collection('studentViews').doc(st.uid),safePayload);
@@ -1187,6 +1190,40 @@ function occupancyOf(c,s){
   });
   return n;
 }
+/* 달력 회차 표시: 결제분마다 1/4, 2/4… 번호를 붙여요. 잔여 회차 계산과 같은 기준(출석·지각·결석은 1회 차감, 보강·하루권은 제외) */
+function cycleMapOf(st){
+  const dropPayIds=new Set((st.dropinBookings||[]).map(b=>b.paymentId).filter(Boolean));
+  const pays=(st.payments||[]).filter(p=>p.plan!=='dropin8'&&(p.sessions||0)>0&&!dropPayIds.has(p.id)&&(!st.cycleStart||payEffDate(p)>=st.cycleStart))
+    .slice().sort((a,b)=>{const x=payEffDate(a),y=payEffDate(b);return x<y?-1:x>y?1:0;});
+  const cum=[];let tot=0;pays.forEach(p=>{cum.push(tot);tot+=p.sessions;});
+  const adj=st.remainAdjust||0;
+  const marks=scopedMarks(st).filter(m=>m.mark==='present'||m.mark==='late'||m.mark==='absent').sort((a,b)=>a.iso<b.iso?-1:a.iso>b.iso?1:0);
+  const days={};
+  marks.forEach((m,k)=>{
+    const pos=k-adj;let e;
+    if(pos<0)e={c:1};
+    else if(pos>=tot)e={o:1};
+    else{let j=pays.length-1;while(j>0&&cum[j]>pos)j--;e={n:pos-cum[j]+1,t:pays[j].sessions,i:j};}
+    (days[m.iso]=days[m.iso]||[]).push(e);
+  });
+  const payDays={};(st.payments||[]).forEach(p=>{if(p.date)payDays[p.date]=1;});
+  return {days,pays:payDays};
+}
+function cycLabelHTML(cm,iso){
+  if(!cm||iso<'2026-07-01')return '<div class="cyclbl"></div>';
+  const es=(cm.days||{})[iso]||[];const pay=(cm.pays||{})[iso];
+  const parts=[];const num=es.filter(e=>e.n);
+  if(num.length){
+    const col=(num[num.length-1].i%2)?'#8A5A2B':'var(--jade-deep)';
+    const same=num.every(e=>e.t===num[0].t);
+    const txt=same?num.map(e=>e.n).join(',')+'/'+num[0].t:num.map(e=>e.n+'/'+e.t).join(' ');
+    parts.push(`<span style="color:${col}">${txt}</span>`);
+  }
+  if(es.some(e=>e.o))parts.push('<span style="color:var(--ink-soft)">다음결제</span>');
+  if(es.some(e=>e.c))parts.push('<span style="color:var(--ink-soft)">이월</span>');
+  return `<div class="cyclbl">${pay?'<span class="cycpay" title="결제일">₩</span>':''}${parts.join(' ')}</div>`;
+}
+const CYC_LEGEND='<span><b style="color:var(--jade-deep)">3/4</b> = 이번 결제분의 3번째 수업</span><span><span class="cycpay">₩</span> 결제일</span>';
 function remainSessions(st){return paidSessions(st)-consumedSessions(st)+(st.remainAdjust||0);}
 function lastPayment(st){const ps=(st.payments||[]).slice().sort((a,b)=>a.date<b.date?1:-1);return ps[0]||null;}
 function planOf(st,p){ if(p.plan)return p.plan;
@@ -2205,7 +2242,8 @@ function stuAdminCalHTML(st){
   const skipMap={};
   (data.studioClosedDates||[]).forEach(x=>{skipMap[x.iso]=x.label||'화실 전체 휴무';});
   (st.classIds||[]).forEach(cid=>{const c=classById(cid);if(c)(c.skippedDates||[]).forEach(iso=>{if(!skipMap[iso])skipMap[iso]=c.name+' 휴강';});});
-  const rowsHtml=calRowsHTML(startDow,dim,d=>{
+  const cm=cycleMapOf(st);
+  const cellOf=d=>{
     const iso=`${y}-${pad(m)}-${pad(d)}`;
     const isArchivePeriod=iso<'2026-07-01';
     const recs=markMap[iso];
@@ -2234,16 +2272,18 @@ function stuAdminCalHTML(st){
     }
     if(skipMap[iso])return `<div class="calcell skipped" title="${esc(skipMap[iso])}">${d}</div>`;
     return `<div class="calcell${iso===t?' today':''}" data-mnew="${iso}" style="cursor:pointer" title="눌러서 출석 기록 만들기">${d}</div>`;
-  });
+  };
+  const rowsHtml=calRowsHTML(startDow,dim,d=>cellOf(d)+cycLabelHTML(cm,`${y}-${pad(m)}-${pad(d)}`));
   return `<div class="calhead"><button class="calnav" type="button" id="stuCalPrev"${atMin?' disabled style="opacity:.3;cursor:default"':''}>‹</button><div class="calmonth">${y}년 ${m}월</div><button class="calnav" type="button" id="stuCalNext">›</button></div>
     <div class="note" style="margin:-4px 0 8px;text-align:center">${cur<'2026-07'?'📋 참고용 기록이에요 (수업료·잔여회차와 연계 안 됨)':'📌 잔여 회차와 연계돼요'}</div>
-    <table class="calTable"><tr>${wd.map(w=>`<th>${w}</th>`).join('')}</tr>${rowsHtml}</table>
+    <table class="calTable cyc"><tr>${wd.map(w=>`<th>${w}</th>`).join('')}</tr>${rowsHtml}</table>
     <div class="note" style="margin-top:8px;display:flex;gap:10px;flex-wrap:wrap">
       <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--jade);vertical-align:middle"></span> 출석</span>
       <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--verm);vertical-align:middle"></span> 결석</span>
       <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--verm-tint);border:1px solid var(--verm);vertical-align:middle"></span> 휴강</span>
       <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--blue);vertical-align:middle"></span> 보강</span>
       <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--purple);vertical-align:middle"></span> 하루권</span>
+      ${CYC_LEGEND}
     </div>
     ${cur<'2026-07'?'<div class="note" style="margin-top:6px;text-align:center">점선 테두리 = 참고용 기록 기간(2025.12~2026.06)</div>':''}`;
 }
@@ -3288,7 +3328,8 @@ function renderStudentApp(){
     const aColor={present:'var(--jade)',absent:'var(--verm)',makeup:'var(--blue)',dropin:'var(--purple)'};
     const first=new Date(y,m-1,1),startDow=first.getDay(),dim=new Date(y,m,0).getDate();
     const wd=['일','월','화','수','목','금','토'];
-    const rowsHtml=calRowsHTML(startDow,dim,d=>{
+    const cm=stuData.cycleMap||null;
+    const cellOf=d=>{
       const iso=`${y}-${pad(m)}-${pad(d)}`;
       const recs=histMap[iso];
       if(iso<'2026-07-01'){
@@ -3312,17 +3353,19 @@ function renderStudentApp(){
       const titleTxt=recs?recs.map(r=>`${esc(r.cls)}:${LABEL[r.mark]||r.mark}`).join(', '):'';
       const badge=(recs&&recs.length>1)?`<span style="position:absolute;bottom:-3px;right:-2px;background:#fff;color:${stuMarkColor[rec.mark]||'var(--ink)'};border-radius:50%;width:14px;height:14px;font-size:9px;line-height:14px;text-align:center;font-weight:700;box-shadow:0 0 0 1px currentColor">${recs.length}</span>`:'';
       return `<div class="calcell readonly${iso===t?' today':''}" style="${style};position:relative" title="${titleTxt}">${d}${badge}</div>`;
-    });
+    };
+    const rowsHtml=calRowsHTML(startDow,dim,d=>cellOf(d)+cycLabelHTML(cm,`${y}-${pad(m)}-${pad(d)}`));
     return `<div class="calhead"><button class="calnav" type="button" data-snav="-1"${atMin?' disabled style="opacity:.3;cursor:default"':''}>‹</button><div class="calmonth">${y}년 ${m}월</div><button class="calnav" type="button" data-snav="1">›</button></div>
       <div style="text-align:center;margin:-4px 0 8px"><button class="minibtn" type="button" id="calTodayStu" style="padding:2px 10px;font-size:11.5px">오늘</button></div>
       ${cur<'2026-07'?'<div class="note" style="margin:-4px 0 8px;text-align:center">📋 참고용 기록이에요 (수업료·잔여회차와 연계 안 됨)</div>':''}
-      <table class="calTable"><tr>${wd.map(w=>`<th>${w}</th>`).join('')}</tr>${rowsHtml}</table>
+      <table class="calTable cyc"><tr>${wd.map(w=>`<th>${w}</th>`).join('')}</tr>${rowsHtml}</table>
       <div class="note" style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap">
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--jade);vertical-align:middle"></span> 출석</span>
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--verm);vertical-align:middle"></span> 결석</span>
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--blue);vertical-align:middle"></span> 보강</span>
       <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--purple);vertical-align:middle"></span> 하루권</span>
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--verm-tint);border:1px solid var(--verm);vertical-align:middle"></span> 휴강</span>
+        ${CYC_LEGEND}
       </div>`;
   }
   const payRows=(stuData.payments||[]).slice().sort((a,b)=>a.date<b.date?1:-1).slice(0,6).map(p=>`<div class="stuhist"><span>${p.date} · ${p.plan==='dropin8'?'하루수업 8회 선결제':`${p.plan||p.sessions||''}회권`}</span><b>${won(p.amount)}</b></div>`).join('')||'<div class="note">결제 내역이 없어요.</div>';
