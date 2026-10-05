@@ -1422,6 +1422,7 @@ function expiredLeftover(st){
   return Math.max(0,remainSessions(st))+makeupLeft(st);
 }
 function liveRemain(st){const r=remainSessions(st);return expiredLeftover(st)>0?Math.min(r,0):r;}
+function inGraceAdmin(st){if(st.status==='paused'||st.status==='ended'||st.makeupDueOverride)return false;const total=liveRemain(st)+effectiveMakeupLeft(st);if(total<=0)return false;const lc=activeLastClassOverride(st)||packageLastClassDate(st),d=makeupDue(st),t=todayISO();return !!(lc&&d&&t>lc&&t<=d);}
 function isDueSoonAdmin(st){if(st.status==='paused'||st.status==='ended')return false;const total=remainSessions(st)+effectiveMakeupLeft(st);if(total<=0)return false;const d=makeupDue(st);if(!d)return false;const t=todayISO();return d>=t&&d<=addDays(t,14);}
 function isDelayedUsage(st){if(st.regDateOverride)return false;const p=lastPayment(st);if(!p)return false;if(remainSessions(st)<=0)return false;const end=expectedPaceEnd(st);return end&&todayISO()>end;}
 function statusOf(st){if(st.status==='ended')return 'ended';if(st.status==='paused')return 'paused';const r=liveRemain(st);if(r<=0)return 'out';if(r<=2)return 'low';return 'ok';}
@@ -1845,6 +1846,7 @@ function renderCheck(){
     else sub.push('잔여 '+rm+'회');
     if(ml>0)sub.push('보강 '+ml);
     if(isDueSoonAdmin(st))sub.push('⏳기한 임박');
+    else if(inGraceAdmin(st))sub.push('🌿여유 기간');
     if(expiredLeftover(st))sub.push('⌛'+expiredLeftover(st)+'회 기한 소멸');
     const hasRec=c.records[k]!==undefined;
     const isPendingReg=isFutureSess||(!hasRec&&status==='present');
@@ -3786,7 +3788,13 @@ function renderStudentApp(){
         if(stuData.makeupDue&&totalLeft>0)h+=row('이용 기한',md(stuData.makeupDue)+'까지',true);
         if(!h)return '';
         const soon=totalLeft>0&&stuData.makeupDueSoon&&!stuData.makeupDueExpired;
-        return `<div class="note" style="margin:-6px 0 10px;padding:9px 11px;border-radius:9px;border:1px solid ${soon?'var(--ochre)':'var(--line)'};background:${soon?'var(--ochre-tint)':'var(--card)'};font-size:13.5px">${h}${soon?'<div style="margin-top:4px;color:var(--ochre);font-weight:700">⏳ 이용 기한이 가까워졌어요. 남은 회차를 기한 안에 써주세요.</div>':''}</div>`;})()}
+        const tt=todayISO();
+        const grace=totalLeft>0&&!!stuData.lastClassBase&&tt>stuData.lastClassBase&&!!stuData.makeupDue&&tt<=stuData.makeupDue&&!stuData.makeupDueExpired;
+        const warm=soon||grace;
+        const msg=grace
+          ?`<div style="margin-top:6px;color:var(--ochre);font-weight:700;line-height:1.6">🌿 정규 수업 기간이 끝나고, 지금은 <b>4주 여유 기간</b>이에요.</div><div style="margin-top:2px;color:var(--ink);line-height:1.6">남은 <b>${totalLeft}회</b>를 <b>${md(stuData.makeupDue)}</b>까지 써주세요. 여유 기간 막바지에는 예약이 몰릴 수 있으니, 아래 <b>"다른 날 수업 예약"</b>에서 미리 날짜를 잡아두시면 좋아요.</div>`
+          :(soon?'<div style="margin-top:4px;color:var(--ochre);font-weight:700">⏳ 이용 기한이 가까워졌어요. 남은 회차를 기한 안에 써주세요.</div>':'');
+        return `<div class="note" style="margin:-6px 0 10px;padding:9px 11px;border-radius:9px;border:1px solid ${warm?'var(--ochre)':'var(--line)'};background:${warm?'var(--ochre-tint)':'var(--card)'};font-size:13.5px">${h}${msg}</div>`;})()}
       <div class="note" style="margin:-4px 2px 10px;color:var(--ink-soft)">이용 기한은 마지막 수업 예정일 + 4주예요. 못 오신 날의 회차는 그대로 남으니, 기한 안에 편한 날 오셔서 쓰시면 돼요.</div>
       ${borrowed>0?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;margin:-2px 0 12px;font-weight:700">⚠ 남은 회차보다 ${borrowed}회 먼저 예약하셨어요.</div>`:''}
       ${stuData.delayedUsage?`<div class="note" style="color:var(--ochre)">⏰ 정상 수업 종료일은 지났습니다. 남은 회차 수강 중입니다.</div>`:''}</div>
