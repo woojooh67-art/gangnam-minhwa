@@ -254,8 +254,6 @@
   <main>
     <section id="view-check">
       <div class="sechead" style="display:flex;align-items:center;justify-content:space-between">🔔 학생 알림<button class="minibtn" id="markLogSeen" style="padding:2px 6px">모두 확인</button></div>
-      <div class="barbtns"><button id="mergeSelfChecks">🔄 학생 결석 알림 · 보강 예약 불러오기</button></div>
-      <div class="note">· 학생이 앱에서 '결석 예정 알리기' 또는 '보강 예약'을 하면 여기 반영 버튼을 눌러야 정식 반영돼요. 관리자가 직접 체크·수정한 내용은 항상 우선 적용되고 언제든 [출석] 탭에서 고칠 수 있어요.</div>
       <div id="activityLog"></div>
       <div class="filters" style="display:flex;align-items:center;gap:8px;margin:16px 0 10px">
         <select id="checkClassSel" class="selin" style="flex:1"></select>
@@ -271,7 +269,7 @@
         <div class="tally" id="tally"></div>
         <div class="rowlist" id="checkList"></div>
       </div>
-      <div class="barbtns" style="margin:14px 0 10px"><button id="holidayBtn" style="border-color:var(--verm);color:var(--verm)">📅 휴강·휴무일 · 특별 일정 메모 관리</button></div>
+      <div class="barbtns" style="margin:14px 0 10px"><button id="holidayBtn" style="border-color:var(--verm);color:var(--verm)">📅 휴강·휴무일 관리</button></div>
       <div class="barbtns" style="margin-bottom:10px"><button id="announceBtn">📢 공지사항 (학생 앱 팝업)</button></div>
       <div class="barbtns" style="margin-bottom:10px"><button id="checkinQrBtn" style="border-color:var(--jade);color:var(--jade-deep)">📷 체크인 QR코드 (화실 입구용)</button></div>
       <div class="sechead" style="margin-top:18px">🗓 화실 시간표</div>
@@ -312,17 +310,22 @@
       <div id="monthBody"></div>
       <div class="sechead">전체 수입 추이</div>
       <div id="revenueChart"></div>
-      <div class="sechead">내보내기 · 백업</div>
-      <div class="barbtns"><button id="exportCsv">출석부 CSV</button><button id="feeExport">수납내역 CSV</button></div>
-      <div class="barbtns"><button class="alt" id="backupSave">💾 백업 저장</button><button class="alt" id="backupLoad">📂 백업 불러오기</button></div>
-      <div class="barbtns"><button class="alt" id="autoBackupList" style="border-color:var(--blue);color:var(--blue)">☁️ 자동 백업 목록 (최근 30일)</button></div>
-      <input type="file" id="backupFile" accept=".json,application/json" style="display:none">
-      <div class="note">· 관리자로 접속할 때마다 하루 1회 자동으로 클라우드에 백업이 저장돼요(최근 30일 보관). 그래도 만일을 대비해 중요한 작업 후에는 <b>💾 백업 저장</b>으로 내 컴퓨터에도 한 부 남겨두면 더 안전해요.</div>
-      <div class="sechead">설정 · 진단 도구</div>
-      <div class="barbtns"><button id="rulesEdit">📜 화실 이용 규칙 관리</button></div>
-      <div class="barbtns"><button id="bulkClearBtn" style="border-color:var(--verm);color:var(--verm)">🧹 기록 일괄 초기화 (오류 복구용)</button></div>
+      <div class="sechead">백업 · 설정</div>
+      <div class="barbtns"><button class="alt" id="backupSave">💾 백업 저장</button><button id="rulesEdit">📜 화실 이용 규칙 관리</button></div>
       <div class="barbtns"><button id="diagBtn">🔍 전체 잔여 회차 진단</button></div>
-      <div class="barbtns"><button id="codeReleaseBtn" style="border-color:var(--verm);color:var(--verm)">🔓 로그인 코드 강제 해제</button></div>
+      <div class="note">· 하루 1회 자동으로 클라우드에 백업돼요(최근 30일 보관). 앱 파일을 바꾸기 전처럼 중요한 작업 전에는 <b>💾 백업 저장</b>으로 내 컴퓨터에도 한 부 남겨두세요.</div>
+      <details style="margin-top:14px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--card)">
+        <summary style="cursor:pointer;font-weight:700;color:var(--ink-soft)">⚙ 관리 도구 <small style="font-weight:400">(평소엔 안 쓰셔도 돼요 · 엑셀 내보내기·복구용)</small></summary>
+        <div style="margin-top:10px">
+          <div class="barbtns"><button id="exportCsv">출석부 CSV</button><button id="feeExport">수납내역 CSV</button></div>
+          <div class="barbtns"><button class="alt" id="backupLoad">📂 백업 불러오기</button><button class="alt" id="autoBackupList" style="border-color:var(--blue);color:var(--blue)">☁️ 자동 백업 목록</button></div>
+          <input type="file" id="backupFile" accept=".json,application/json" style="display:none">
+          <div class="barbtns"><button id="mergeSelfChecks">🔄 학생 결석 알림·예약 지금 불러오기</button></div>
+          <div class="note">· 학생 알림·예약은 앱이 켜질 때와 몇 분마다 자동으로 불러와요. 바로 반영이 필요할 때만 누르세요.</div>
+          <div class="barbtns"><button id="bulkClearBtn" style="border-color:var(--verm);color:var(--verm)">🧹 기록 일괄 초기화 (오류 복구용)</button></div>
+          <div class="barbtns"><button id="codeReleaseBtn" style="border-color:var(--verm);color:var(--verm)">🔓 로그인 코드 강제 해제</button></div>
+        </div>
+      </details>
     </section>
   </main>
 
@@ -660,7 +663,7 @@ async function regenerateStudentViews(){
         studentId:st.id,name:st.name,status:st.status,classes,hasRealClass,
         remain:remainSessions(st),usedTotal:usedSessions(st),absentTotal:absentCount(st),
         makeupLeft:effectiveMakeupLeft(st),allUpcoming:upcomingForStu,myMakeups,myDropins,
-        makeupDueExpired:expired,makeupDueSoon:(daysLeft!==null&&daysLeft<=7),delayedUsage:isDelayedUsage(st),paceEnd:expectedPaceEnd(st),
+        makeupDueExpired:expired,makeupDueSoon:(daysLeft!==null&&daysLeft<=7),delayedUsage:false,paceEnd:expectedPaceEnd(st),
         remainProjected:projectedRepayDate(st),
         makeupDueExtended:!!st.makeupDueOverride,
         dropin:!!(st.dropin||st.dropinOnce),dailyRate:data.rates.daily||60000,dailyRateResearch:data.rates.dailyResearch||90000,
@@ -936,16 +939,9 @@ function holidaySheet(){
   let mode='class';
   function draw(){
     oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>📅 휴강 · 휴무일 관리</h3>
-      <div class="filters" style="margin:-4px 0 12px"><button class="fchip on" id="dtHoliday">📅 휴강·휴무일</button><button class="fchip" id="dtNotes">📌 특별 일정 메모</button></div>
-      <div class="subt">기간을 정하고, 특정 반만 휴강할지 화실 전체를 쉴지 고르세요.</div>
+      <div class="subt">기간과 쉬는 반을 고르세요. 화실 전체를 쉬실 땐 반을 모두 체크하면 돼요. 이미 있는 출석·보강 기록은 지워지지 않아요.</div>
       <div class="fgroup"><label>시작일</label><input type="date" id="hFrom" class="selin" value="${t}"></div>
       <div class="fgroup"><label>종료일</label><input type="date" id="hTo" class="selin" value="${t}"></div>
-      <div class="fgroup"><label>적용 대상</label>
-        <div style="display:flex;gap:8px;margin-top:4px">
-          <button class="fchip ${mode==='class'?'on':''}" id="modeClass" type="button">특정 반만</button>
-          <button class="fchip ${mode==='all'?'on':''}" id="modeAll" type="button">화실 전체 (요일 상관없이)</button>
-        </div>
-      </div>
       ${mode==='class'?`<div class="fgroup"><label>대상 반 <button class="minibtn" id="hAllChk" style="margin-left:6px;padding:2px 8px;font-size:11.5px">전체 선택/해제</button></label>
         ${data.classes.filter(c=>!c.isTempContainer).map(c=>`<label class="chk"><input type="checkbox" data-hcid="${c.id}" checked> ${esc(c.name)} <small style="color:var(--ink-soft)">(${esc(c.sched||'')})</small></label>`).join('')}</div>`
       :`<div class="fgroup"><label>휴무 사유 (선택)</label><input id="hLabel" class="selin" placeholder="예: 명절 연휴, 개인 사정"></div>`}
@@ -953,10 +949,7 @@ function holidaySheet(){
       <button class="btn-ghost" id="hAuto" style="width:100%;margin-top:10px;border-color:var(--verm);color:var(--verm);font-weight:700">🇰🇷 공휴일 한 번에 등록 (앞으로 1년)</button>
       </div></div>`;
     const q=s=>oroot().querySelector(s);
-    q('#dtNotes').onclick=()=>studioNotesSheet();
     q('#hNo').onclick=closeOverlay;
-    q('#modeClass').onclick=()=>{mode='class';draw();};
-    q('#modeAll').onclick=()=>{mode='all';draw();};
     q('#hList').onclick=()=>bulkUncancelListSheet();
     q('#hAuto').onclick=()=>publicHolidayBulkSheet();
     let allOn=true;
@@ -1398,6 +1391,7 @@ function projectedRepayDate(st){
   const nextIso=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
   return addDays(nextIso,(rem-1)*7);
 }
+function isDueSoonAdmin(st){if(st.status==='paused'||st.status==='ended')return false;const total=remainSessions(st)+effectiveMakeupLeft(st);if(total<=0)return false;const d=makeupDue(st);if(!d)return false;const t=todayISO();return d>=t&&d<=addDays(t,14);}
 function isDelayedUsage(st){if(st.regDateOverride)return false;const p=lastPayment(st);if(!p)return false;if(remainSessions(st)<=0)return false;const end=expectedPaceEnd(st);return end&&todayISO()>end;}
 function statusOf(st){if(st.status==='ended')return 'ended';if(st.status==='paused')return 'paused';const r=remainSessions(st);if(r<=0)return 'out';if(r<=2)return 'low';return 'ok';}
 
@@ -1818,7 +1812,7 @@ function renderCheck(){
     else if(rm===0)sub.push('⚠ 재결제 필요');
     else sub.push('잔여 '+rm+'회');
     if(ml>0)sub.push('보강 '+ml);
-    if(isDelayedUsage(st))sub.push('⏰지연 소진');
+    if(isDueSoonAdmin(st))sub.push('⏳기한 임박');
     const hasRec=c.records[k]!==undefined;
     const isPendingReg=isFutureSess||(!hasRec&&status==='present');
     const row=document.createElement('div');row.className='srow '+(isPendingReg?'st-none':CLS[status]);row.style.cursor='default';
@@ -1934,7 +1928,7 @@ function renderFee(){const c=curClass(),board=document.getElementById('feeBoard'
   sf.querySelectorAll('.fchip').forEach(b=>b.onclick=()=>{feeScope=b.dataset.fs;renderFee();});
   const all=feeScope==='all'?data.students.slice():studentsInClass(c.id);
   const fl=document.getElementById('feeFilters');
-  const opts=[['active','수강생'],['makeup','보강대상'],['all','전체'],['paused','휴강중'],['ended','종료']];
+  const opts=[['active','수강생'],['makeup','결석분 남음'],['all','전체'],['paused','휴강중'],['ended','종료']];
   const cntOf=k=>all.filter(st=>k==='active'?(st.status!=='ended'&&st.status!=='paused'):k==='all'?st.status!=='ended':k==='makeup'?(st.status!=='ended'&&makeupLeft(st)>0):k==='paused'?st.status==='paused':st.status==='ended').length;
   fl.innerHTML=opts.map(o=>`<button class="fchip ${feeFilter===o[0]?'on':''}" data-f="${o[0]}">${o[1]} <b>${cntOf(o[0])}</b>명</button>`).join('');
   fl.querySelectorAll('.fchip').forEach(b=>b.onclick=()=>{feeFilter=b.dataset.f;renderFee();});
@@ -2557,9 +2551,9 @@ function studentSheet(st){const fee=feeFor(st);
         <button class="stpRA" data-d="1">＋</button>
         <button class="btn-primary" id="raApply" style="margin-left:8px;padding:9px 16px">적용</button></span></div>
       ${ml>0&&due?`<div class="note" style="background:${dueExpired(st)?'var(--verm-tint)':'var(--blue-tint)'};color:${dueExpired(st)?'var(--verm)':'var(--blue)'};padding:9px 11px;border-radius:9px;margin:-6px 0 12px">보강 기한 ${due}${dueExpired(st)?' · 기한이 지났습니다':''}</div>`:''}
-      ${isDelayedUsage(st)?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;margin:-6px 0 12px">⏰ 정상 진행 기간(수업 요일·휴강일 반영)이 지났지만 잔여 회차가 남아있어 계속 수강 중이에요.</div>`:''}
+      ${isDueSoonAdmin(st)?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;margin:-6px 0 12px">⏳ 이용 기한(${makeupDue(st)})이 2주 안으로 다가왔는데 아직 회차가 남아 있어요.</div>`:''}
       ${dropinPackActive(st)?`<div class="note" style="background:var(--purple-tint);color:var(--purple);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">💜 하루수업 선결제 ${dropinPackRemain(st)}/${st.dropinPack.total}회 남음 · ${st.dropinPack.expiry}까지</div>`:''}
-      <div class="barbtns"><button id="stMsg">📩 안내 문구</button><button id="stGuide">📱 앱 사용법 안내</button></div>
+      <div class="barbtns"><button id="stMsg">📩 안내 문구 보내기</button></div>
       <button class="minibtn" id="stToolsToggle" type="button" style="width:100%;margin:4px 0 12px;color:var(--ink-soft)">⚙ 고급 도구 — 지난 기록 정리 (평소엔 안 건드려도 돼요) ▾</button>
       <div id="stToolsBox" class="hidden">
         <div class="barbtns"><button id="stBulk" style="border-color:var(--ochre);color:var(--ochre)">📅 지난 결제 일괄 입력</button></div>
@@ -2692,7 +2686,6 @@ function studentSheet(st){const fee=feeFor(st);
     q('#stBulk').onclick=()=>bulkSheet(st);
     q('#stClearHist').onclick=()=>studentClearHistSheet(st);
     q('#stMsg').onclick=()=>msgSheet(st);
-    q('#stGuide').onclick=()=>appGuideSheet(st);
     oroot().querySelectorAll('.hx').forEach(b=>b.onclick=()=>{delId=b.dataset.id;draw();});
     oroot().querySelectorAll('.hmemo').forEach(b=>b.onclick=()=>{
       const p=(st.payments||[]).find(x=>x.id===b.dataset.mid);if(!p)return;
@@ -2781,23 +2774,34 @@ function bulkSheet(st){
 }
 
 /* ---------- 안내 문구 (학생에게 카톡으로 보내기) ---------- */
-function msgSheet(st){
-  const r=remainSessions(st),ml=makeupLeft(st),due=makeupDue(st),lp=lastPayment(st),expired=dueExpired(st);
+function msgSheet(st,withGuide){
+  if(withGuide===undefined)withGuide=!st.uid; // 아직 앱에 로그인한 적 없는 학생은 사용법을 기본으로 포함
+  const md=x=>{const q=(x||'').split('-');return q.length===3?`${+q[1]}월 ${+q[2]}일`:x;};
+  const r=remainSessions(st),total=r+effectiveMakeupLeft(st),lp=lastPayment(st),due=makeupDue(st);
+  const lastCls=st.makeupDueOverride?'':(activeLastClassOverride(st)||packageLastClassDate(st));
   let t=`[강남민화연구소] ${st.name} 님 수강 현황\n`;
   t+=`· 반: ${clsNames(st)}\n`;
-  t+= (r<0) ? `· ${-r}회 미리 수강하셨습니다 (다음 결제 시 차감)\n` : `· 남은 수강 횟수: ${r}회\n`;
-  t+=`· 출석 ${usedSessions(st)}회 / 결석 ${absentCount(st)}회\n`;
-  if(ml>0&&st.makeupDueOverride)t+=`· 보강기한이 지났지만, 배려해드려 ${due}까지 보강 가능하도록 연장해드렸습니다. 이 기한 안에는 꼭 완료해주세요.\n`;
-  else if(ml>0&&expired)t+=`· 보강기한(${due})이 지나 보강 ${ml}회가 소멸되었습니다.\n`;
-  else if(ml>0)t+=`· 보강 가능: ${ml}회${due?` (${due}까지)`:''}\n`;
-  if(lp)t+=`· 최근 결제: ${lp.date} ${lp.sessions}회 ${won(lp.amount)}\n`;
-  if(st.status==='paused')t+=`· 현재 휴강 중입니다. 복귀 시 남은 횟수부터 이어집니다.\n`;
-  else if(r<=0)t+=`\n수강 횟수가 모두 소진되었습니다. 재결제 부탁드립니다.\n`;
-  else if(r<=2)t+=`\n남은 횟수가 ${r}회입니다. 재결제 준비 부탁드립니다.\n`;
-  oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>안내 문구</h3>
-    <div class="subt">복사해서 카카오톡·문자로 보내세요. 본인 것만 담겨 있어 다른 학생 정보는 포함되지 않습니다.</div>
+  t+=(total<0)?`· ${-total}회 미리 수강하셨어요 (다음 결제 시 차감)\n`:`· 남은 회차: ${total}회\n`;
+  if(lp)t+=`· 결제일: ${md(lp.date)} (${lp.sessions}회)\n`;
+  if(lastCls)t+=`· 마지막 수업 예정일: ${md(lastCls)}\n`;
+  if(due&&total>0)t+=`· 이용 기한: ${md(due)}까지 (마지막 수업 예정일 + 4주)\n`;
+  if(st.status==='paused')t+=`\n현재 휴강 중이에요. 복귀하시면 남은 회차부터 이어져요.\n`;
+  else if(total<=0)t+=`\n결제하신 회차를 모두 사용하셨어요. 재결제 부탁드려요.\n`;
+  else if(total<=2)t+=`\n남은 회차가 ${total}회예요. 재결제 준비 부탁드려요.\n`;
+  if(withGuide){
+    t+=`\n📱 앱 안내\n`;
+    t+=`🔗 ${APP_SITE_URL}\n`;
+    t+=st.code?`🔑 "학생" 선택 → ${st.code} 입력\n`:`🔑 로그인 코드는 발급 후 다시 안내드릴게요\n`;
+    t+=`· 남은 회차·이용 기한·다가오는 수업 확인\n· 못 오실 것 같으면 "결석 예정 알리기"\n· "다른 날 수업 예약"으로 편한 날 골라 오시기\n· 예약은 전날까지 직접 취소·변경 가능\n`;
+    if(dropinPackActive(st))t+=`💜 하루수업 8회 선결제: ${dropinPackRemain(st)}/${st.dropinPack.total}회 남음 (${md(st.dropinPack.expiry)}까지)\n`;
+  }
+  t+=`\n궁금한 점 있으시면 언제든 말씀해주세요 :)`;
+  oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>📩 안내 문구</h3>
+    <div class="subt">복사해서 카카오톡·문자로 보내세요. 이 학생 정보만 담겨 있어요.</div>
+    <label class="chk" style="margin:0 0 8px"><input type="checkbox" id="mGuide" ${withGuide?'checked':''}> 앱 접속 주소·로그인 코드·사용법 함께 넣기</label>
     <textarea class="msg" id="mTa">${esc(t)}</textarea>
     <div class="actions"><button class="btn-ghost" id="mNo">닫기</button><button class="btn-primary" id="mCopy">전체 복사</button></div></div></div>`;
+  oroot().querySelector('#mGuide').onchange=e=>msgSheet(st,e.target.checked);
   oroot().querySelector('#mNo').onclick=()=>studentSheet(st);
   oroot().querySelector('#mCopy').onclick=()=>{const ta=oroot().querySelector('#mTa');ta.select();ta.setSelectionRange(0,99999);
     let done=false;try{done=document.execCommand('copy');}catch(e){}
@@ -2866,14 +2870,16 @@ function editStudent(st){
     <div class="fgroup"><label>특이사항 메모 <small style="color:var(--ink-soft)">(연락처와 별개, 자유롭게)</small></label><input id="esNotes" class="selin" value="${esc(st.notes||'')}" placeholder="예: 2/6 12회차 선결제 이후 휴강, 4/10 재등록"></div>
     <div class="fgroup"><label>수강 반 (여러 반 겸용 가능)</label>
       ${data.classes.filter(c=>!c.isTempContainer).map(c=>`<label class="chk"><input type="checkbox" data-cid="${c.id}" ${(st.classIds||[]).indexOf(c.id)>=0?'checked':''}> ${esc(c.name)}</label>`).join('')}</div>
-    <button class="minibtn" id="esAdvToggle" type="button" style="width:100%;margin:4px 0 12px;color:var(--ink-soft)">⚙ 고급 설정 — 보강기한·회차·반 이동 예외 처리 ${hasAdvValues?'(설정된 값 있음) ':''}▾</button>
+    <button class="minibtn" id="esAdvToggle" type="button" style="width:100%;margin:4px 0 12px;color:var(--ink-soft)">⚙ 고급 설정 — 이용 기한·회차·반 이동 예외 처리 ${hasAdvValues?'(설정된 값 있음) ':''}▾</button>
     <div id="esAdvBox" class="hidden">
       <div class="fgroup"><button class="minibtn" id="esMoveClass" style="color:var(--blue)">🔀 반 이동 (예전 반 기록 정리하러 가기)</button></div>
-      <div class="fgroup"><label>보강기한 연장 (개월) · 휴강한 만큼 입력</label><span class="stepwrap" style="margin-top:5px"><button class="stpE" data-d="-1">－</button><input id="esExt" type="number" inputmode="numeric" class="selin" value="${st.extend||0}" style="width:78px;text-align:center;font-weight:700;margin-top:0"><button class="stpE" data-d="1">＋</button></span></div>
-      <div class="fgroup"><label>마지막 실제 수업일 (직접 지정) · 비우면 출석 기록에서 자동 계산</label><input id="esLastClass" type="date" class="selin" value="${st.lastClassOverride||''}">
-        <div class="note" style="margin:4px 3px 0">반을 옮겼거나, 예전(앱 사용 전) 수업 기록이 없어서 보강기한이 이상하게 계산될 때만 채워주세요. 여기 넣은 날짜 + 4주로 보강기한이 계산돼요. 출석·잔여 회차에는 전혀 영향 없어요.</div></div>
-      <div class="fgroup"><label>보강기한 직접 지정 (정확한 날짜) · 비우면 자동 계산 사용</label><input id="esDueOverride" type="date" class="selin" value="${st.makeupDueOverride||''}">
-        <div class="note" style="margin:4px 3px 0">기한이 지났지만 예외로 특정 날짜까지 배려해주고 싶을 때 쓰세요. 여기 넣으면 다른 계산은 무시하고 이 날짜가 그대로 보강기한이 돼요. 지우면 다시 자동 계산으로 돌아가요.</div></div>
+      <div class="fgroup"><label>이용 기한 직접 지정 · 비우면 자동 (마지막 수업 예정일 + 4주)</label><input id="esDueOverride" type="date" class="selin" value="${st.makeupDueOverride||''}">
+        <div class="note" style="margin:4px 3px 0">사정이 있는 학생에게 예외로 기한을 늘려주실 때만 날짜를 넣으세요. 그 날짜가 지나면 자동으로 지워지고 다시 자동 계산으로 돌아가요.</div></div>
+      <div style="${(st.extend||st.lastClassOverride)?'':'display:none'}">
+        <div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:8px 10px;border-radius:8px;margin:0 0 8px;font-weight:600">예전 방식의 기한 설정값이 남아 있어요. 필요 없으면 0·빈칸으로 지우고 저장하세요.</div>
+        <div class="fgroup"><label>(예전) 보강기한 연장 (개월)</label><span class="stepwrap" style="margin-top:5px"><button class="stpE" data-d="-1">－</button><input id="esExt" type="number" inputmode="numeric" class="selin" value="${st.extend||0}" style="width:78px;text-align:center;font-weight:700;margin-top:0"><button class="stpE" data-d="1">＋</button></span></div>
+        <div class="fgroup"><label>(예전) 마지막 실제 수업일 직접 지정</label><input id="esLastClass" type="date" class="selin" value="${st.lastClassOverride||''}"></div>
+      </div>
       <div class="fgroup"><label>재등록일 직접 지정 · 비우면 첫 결제일 기준</label><input id="esRegDate" type="date" class="selin" value="${st.regDateOverride||''}">
         <div class="note" style="margin:4px 3px 0">장기간 휴강했다가 다시 등록한 학생은, 여기에 재등록일을 넣어주세요. 그 이전 날짜에는 출석 목록에서 안 보이게 돼요. (원래 결제가 여러 번이라 오래된 첫 결제일부터 계속 나오는 문제를 방지해요.)</div></div>
       <div class="fgroup"><label>회차 리셋 기준일 · 비우면 전체 누적</label><input id="esCycleStart" type="date" class="selin" value="${st.cycleStart||''}">
@@ -2886,7 +2892,7 @@ function editStudent(st){
   q('#esAdvToggle').onclick=()=>{
     const box=q('#esAdvBox');const willOpen=box.classList.contains('hidden');
     box.classList.toggle('hidden');
-    q('#esAdvToggle').textContent=willOpen?`⚙ 고급 설정 — 보강기한·회차·반 이동 예외 처리 ${hasAdvValues?'(설정된 값 있음) ':''}▴`:`⚙ 고급 설정 — 보강기한·회차·반 이동 예외 처리 ${hasAdvValues?'(설정된 값 있음) ':''}▾`;
+    q('#esAdvToggle').textContent=willOpen?`⚙ 고급 설정 — 이용 기한·회차·반 이동 예외 처리 ${hasAdvValues?'(설정된 값 있음) ':''}▴`:`⚙ 고급 설정 — 이용 기한·회차·반 이동 예외 처리 ${hasAdvValues?'(설정된 값 있음) ':''}▾`;
   };
   q('#esGoDetail').onclick=()=>studentSheet(st);
   let lastSuggested=suggestedCode;
