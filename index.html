@@ -806,7 +806,7 @@ function diagnosticSheet(){
     const warn=r.rem<0||r.pausedWarn;
     html+=`<div class="srow" data-diagid="${r.st.id}" style="flex-direction:column;align-items:stretch;margin-bottom:10px;cursor:pointer;${warn?'border-color:var(--verm)':''}">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <b>${esc(r.st.name)}${r.isPaused?` <small style="color:var(--ochre);font-weight:700">${r.pausedWarn?'⏸ 휴강중⚠':'· 휴강중'}</small>`:''}${r.st.cycleStart?` <small style="color:var(--blue);font-weight:400">· 리셋 ${shortDate(r.st.cycleStart)}~</small>`:''}</b>
+        <b>${esc(r.st.name)}${r.isPaused?` <small style="color:var(--ochre);font-weight:700">${r.pausedWarn?'⏸ 휴강중⚠':'· 휴강중'}</small>`:''}${r.st.cycleStart?` <small style="color:var(--blue);font-weight:400">· 리셋 ${shortDate(r.st.cycleStart)}~</small>`:''}${r.st.extend?` <small style="color:var(--verm);font-weight:700">· 기한연장 ${r.st.extend}개월</small>`:''}</b>
         <span style="font-weight:700;${warn?'color:var(--verm)':'color:var(--jade-deep)'}">결제 ${r.paid} − 사용 ${r.cons} = ${r.rem}${r.adj?` <span style="color:var(--ochre)">⚙${r.adj>0?'+':''}${r.adj}</span> → 실제 화면 ${r.finalRem}`:''}</span>
       </div>
       <div style="font-size:11.5px;color:var(--ink-soft);margin-top:4px;line-height:1.6">
@@ -2559,6 +2559,7 @@ function studentSheet(st){const fee=feeFor(st);
             st.cycleStart=effFrom;
             delete st.remainAdjust; // 이전 결제 기간의 수동 보정값은 새 회차로 넘어가지 않게
             delete st.lastClassOverride;
+            if(st.extend)st.extend=0; // 이전 기간의 기한 연장은 새 결제로 넘어가지 않게
           }else{
             pushLog('admin',`(원장님) ${esc(st.name)}님 ${D} 결제 시 이전에 남은 ${rmBefore+mkLive}회를 이어서 쓰도록(이월) 했어요.`,D);
           }
