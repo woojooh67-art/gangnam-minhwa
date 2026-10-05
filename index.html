@@ -2829,7 +2829,9 @@ function formRulesHTML(txt){
     return `<div class="f-p">${t}</div>`;}).join('');
 }
 function enrollFormHTML(st,type){
-  const nm=st?esc(st.name):'';const cls=st?(st.classIds||[]).map(classById).filter(Boolean):[];
+  const nm=st?esc(st.name):'';
+  const ph=(st&&st.memo&&/\d{3,}.*\d{3,}/.test(st.memo))?esc(st.memo.trim()):'';
+  const cls=st?(st.classIds||[]).map(classById).filter(Boolean):[];
   const sched=cls.map(c=>esc(c.name)+(c.sched?' ('+esc(c.sched)+')':'')).join(', ');
   const blank='<span class="f-blank"></span>';
   const isR=type==='research';
@@ -2837,11 +2839,11 @@ function enrollFormHTML(st,type){
   const intro=isR?'본 신청서는 강남민화연구소 연구반(심화 과정)의 전문적인 수업 운영과 수강생의 심화 작품 완성을 지원하기 위해 작성되었습니다. 아래 내용을 충분히 확인하신 후 신청해 주시기 바랍니다.'
     :'본 신청서는 강남민화연구소의 원활한 수업 운영과 수강생 맞춤형 커리큘럼 제공을 위해 작성됩니다. 아래 내용을 충분히 확인하신 후 신청해 주시기 바랍니다.';
   const info=isR
-    ?`<div class="f-row">성명: ${nm?`<b>${nm}</b>`:blank}</div><div class="f-row">연락처: ${blank}</div>
+    ?`<div class="f-row">성명: ${nm?`<b>${nm}</b>`:blank}</div><div class="f-row">연락처: ${ph?`<b>${ph}</b>`:blank}</div>
       <div class="f-row">신청 과정: ${st?'■':'□'} 연구반 (월 4회 / 매주 목요일)</div>
       <div class="f-row">수업 시간: 11:00 ~ 17:00 (총 6시간 / 점심시간 1시간 포함) · 수업료: 월 ${won(cls.find(c=>c.type==='연구')?.fee||250000)}</div>
       <div class="f-row">민화 경력: □ 1년 미만 □ 1~3년 □ 3년 이상 (약 ____ 년)</div>`
-    :`<div class="f-row">성명: ${nm?`<b>${nm}</b>`:blank}</div><div class="f-row">연락처: ${blank}</div>
+    :`<div class="f-row">성명: ${nm?`<b>${nm}</b>`:blank}</div><div class="f-row">연락처: ${ph?`<b>${ph}</b>`:blank}</div>
       <div class="f-row">신청 과정: ${st?'■':'□'} 정규반(주 1회 3시간 · 월 4회 : ${won(cls.find(c=>c.type==='정규')?.fee||200000)})</div>
       <div class="f-row">민화 경험: □ 처음 □ 있음 (약 ____ 개월/년)</div>
       <div class="f-row">희망 요일 / 시간: ${sched?`<b>${sched}</b>`:'(요일) ____________ / (시간) ____________'}</div>`;
