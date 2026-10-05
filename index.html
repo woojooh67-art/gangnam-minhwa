@@ -661,7 +661,7 @@ async function regenerateStudentViews(){
       if(dueVal&&!expired){daysLeft=Math.round((new Date(dueVal)-new Date(t))/86400000);}
       const payload={
         studentId:st.id,name:st.name,status:st.status,classes,hasRealClass,
-        remain:remainSessions(st),usedTotal:usedSessions(st),absentTotal:absentCount(st),
+        remain:liveRemain(st),expiredLeft:expiredLeftover(st),usedTotal:usedSessions(st),absentTotal:absentCount(st),
         makeupLeft:effectiveMakeupLeft(st),allUpcoming:upcomingForStu,myMakeups,myDropins,
         makeupDueExpired:expired,makeupDueSoon:(daysLeft!==null&&daysLeft<=7),delayedUsage:false,paceEnd:expectedPaceEnd(st),
         remainProjected:projectedRepayDate(st),
@@ -858,7 +858,7 @@ function diagnosticSheet(){
     const warn=r.rem<0||r.pausedWarn;
     html+=`<div class="srow" data-diagid="${r.st.id}" style="flex-direction:column;align-items:stretch;margin-bottom:10px;cursor:pointer;${warn?'border-color:var(--verm)':''}">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <b>${esc(r.st.name)}${r.isPaused?` <small style="color:var(--ochre);font-weight:700">${r.pausedWarn?'⏸ 휴강중⚠':'· 휴강중'}</small>`:''}${r.st.cycleStart?` <small style="color:var(--blue);font-weight:400">· 리셋 ${shortDate(r.st.cycleStart)}~</small>`:''}${r.st.extend?` <small style="color:var(--verm);font-weight:700">· 기한연장 ${r.st.extend}개월</small>`:''}</b>
+        <b>${esc(r.st.name)}${r.isPaused?` <small style="color:var(--ochre);font-weight:700">${r.pausedWarn?'⏸ 휴강중⚠':'· 휴강중'}</small>`:''}${r.st.cycleStart?` <small style="color:var(--blue);font-weight:400">· 리셋 ${shortDate(r.st.cycleStart)}~</small>`:''}${r.st.extend?` <small style="color:var(--verm);font-weight:700">· 기한연장 ${r.st.extend}개월</small>`:''}${expiredLeftover(r.st)?` <small style="color:var(--verm);font-weight:700">· ⌛${expiredLeftover(r.st)}회 기한 소멸</small>`:''}</b>
         <span style="font-weight:700;${warn?'color:var(--verm)':'color:var(--jade-deep)'}">결제 ${r.paid} − 사용 ${r.cons} = ${r.rem}${r.adj?` <span style="color:var(--ochre)">⚙${r.adj>0?'+':''}${r.adj}</span> → 실제 화면 ${r.finalRem}`:''}</span>
       </div>
       <div style="font-size:11.5px;color:var(--ink-soft);margin-top:4px;line-height:1.6">
@@ -1401,9 +1401,16 @@ function projectedRepayDate(st){
   const nextIso=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
   return addDays(nextIso,(rem-1)*7);
 }
+/* 이용 기한이 지나면, 출석 체크를 안 한(빈칸) 회차와 결석분까지 남은 회차는 모두 소멸 (휴강·종료 학생은 제외) */
+function expiredLeftover(st){
+  if(st.status==='paused'||st.status==='ended')return 0;
+  if(!lastPayment(st)||!dueExpired(st))return 0;
+  return Math.max(0,remainSessions(st))+makeupLeft(st);
+}
+function liveRemain(st){const r=remainSessions(st);return expiredLeftover(st)>0?Math.min(r,0):r;}
 function isDueSoonAdmin(st){if(st.status==='paused'||st.status==='ended')return false;const total=remainSessions(st)+effectiveMakeupLeft(st);if(total<=0)return false;const d=makeupDue(st);if(!d)return false;const t=todayISO();return d>=t&&d<=addDays(t,14);}
 function isDelayedUsage(st){if(st.regDateOverride)return false;const p=lastPayment(st);if(!p)return false;if(remainSessions(st)<=0)return false;const end=expectedPaceEnd(st);return end&&todayISO()>end;}
-function statusOf(st){if(st.status==='ended')return 'ended';if(st.status==='paused')return 'paused';const r=remainSessions(st);if(r<=0)return 'out';if(r<=2)return 'low';return 'ok';}
+function statusOf(st){if(st.status==='ended')return 'ended';if(st.status==='paused')return 'paused';const r=liveRemain(st);if(r<=0)return 'out';if(r<=2)return 'low';return 'ok';}
 
 /* ---------- render ---------- */
 function render(){try{renderActivityLog();}catch(e){console.error('activityLog',e);}renderClasses();renderCheck();renderStuMode();renderFee();renderRoster();renderReport();updateReportBadge();}
@@ -1815,7 +1822,7 @@ function renderCheck(){
     list.appendChild(h);
   }
   const isFutureSess=sess.iso>todayISO();
-  studs.forEach(st=>{const k=sess.id+':'+st.id;const rm=remainSessions(st);
+  studs.forEach(st=>{const k=sess.id+':'+st.id;const rm=liveRemain(st);
     const status=c.records[k]||(rm>0?'present':'none');cnt[status]++;
     const ml=makeupLeft(st);
     let sub=[];
@@ -1824,6 +1831,7 @@ function renderCheck(){
     else sub.push('잔여 '+rm+'회');
     if(ml>0)sub.push('보강 '+ml);
     if(isDueSoonAdmin(st))sub.push('⏳기한 임박');
+    if(expiredLeftover(st))sub.push('⌛'+expiredLeftover(st)+'회 기한 소멸');
     const hasRec=c.records[k]!==undefined;
     const isPendingReg=isFutureSess||(!hasRec&&status==='present');
     const row=document.createElement('div');row.className='srow '+(isPendingReg?'st-none':CLS[status]);row.style.cursor='default';
@@ -1967,12 +1975,12 @@ function renderFee(){const c=curClass(),board=document.getElementById('feeBoard'
     });
   list.innerHTML='';
   if(!show.length){list.innerHTML='<div class="empty">해당하는 학생이 없습니다.</div>';return;}
-  show.forEach(st=>{const s=statusOf(st),r=remainSessions(st),ml=makeupLeft(st);
+  show.forEach(st=>{const s=statusOf(st),r=liveRemain(st),xp=expiredLeftover(st),ml=xp?0:makeupLeft(st);
     const pill=s==='ended'?'종료':s==='paused'?'휴강중':(r<0?'선사용':s==='out'?'재결제':s==='low'?'곧소진':'여유');
     const pausedDays=(s==='paused'&&st.pausedSince)?Math.floor((Date.now()-new Date(st.pausedSince+'T00:00:00').getTime())/86400000):null;
     const longPaused=pausedDays!==null&&pausedDays>=60;
     let sub=s==='ended'?'종료 · 기록 보존됨':s==='paused'?`잔여 ${r}회 보존 중`+(pausedDays!==null?` · 휴강 ${pausedDays}일째`:'')
-      :(r<0?`${-r}회 미리 사용 · 다음 결제 시 차감`:`잔여 ${r}회`);
+      :(xp?`⌛ 이용 기한(${shortDate(makeupDue(st))}) 지나 ${xp}회 소멸 · 재결제 필요`:r<0?`${-r}회 미리 사용 · 다음 결제 시 차감`:`잔여 ${r}회`);
     if(ml>0){const d=makeupDue(st);sub+=` · 보강 ${ml}회`+(d?(dueExpired(st)?' (기한지남)':' ~'+shortDate(d)):'');}
     if((st.classIds||[]).length>1)sub+=' · 겸반';
     if(feeFilter==='paidmonth'){
@@ -2568,7 +2576,7 @@ function studentSheet(st){const fee=feeFor(st);
         <button class="stpRA" data-d="1">＋</button>
         <button class="btn-primary" id="raApply" style="margin-left:8px;padding:9px 16px">적용</button></span></div>
       ${ml>0&&due?`<div class="note" style="background:${dueExpired(st)?'var(--verm-tint)':'var(--blue-tint)'};color:${dueExpired(st)?'var(--verm)':'var(--blue)'};padding:9px 11px;border-radius:9px;margin:-6px 0 12px">보강 기한 ${due}${dueExpired(st)?' · 기한이 지났습니다':''}</div>`:''}
-      ${isDueSoonAdmin(st)?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;margin:-6px 0 12px">⏳ 이용 기한(${makeupDue(st)})이 2주 안으로 다가왔는데 아직 회차가 남아 있어요.</div>`:''}
+      ${isDueSoonAdmin(st)?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;margin:-6px 0 12px">⏳ 이용 기한(${makeupDue(st)})이 2주 안으로 다가왔는데 아직 회차가 남아 있어요.</div>`:''}${expiredLeftover(st)?`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">⌛ 이용 기한(${makeupDue(st)})이 지나 남은 ${expiredLeftover(st)}회가 소멸됐어요. 학생 화면에도 안내돼요. 사정이 있으면 고급 설정의 "이용 기한 직접 지정"으로 늘려줄 수 있어요.</div>`:''}
       ${dropinPackActive(st)?`<div class="note" style="background:var(--purple-tint);color:var(--purple);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">💜 하루수업 선결제 ${dropinPackRemain(st)}/${st.dropinPack.total}회 남음 · ${st.dropinPack.expiry}까지</div>`:''}
       <div class="barbtns"><button id="stMsg">📩 안내 문구 보내기</button></div>
       <button class="minibtn" id="stToolsToggle" type="button" style="width:100%;margin:4px 0 12px;color:var(--ink-soft)">⚙ 고급 도구 — 지난 기록 정리 (평소엔 안 건드려도 돼요) ▾</button>
@@ -2673,7 +2681,7 @@ function studentSheet(st){const fee=feeFor(st);
           }
           st.payments.push({id:uid(),sessions:S,amount:A,date:D,plan:S,memo:M,effectiveFrom:earlyPay?effFrom:undefined});save();renderFee();renderReport();studentSheet(st);toast('결제가 저장되었습니다.');
         };
-        const leftTotal=rmBefore>=0?rmBefore+mkLive:0;
+        const lrBefore=liveRemain(st);const leftTotal=lrBefore>=0?lrBefore+(expiredLeftover(st)?0:mkLive):0;
         if(leftTotal<=0){commitPay(true);return;}
         const cov=oroot().querySelector('#pConfirmOv');if(cov)cov.remove();
         oroot().insertAdjacentHTML('beforeend',`<div class="overlay" id="pCarryOv"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>이전 결제에서 남은 회차가 있어요</h3>
@@ -2794,7 +2802,7 @@ function bulkSheet(st){
 function msgSheet(st,withGuide){
   if(withGuide===undefined)withGuide=!st.uid; // 아직 앱에 로그인한 적 없는 학생은 사용법을 기본으로 포함
   const md=x=>{const q=(x||'').split('-');return q.length===3?`${+q[1]}월 ${+q[2]}일`:x;};
-  const r=remainSessions(st),total=r+effectiveMakeupLeft(st),lp=lastPayment(st),due=makeupDue(st);
+  const r=liveRemain(st),xp=expiredLeftover(st),total=r+(xp?0:effectiveMakeupLeft(st)),lp=lastPayment(st),due=makeupDue(st);
   const lastCls=st.makeupDueOverride?'':(activeLastClassOverride(st)||packageLastClassDate(st));
   let t=`[강남민화연구소] ${st.name} 님 수강 현황\n`;
   t+=`· 반: ${clsNames(st)}\n`;
@@ -2803,6 +2811,7 @@ function msgSheet(st,withGuide){
   if(lastCls)t+=`· 마지막 수업 예정일: ${md(lastCls)}\n`;
   if(due&&total>0)t+=`· 이용 기한: ${md(due)}까지 (마지막 수업 예정일 + 4주)\n`;
   if(st.status==='paused')t+=`\n현재 휴강 중이에요. 복귀하시면 남은 회차부터 이어져요.\n`;
+  else if(xp)t+=`\n이용 기한(${md(due)})이 지나 남은 ${xp}회가 소멸됐어요. 다시 수강하시려면 재결제 부탁드려요.\n`;
   else if(total<=0)t+=`\n결제하신 회차를 모두 사용하셨어요. 재결제 부탁드려요.\n`;
   else if(total<=2)t+=`\n남은 회차가 ${total}회예요. 재결제 준비 부탁드려요.\n`;
   if(withGuide){
@@ -3753,7 +3762,7 @@ function renderStudentApp(){
     ${(stuData.status!=='paused'&&stuData.status!=='ended'&&stuData.hasRealClass===false)?`<div class="stucard" style="background:var(--purple-tint);border-color:var(--purple)"><h3>🎫 하루수업 쿠폰 이용중</h3><div class="note" style="color:var(--ink)">정규 반 등록 없이 아래 "하루수업 신청"으로 자유롭게 이용하시는 계정이에요.</div><div class="note" style="color:var(--ink);margin-top:6px">⏳ 결제일로부터 <b>${stuData.dropin8Days||90}일 이내</b>에 사용하셔야 하며, 기한 내 미사용 회차는 소멸돼요. 부득이한 사정은 원장님과 상의해 주세요.</div></div>`:''}
     ${(stuData.status==='paused'||stuData.hasRealClass===false)?'':`<div class="stucard"><h3>출석 · 잔여 회차</h3>
       <div class="tally"><span class="p"><b>${totalLeft}</b>회 남음</span></div>
-      ${totalLeft<0?`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">⚠ 결제 없이 ${-totalLeft}회 더 출석하셨어요. 결제해 주세요.</div>`:totalLeft===0?`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">⚠ 결제하신 회차를 모두 사용하셨어요. 재결제해 주세요.</div>`:''}
+      ${(stuData.expiredLeft>0&&totalLeft<=0)?`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">⌛ 이용 기한(${stuData.makeupDue})이 지나 남은 ${stuData.expiredLeft}회가 소멸됐어요. 다시 수강하시려면 재결제해 주세요.</div>`:totalLeft<0?`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">⚠ 결제 없이 ${-totalLeft}회 더 출석하셨어요. 결제해 주세요.</div>`:totalLeft===0?`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">⚠ 결제하신 회차를 모두 사용하셨어요. 재결제해 주세요.</div>`:''}
       ${(()=>{const md=x=>{const q=(x||'').split('-');return q.length===3?`${+q[1]}월 ${+q[2]}일`:x;};
         const lp=(stuData.payments||[]).find(p=>p.date===stuData.lastPaymentDate);
         const row=(k,v,strong)=>`<div style="display:flex;justify-content:space-between;gap:10px;padding:3px 0"><span style="color:var(--ink-soft)">${k}</span><span style="${strong?'font-weight:700;color:var(--ink)':''}">${v}</span></div>`;
