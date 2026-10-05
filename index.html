@@ -2857,8 +2857,8 @@ function enrollFormHTML(st,type){
       <div class="f-p">□ 동의함 □ 동의하지 않음</div>
       <div class="f-p" style="margin-top:10px">본인은 위 안내된 수강 규정 및 환불 정책을 충분히 이해하였으며, 이에 동의하지 않을 경우 수강 신청이 어려울 수 있음을 확인합니다.</div>`;
   const d=new Date();
-  return `<div class="f-page">
-    <div class="f-org">[강남민화연구소]</div><div class="f-title">${title}</div>
+  return `<div class="f-page"><img class="f-wm" src="${LOGO_URI}" alt="">
+    <div class="f-head"><img class="f-logo" src="${LOGO_URI}" alt="강남민화연구소"><div><div class="f-org">강남민화연구소 · GANGNAM MINHWA LAB</div><div class="f-title">${title}</div></div></div>
     <div class="f-p">${intro}</div>
     <div class="f-h2">1. 신청인 정보</div>${info}
     <div class="f-h2">2. ${isR?'연구반 운영 규정':'수강 안내 및 운영 규정'} (필독)</div>
@@ -2873,7 +2873,11 @@ function ensureFormCss(){
   const st=document.createElement('style');st.id='formPrintCss';
   st.textContent=`#printArea{display:none}
   .f-page{font-family:'Noto Serif KR','Nanum Myeongjo',serif;color:#111;font-size:10.5pt;line-height:1.55;background:#fff}
-  .f-org{text-align:center;font-size:11pt;letter-spacing:.1em}.f-title{text-align:center;font-size:16pt;font-weight:700;margin:4px 0 12px}
+  .f-page{position:relative}.f-page>*:not(.f-wm){position:relative;z-index:1}
+  .f-head{display:flex;align-items:center;justify-content:center;gap:14px;margin:0 0 12px}
+  .f-logo{width:64px;height:64px;flex:0 0 auto}
+  .f-wm{position:absolute;top:28%;left:50%;width:62%;transform:translateX(-50%);opacity:.06;z-index:0;pointer-events:none}
+  .f-org{font-size:10pt;letter-spacing:.12em;color:#444}.f-title{font-size:16pt;font-weight:700;margin:2px 0 0}
   .f-h2{font-weight:700;font-size:11.5pt;margin:12px 0 4px;border-bottom:1px solid #999;padding-bottom:2px}
   .f-h3{font-weight:700;margin:8px 0 2px}.f-li{padding-left:1em;text-indent:-.8em}.f-note{font-size:10pt}.f-gap{height:2px}
   .f-row{padding:5px 0;border-bottom:1px dotted #bbb}.f-blank{display:inline-block;min-width:180px;border-bottom:1px solid #333;height:1em}
@@ -2884,6 +2888,7 @@ function ensureFormCss(){
     body>*:not(#printArea){display:none!important}
     #printArea{display:block!important}
     .f-page{font-size:10pt}
+    .f-wm{position:fixed;top:50%;left:50%;width:120mm;transform:translate(-50%,-50%)}
   }`;
   document.head.appendChild(st);
 }
