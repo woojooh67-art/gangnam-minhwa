@@ -3567,12 +3567,17 @@ function renderStudentApp(){
     ${(stuData.status==='paused'||stuData.hasRealClass===false)?'':`<div class="stucard"><h3>출석 · 잔여 회차</h3>
       <div class="tally"><span class="p"><b>${totalLeft}</b>회 남음</span></div>
       ${totalLeft<0?`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">⚠ 결제 없이 ${-totalLeft}회 더 출석하셨어요. 결제해 주세요.</div>`:totalLeft===0?`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">⚠ 결제하신 회차를 모두 사용하셨어요. 재결제해 주세요.</div>`:''}
-      ${(totalLeft>0&&stuData.makeupDue)?(()=>{const md=x=>{const q=(x||'').split('-');return q.length===3?`${+q[1]}월 ${+q[2]}일`:x;};
-        const baseTxt=stuData.lastClassBase?`<div style="font-weight:400;font-size:12px;margin-top:3px;color:var(--ink-soft)">마지막 수업 예정일(${md(stuData.lastClassBase)}) 이후 4주 여유 기간까지 포함한 날짜예요.</div>`:'';
-        return (stuData.makeupDueSoon&&!stuData.makeupDueExpired)
-          ?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin:-6px 0 10px">📅 이용 기한: ${md(stuData.makeupDue)}까지 · 남은 회차를 이 날짜 안에 써주세요.${baseTxt}</div>`
-          :`<div class="note" style="margin:-6px 2px 10px;font-weight:700;color:var(--ink)">📅 이용 기한: ${md(stuData.makeupDue)}까지${baseTxt}</div>`;})():''}
-      <div class="note" style="margin:-4px 2px 10px;color:var(--ink-soft)">못 오신 날의 회차는 그대로 남아요. 기한 안에 편한 날 오셔서 쓰시면 돼요.${stuData.lastPaymentDate?` · 결제일 ${stuData.lastPaymentDate}`:''}</div>
+      ${(()=>{const md=x=>{const q=(x||'').split('-');return q.length===3?`${+q[1]}월 ${+q[2]}일`:x;};
+        const lp=(stuData.payments||[]).find(p=>p.date===stuData.lastPaymentDate);
+        const row=(k,v,strong)=>`<div style="display:flex;justify-content:space-between;gap:10px;padding:3px 0"><span style="color:var(--ink-soft)">${k}</span><span style="${strong?'font-weight:700;color:var(--ink)':''}">${v}</span></div>`;
+        let h='';
+        if(stuData.lastPaymentDate)h+=row('결제일',md(stuData.lastPaymentDate)+(lp&&lp.sessions?` (${lp.sessions}회)`:''));
+        if(stuData.lastClassBase)h+=row('마지막 수업 예정일',md(stuData.lastClassBase));
+        if(stuData.makeupDue&&totalLeft>0)h+=row('이용 기한',md(stuData.makeupDue)+'까지',true);
+        if(!h)return '';
+        const soon=totalLeft>0&&stuData.makeupDueSoon&&!stuData.makeupDueExpired;
+        return `<div class="note" style="margin:-6px 0 10px;padding:9px 11px;border-radius:9px;border:1px solid ${soon?'var(--ochre)':'var(--line)'};background:${soon?'var(--ochre-tint)':'var(--card)'};font-size:13.5px">${h}${soon?'<div style="margin-top:4px;color:var(--ochre);font-weight:700">⏳ 이용 기한이 가까워졌어요. 남은 회차를 기한 안에 써주세요.</div>':''}</div>`;})()}
+      <div class="note" style="margin:-4px 2px 10px;color:var(--ink-soft)">이용 기한은 마지막 수업 예정일 + 4주예요. 못 오신 날의 회차는 그대로 남으니, 기한 안에 편한 날 오셔서 쓰시면 돼요.</div>
       ${borrowed>0?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;margin:-2px 0 12px;font-weight:700">⚠ 남은 회차보다 ${borrowed}회 먼저 예약하셨어요.</div>`:''}
       ${stuData.delayedUsage?`<div class="note" style="color:var(--ochre)">⏰ 정상 수업 종료일은 지났습니다. 남은 회차 수강 중입니다.</div>`:''}</div>
     <div class="stucard"><h3>다가오는 수업</h3>${upcomingRows||'<div class="note">이번주는 예정된 수업이 없어요.</div>'}
