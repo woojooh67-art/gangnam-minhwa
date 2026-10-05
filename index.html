@@ -922,6 +922,15 @@ function studioNotesSheet(){
   }
   draw();
 }
+/* 휴강 등록 시: 그날 정규 수업의 결석·미체크 기록만 정리하고, 실제로 온 기록(출석·지각·보강)은 남겨요.
+   온 사람이 아무도 없으면 수업 자체를 지워요. */
+function clearClosedSession(c,iso){
+  const ex=c.sessions.find(x=>x.iso===iso&&!x.temp);if(!ex)return;
+  let kept=0;
+  Object.keys(c.records).forEach(k=>{if(k.indexOf(ex.id+':')!==0)return;const v=c.records[k];
+    if(v==='present'||v==='late'||v==='makeup')kept++;else delete c.records[k];});
+  if(!kept)c.sessions=c.sessions.filter(x=>x.id!==ex.id);
+}
 function holidaySheet(){
   const t=todayISO();
   let mode='class';
@@ -982,11 +991,7 @@ function holidaySheet(){
             if(classWeekday(c)!==dow)return;
             if(!c.skippedDates)c.skippedDates=[];
             if(c.skippedDates.indexOf(iso)<0)c.skippedDates.push(iso);
-            const existing=c.sessions.find(s=>s.iso===iso);
-            if(existing){
-              c.sessions=c.sessions.filter(s=>s.id!==existing.id);
-              Object.keys(c.records).forEach(k=>{if(k.indexOf(existing.id+':')===0)delete c.records[k];});
-            }
+            clearClosedSession(c,iso);
             count++;
           });
         }
@@ -1006,14 +1011,14 @@ function publicHolidayBulkSheet(){
     const dow=new Date(iso+'T00:00:00').getDay();
     const cls=data.classes.filter(c=>!c.isTempContainer&&classWeekday(c)===dow&&(c.skippedDates||[]).indexOf(iso)<0);
     if(!cls.length)continue;
-    const recN=cls.reduce((n,c)=>{const se=c.sessions.find(x=>x.iso===iso);return n+(se?Object.keys(c.records).filter(k=>k.indexOf(se.id+':')===0).length:0);},0);
+    const recN=cls.reduce((n,c)=>{const se=c.sessions.find(x=>x.iso===iso&&!x.temp);return n+(se?Object.keys(c.records).filter(k=>k.indexOf(se.id+':')===0&&c.records[k]==='makeup').length:0);},0);
     items.push({iso,label,dow,cls,recN});
   }
   if(!items.length){toast('앞으로 1년 동안 수업 요일과 겹치는 공휴일이 없거나, 이미 모두 휴강으로 등록돼 있어요.');return;}
   oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>🇰🇷 공휴일 한 번에 등록</h3>
-    <div class="subt">앞으로 1년 동안의 공휴일 중 <b>수업 요일과 겹치는 날</b>만 모았어요. 모두 체크돼 있으니, <b>수업을 하실 날만 체크를 빼고</b> 등록하세요. 등록한 날은 해당 반만 휴강 처리돼서 회차가 차감되지 않고, 그날 임시 수업은 따로 열 수 있어요.</div>
+    <div class="subt">앞으로 1년 동안의 공휴일 중 <b>수업 요일과 겹치는 날</b>만 모았어요. 모두 체크돼 있으니, <b>수업을 하실 날만 체크를 빼고</b> 등록하세요. 등록한 날은 해당 반만 휴강 처리돼서 회차가 차감되지 않아요. 이미 있는 출석·보강 기록은 지워지지 않고, 휴강일에도 온 학생은 따로 체크할 수 있어요.</div>
     <div style="max-height:52vh;overflow:auto">
-      ${items.map((it,i)=>`<label class="chk" style="align-items:flex-start"><input type="checkbox" data-phi="${i}" checked> <span>${shortDate(it.iso)}(${DOW[it.dow]}) <b>${esc(it.label)}</b><br><small style="color:var(--ink-soft)">${it.cls.map(c=>esc(c.name)).join(', ')}${it.recN?` · <span style="color:var(--verm)">이미 기록·예약 ${it.recN}건 있음 (등록하면 지워져요)</span>`:''}</small></span></label>`).join('')}
+      ${items.map((it,i)=>`<label class="chk" style="align-items:flex-start"><input type="checkbox" data-phi="${i}" checked> <span>${shortDate(it.iso)}(${DOW[it.dow]}) <b>${esc(it.label)}</b><br><small style="color:var(--ink-soft)">${it.cls.map(c=>esc(c.name)).join(', ')}${it.recN?` · <span style="color:var(--verm)">보강 예약 ${it.recN}건 있음 (예약은 그대로 남아요)</span>`:''}</small></span></label>`).join('')}
     </div>
     <div class="actions" style="margin-top:12px"><button class="btn-ghost" id="phNo">돌아가기</button><button class="btn-danger" id="phOk">체크한 날 휴강 등록</button></div>
   </div></div>`;
@@ -1027,8 +1032,7 @@ function publicHolidayBulkSheet(){
       picked.forEach(it=>{it.cls.forEach(c=>{
         if(!c.skippedDates)c.skippedDates=[];
         if(c.skippedDates.indexOf(it.iso)<0)c.skippedDates.push(it.iso);
-        const ex=c.sessions.find(x=>x.iso===it.iso&&!x.temp);
-        if(ex){c.sessions=c.sessions.filter(x=>x.id!==ex.id);Object.keys(c.records).forEach(k=>{if(k.indexOf(ex.id+':')===0)delete c.records[k];});}
+        clearClosedSession(c,it.iso);
         count++;});});
       pushLog('admin',`(원장님) 공휴일 ${picked.length}일을 휴강으로 한 번에 등록했어요.`,todayISO());
       save();closeOverlay();render();toast(`공휴일 ${picked.length}일(${count}개 반 수업)을 휴강으로 등록했어요.`);
@@ -1373,7 +1377,7 @@ function scheduledLastClassDate(st){
   for(let i=0;i<730&&n<pl;i++){
     const iso=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());const dow=d.getDay();
     const hol=iso<t&&publicHolidayLabel(iso);
-    cls.forEach(c=>{if(n>=pl)return;if(classWeekday(c)!==dow)return;if(isClosedDay(c,iso))return;if(hol&&!came.has(c.id+'|'+iso))return;n++;last=iso;});
+    cls.forEach(c=>{if(n>=pl)return;if(classWeekday(c)!==dow)return;const cm=came.has(c.id+'|'+iso);if(isClosedDay(c,iso)&&!cm)return;if(hol&&!cm)return;n++;last=iso;});
     d.setDate(d.getDate()+1);
   }
   return last||addDays(base,(pl-1)*7);
@@ -1671,9 +1675,12 @@ function renderCheckCal(){
     if(skipped.indexOf(iso)>=0){
       activeSess[c.id]='__none__';renderCheck();
       oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>${shortDate(iso)} 휴강 처리됨</h3>
-        <div class="subt">다시 수업을 여실지, 휴강 표시만 지우고 그대로 둘지 고르세요. (다시 열면 오신 분만 체크하시면 되고, 안 오신 분은 결석 처리되지 않아요.)</div>
-        <div class="actions" style="flex-direction:column;gap:8px"><button class="btn-primary" id="reOpen" style="width:100%">다시 수업 열기</button><button class="btn-ghost" id="justClear" style="width:100%">휴강 표시만 지우기</button><button class="btn-ghost" id="skNo" style="width:100%">취소</button></div></div></div>`;
+        <div class="subt">휴강은 그대로 두고 그날 오신 분만 체크하시려면 첫 번째 버튼을 누르세요. 안 오신 분은 결석이 아니고 한 주 연장돼요.</div>
+        <div class="actions" style="flex-direction:column;gap:8px"><button class="btn-primary" id="keepOpen" style="width:100%">휴강 유지하고 온 학생만 체크</button><button class="btn-ghost" id="reOpen" style="width:100%">휴강 취소하고 정상 수업으로</button><button class="btn-ghost" id="justClear" style="width:100%">휴강 표시만 지우기</button><button class="btn-ghost" id="skNo" style="width:100%">취소</button></div></div></div>`;
       oroot().querySelector('#skNo').onclick=closeOverlay;
+      oroot().querySelector('#keepOpen').onclick=()=>{
+        const s={id:uid(),label:shortDate(iso)+' (휴강일)',iso};c.sessions.push(s);
+        activeSess[c.id]=s.id;save();closeOverlay();renderCheckCal();renderCheck();toast('휴강은 그대로예요. 오신 학생만 눌러서 체크해주세요.');};
       oroot().querySelector('#justClear').onclick=()=>{
         c.skippedDates=skipped.filter(x=>x!==iso);save();closeOverlay();renderCheck();toast('휴강 표시를 지웠어요.');};
       oroot().querySelector('#reOpen').onclick=()=>{
