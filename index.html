@@ -1854,7 +1854,7 @@ function renderCheck(){
         applyChange();
       }
     };
-    if(hasRec)row.querySelector('.clearrec').onclick=(e)=>{e.stopPropagation();logAdminClear(st,c,c.records[k],sess.iso);delete c.records[k];save();renderCheck();renderFee();renderReport();toast('이 날짜 기록을 지웠어요.');};
+    if(hasRec)row.querySelector('.clearrec').onclick=(e)=>{e.stopPropagation();if(!confirm(`${st.name}님의 ${shortDate(sess.iso)} '${LABEL[c.records[k]]||c.records[k]}' 기록을 지울까요?`))return;logAdminClear(st,c,c.records[k],sess.iso);delete c.records[k];save();renderCheck();renderFee();renderReport();toast('이 날짜 기록을 지웠어요.');};
     list.appendChild(row);});
   if(guests.length){
     const h=document.createElement('div');h.className='note';h.style.margin='14px 3px 6px';
@@ -2449,6 +2449,7 @@ function bindStuAdminCal(st,fullRedraw){
     const iso=el.dataset.mdel;const arr=stuAdminMarkMap[iso];if(!arr||!arr[0])return;
     const rec=arr[0];
     const c=classById(rec.classId);if(!c)return;
+    if(!confirm(`${st.name}님의 ${shortDate(iso)} '${LABEL[rec.mark]||rec.mark}' 기록을 지울까요?\n(${c.name})`))return;
     logAdminClear(st,c,rec.mark,iso);
     delete c.records[rec.sessionId+':'+st.id];
     save();renderFee();renderReport();fullRedraw();toast('기록을 지웠어요.');
@@ -2472,6 +2473,7 @@ function bindStuAdminCal(st,fullRedraw){
     oroot().querySelectorAll('[data-mdel2]').forEach(x=>x.onclick=()=>{
       const rec=arr[parseInt(x.dataset.mdel2)];
       const c=classById(rec.classId);if(!c)return;
+      if(!confirm(`${st.name}님의 ${shortDate(iso)} '${LABEL[rec.mark]||rec.mark}' 기록을 지울까요?\n(${c.name})`))return;
       logAdminClear(st,c,rec.mark,iso);
       delete c.records[rec.sessionId+':'+st.id];
       save();renderFee();renderReport();fullRedraw();toast('기록을 지웠어요.');
