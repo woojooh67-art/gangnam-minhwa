@@ -343,7 +343,7 @@ const KEY='ggmh_v22';
 const STATUSES=['present','absent','makeup','dropin'];
 const LABEL={present:'출석',late:'지각',absent:'결석',makeup:'보강',dropin:'하루권 출석',none:'재결제 필요'};
 const CLS={present:'st-present',late:'st-late',absent:'st-absent',makeup:'st-makeup',dropin:'st-dropin',none:'st-none'};
-let mem=null,data=null,tab='check',activeSess={},feeFilter='active',feeQuery='',feeScope='all',rosterScope='all',rosterQuery='',repMonth=null,repScope='month',checkCalYM={},checkMode='all',dropinOpen=false,stuMode='fee',logOlderOpen=false,upcomingMoreOpen=false;
+let mem=null,data=null,tab='check',activeSess={},feeFilter='active',feeQuery='',feeScope='all',rosterScope='all',rosterQuery='',repMonth=null,repScope='month',checkCalYM={},checkMode='all',dropinOpen=false,stuMode='fee',logOlderOpen=false,logAdminOpen=false,upcomingMoreOpen=false;
 let _lastPillClickTs=0;
 function pillClickGuard(){ // 연속 두 번 눌리는 실수 방지(0.5초 내 재클릭 무시)
   const now=Date.now();if(now-_lastPillClickTs<500)return false;_lastPillClickTs=now;return true;
@@ -1148,9 +1148,12 @@ function autoCreateUpcomingSessions(){
 function studentById(id){return data.students.find(s=>s.id===id);}
 function pushLog(type,text,relIso){
   if(!data.activityLog)data.activityLog=[];
-  data.activityLog.unshift({id:uid(),type,text,ts:Date.now(),seen:false,relIso:relIso||null});
-  if(data.activityLog.length>50)data.activityLog.length=50;
+  const isAdm=type==='admin'||/^\(원장님\)/.test(text||'');
+  data.activityLog.unshift({id:uid(),type,text,ts:Date.now(),seen:isAdm,relIso:relIso||null,adm:isAdm||undefined});
+  /* 학생 알림 60건 · 원장님 작업 기록 40건을 따로 보관 (작업 기록이 학생 알림을 밀어내지 않게) */
+  let ns=0,na=0;data.activityLog=data.activityLog.filter(e=>isAdminLog(e)?(++na<=40):(++ns<=60));
 }
+function isAdminLog(e){return !!e.adm||e.type==='admin'||/^\(원장님\)/.test(e.text||'');}
 function logAdminClear(st,c,mark,iso){
   if(!st||!mark)return;
   const label=LABEL[mark]||mark;
@@ -1164,7 +1167,7 @@ function logStatusChange(st,c,prevMark,newMark,iso){
   pushLog(prevMark==='makeup'?'makeup':'admin',`(원장님) ${esc(st.name)}님의 ${shortDate(iso)} '${prevLabel}'을(를) '${newLabel}'(으)로 바꿨어요${c?' ('+esc(c.name)+')':''}`,iso);
 }
 function logIsExpired(e){return !!(e.relIso&&e.relIso<todayISO());}
-function unseenLogCount(){return (data.activityLog||[]).filter(e=>!e.seen&&!logIsExpired(e)).length;}
+function unseenLogCount(){return (data.activityLog||[]).filter(e=>!e.seen&&!isAdminLog(e)&&!logIsExpired(e)).length;}
 function markLogSeen(){const n=(data.activityLog||[]).filter(e=>!e.seen).length;(data.activityLog||[]).forEach(e=>e.seen=true);save();render();if(n)toast(n+'건 확인했어요. 아래 \'확인한 알림\'에서 다시 볼 수 있어요.');}
 function updateReportBadge(){const b=document.getElementById('reportBadge');if(!b)return;
   const n=unseenLogCount();b.textContent=n>0?String(n):'';b.classList.toggle('hidden',n<=0);}
@@ -2175,17 +2178,19 @@ function renderReport(){try{renderActivityLog();}catch(e){console.error('activit
 }
 function renderActivityLog(){
   const logBox=document.getElementById('activityLog');if(!logBox)return;
-  const allLog=(data.activityLog||[]).slice(0,50);
+  const fullLog=data.activityLog||[];
+  const adminLog=fullLog.filter(isAdminLog);
+  const allLog=fullLog.filter(e=>!isAdminLog(e)).slice(0,60);
   const unseen=allLog.filter(e=>!e.seen);
   const seen=allLog.filter(e=>e.seen);
   const recentCut=Date.now()-7*86400000;
   const recentSeen=seen.filter(e=>e.ts>=recentCut||(e.relIso&&e.relIso>=todayISO()));
   const olderSeen=seen.filter(e=>recentSeen.indexOf(e)<0);
-  if(!allLog.length){logBox.innerHTML='<div class="note">아직 학생 활동이 없어요.</div>';return;}
+  if(!allLog.length&&!adminLog.length){logBox.innerHTML='<div class="note">아직 학생 활동이 없어요.</div>';return;}
   const rowHtml=e=>{
     const ago=Math.max(0,Math.round((Date.now()-e.ts)/60000));
     const when=ago<60?ago+'분 전':ago<1440?Math.round(ago/60)+'시간 전':Math.round(ago/1440)+'일 전';
-    const icon=e.type==='absent'?'🔺':e.type==='makeup'?'🔁':e.type==='admin'?'🗑':e.type==='selfcheck'?'🙋':'✓';
+    const icon=isAdminLog(e)?'🛠':e.type==='absent'?'🔺':e.type==='makeup'?'🔁':e.type==='selfcheck'?'🙋':'✓';
     const isCheckin=e.type==='selfcheck'&&!e.seen;
     const past=logIsExpired(e);
     return `<div class="hrow" style="${e.seen?'color:var(--ink-soft)':'font-weight:700'}${past?';opacity:.6':''}${isCheckin?';background:var(--jade-tint);border-radius:8px;padding:8px 10px;margin-bottom:4px':''}"><span>${icon} ${esc(e.text)}</span><span style="display:flex;align-items:center;gap:6px"><span style="color:var(--ink-soft);font-size:11px;white-space:nowrap">${when}</span><span data-logdel="${e.id}" style="color:var(--ink-soft);cursor:pointer;font-size:13px;padding:2px 4px" title="이 기록 지우기">✕</span></span></div>`;
@@ -2211,7 +2216,11 @@ function renderActivityLog(){
     if(logOlderOpen)html+=olderSeen.map(rowHtml).join('');
   }
   if(seen.length)html+='<div class="note" style="text-align:right;margin-top:4px"><span id="logClearAll" style="color:var(--verm);cursor:pointer">확인한 기록 지우기</span></div>';
+  if(adminLog.length){
+    html+=`<details id="adminLogBox" style="margin-top:12px;border-top:1px solid var(--line);padding-top:8px"${logAdminOpen?' open':''}><summary style="cursor:pointer;color:var(--ink-soft);font-weight:700;font-size:13px">🛠 원장님 작업 기록 (${adminLog.length})</summary><div style="margin-top:6px">${adminLog.map(e=>rowHtml({...e,seen:true})).join('')}</div></details>`;
+  }
   logBox.innerHTML=html;
+  const admBox=document.getElementById('adminLogBox');if(admBox)admBox.ontoggle=()=>{logAdminOpen=admBox.open;};
   const olderToggle=document.getElementById('logOlderToggle');
   if(olderToggle)olderToggle.onclick=()=>{logOlderOpen=!logOlderOpen;renderActivityLog();};
   logBox.querySelectorAll('[data-logdel]').forEach(el=>el.onclick=()=>{
@@ -2220,7 +2229,7 @@ function renderActivityLog(){
   });
   const clearAll=document.getElementById('logClearAll');
   if(clearAll)clearAll.onclick=()=>confirmSheet('확인한 알림 기록을 모두 지울까요? (아직 확인 안 한 새 알림은 남아요)',()=>{
-    data.activityLog=(data.activityLog||[]).filter(x=>!x.seen);save();closeOverlay();renderActivityLog();updateReportBadge();toast('지웠어요.');
+    data.activityLog=(data.activityLog||[]).filter(x=>!x.seen||isAdminLog(x));save();closeOverlay();renderActivityLog();updateReportBadge();toast('지웠어요.');
   },'지우기');
 }
 function showKpiList(kind){
