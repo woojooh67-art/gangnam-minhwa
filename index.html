@@ -229,7 +229,7 @@
       <button id="roleStudentBtn">학생</button>
     </div>
     <div id="loginFormBox"></div>
-    <button id="pwaInstallBtn" class="minibtn" style="display:none;width:100%;margin-top:14px;border-color:var(--jade);color:var(--jade-deep);font-weight:700">📲 앱으로 설치하기</button>
+    <button id="pwaInstallBtn" class="minibtn" style="display:none;width:100%;margin-top:14px;border-color:var(--jade);color:var(--jade-deep);font-weight:700">📲 바탕화면에 앱으로 설치하기</button>
     <button id="copyLinkBtn" class="minibtn" style="width:100%;margin-top:10px">🔗 이 앱 주소 복사하기</button>
     <button id="showQrBtn" class="minibtn" style="width:100%;margin-top:10px">📷 QR코드로 보여주기 (학생 초대용)</button>
     <div class="loginhint" id="loginHint">원장님 계정으로 로그인하세요.</div>
@@ -3426,6 +3426,46 @@ function calFloorMonth(regDateStr){
   const rm=regDateStr.slice(0,7);
   return rm>ARCHIVE_MIN?rm:ARCHIVE_MIN;
 }
+/* ---------- 홈 화면 설치 안내 (학생 화면·로그인 화면 공용) ---------- */
+function isStandaloneApp(){try{return window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;}catch(e){return false;}}
+function installEnv(){const ua=navigator.userAgent||'';
+  return {ios:/iPhone|iPad|iPod/i.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1),android:/Android/i.test(ua),
+    kakao:/KAKAOTALK/i.test(ua),inapp:/KAKAOTALK|NAVER\(inapp|Instagram|FBAN|FBAV|Line\//i.test(ua),samsung:/SamsungBrowser/i.test(ua)};}
+function openInChrome(){const url=location.href.split('#')[0];const e=installEnv();
+  if(e.kakao){location.href='kakaotalk://web/openExternal?url='+encodeURIComponent(url);return;}
+  if(e.android){location.href='intent://'+url.replace(/^https?:\/\//,'')+'#Intent;scheme=https;package=com.android.chrome;end';return;}
+  location.href=url;}
+function installHelpSheet(backFn){
+  const e=installEnv();const url=location.href.split('#')[0];let steps='';
+  if(e.inapp&&e.android)steps=`<div class="note" style="margin-bottom:10px">지금은 <b>카카오톡 안의 창</b>으로 열려 있어서 바로 설치가 안 돼요. 아래 버튼을 눌러 <b>크롬</b>으로 연 다음, 다시 이 화면의 설치 버튼을 눌러주세요.</div><button class="btn-primary" id="ihChrome" style="width:100%;margin-bottom:10px">🌐 크롬으로 열기</button>`;
+  else if(e.inapp&&e.ios)steps=`<div class="note">지금은 <b>카카오톡 안의 창</b>으로 열려 있어요.<br>① 오른쪽 아래 <b>⋯ 또는 공유 버튼</b> → <b>"Safari로 열기"</b><br>② 사파리 아래쪽 <b>공유 버튼(□↑)</b> → <b>"홈 화면에 추가"</b></div>`;
+  else if(e.ios)steps=`<div class="note">① 사파리 아래쪽 <b>공유 버튼(□↑)</b>을 누르세요.<br>② 목록을 조금 올려서 <b>"홈 화면에 추가"</b>를 누르세요.<br>③ 오른쪽 위 <b>"추가"</b>를 누르면 끝이에요.</div>`;
+  else if(e.android&&deferredInstallPrompt)steps=`<button class="btn-primary" id="ihInstall" style="width:100%;margin-bottom:10px">📲 지금 설치하기</button>`;
+  else if(e.android)steps=`<div class="note">① 크롬 오른쪽 위 <b>⋮ (점 세 개)</b>를 누르세요.<br>② <b>"홈 화면에 추가"</b> 또는 <b>"앱 설치"</b>를 누르세요.<br>③ <b>"설치"</b>를 누르면 바탕화면에 아이콘이 생겨요.</div>${e.samsung?'<div class="note" style="margin-top:6px">삼성 인터넷이라면 아래쪽 <b>≡ 메뉴 → "현재 페이지 추가" → "홈 화면"</b>을 누르세요.</div>':''}`;
+  else steps=`<div class="note">휴대폰에서 이 주소를 열면 바탕화면에 앱처럼 설치할 수 있어요.</div>`;
+  oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>📲 휴대폰 바탕화면에 설치하기</h3>
+    <div class="subt">한 번 설치해두면 다음부터 아이콘만 누르면 바로 열려요. 서두르실 필요 없이 천천히 따라 해보세요.</div>
+    ${steps}
+    <div class="note" style="margin-top:12px">주소: <span style="word-break:break-all;user-select:all">${esc(url)}</span></div>
+    <div class="actions" style="margin-top:12px"><button class="btn-ghost" id="ihCopy">🔗 주소 복사</button><button class="btn-ghost" id="ihClose">닫기</button></div></div></div>`;
+  const q=x=>oroot().querySelector(x);
+  q('#ihClose').onclick=()=>{closeOverlay();if(backFn)backFn();};
+  q('#ihCopy').onclick=async()=>{try{await navigator.clipboard.writeText(url);toast('주소를 복사했어요. 카톡·메모 등에 길게 눌러 붙여넣으세요.');}catch(err){prompt('아래 주소를 길게 눌러 복사하세요:',url);}};
+  if(q('#ihChrome'))q('#ihChrome').onclick=openInChrome;
+  if(q('#ihInstall'))q('#ihInstall').onclick=async()=>{const p=deferredInstallPrompt;if(!p)return;p.prompt();await p.userChoice;deferredInstallPrompt=null;closeOverlay();if(backFn)backFn();};
+}
+function installCardHTML(){
+  if(isStandaloneApp())return '';
+  try{if(localStorage.getItem('gmh_hide_install')==='1')return '';}catch(e){}
+  return `<div class="stucard" id="installCard" style="background:var(--jade-tint);border-color:var(--jade);padding:12px 14px">
+    <div style="display:flex;align-items:center;gap:10px"><div style="flex:1;font-size:13.5px;color:var(--ink)"><b>📲 바탕화면에 앱으로 설치</b><br><small style="color:var(--ink-soft)">다음부터 아이콘만 누르면 바로 열려요</small></div>
+    <button class="logoutbtn" id="installOpen" style="border-color:var(--jade);color:var(--jade-deep);font-weight:700">설치 방법</button></div>
+    <div style="text-align:right;margin-top:6px"><button class="minibtn" id="installHide" style="font-size:11.5px;padding:2px 8px;color:var(--ink-soft)">이미 설치했어요 · 숨기기</button></div></div>`;
+}
+function bindInstallCard(){
+  const o=document.getElementById('installOpen');if(o)o.onclick=()=>installHelpSheet();
+  const h=document.getElementById('installHide');if(h)h.onclick=()=>{try{localStorage.setItem('gmh_hide_install','1');}catch(e){}const c=document.getElementById('installCard');if(c)c.remove();};
+}
 function renderStudentApp(){
   const root=document.getElementById('studentApp');
   if(!stuData){root.innerHTML=`<div class="stuwrap"><div class="stucard"><h3>아직 준비된 정보가 없어요</h3>
@@ -3656,6 +3696,7 @@ function renderStudentApp(){
   root.innerHTML=`<div class="stuwrap">
     <div class="stutop"><div style="display:flex;align-items:center;gap:10px"><img src="${LOGO_URI}" style="width:52px;height:52px;border-radius:50%;flex:0 0 auto"><div><h2>${esc(stuData.name)}님</h2><small>${esc((stuData.classes||[]).filter(c=>c.official!==false).map(c=>c.name).join(' · '))}</small></div></div>
       <div style="display:flex;gap:6px"><button class="logoutbtn" id="stuRefresh" style="border-color:var(--jade);color:var(--jade-deep);font-weight:700" title="새로고침">🔄 새로고침</button><button class="logoutbtn" id="stuLogout">로그아웃</button></div></div>
+    ${installCardHTML()}
     ${(()=>{
       if(stuData.status==='paused'||stuData.status==='ended')return '';
       const isClassDayToday=(stuData.classes||[]).filter(c=>c.official!==false).some(c=>classWeekday(c)===new Date().getDay());
@@ -3707,6 +3748,7 @@ function renderStudentApp(){
     if(th)th.scrollIntoView({inline:'start',block:'nearest'});
   }
   document.getElementById('stuLogout').onclick=()=>confirmSheet2();
+  bindInstallCard();
   const dropinToggleEl=document.getElementById('dropinToggle');
   if(dropinToggleEl)dropinToggleEl.onclick=()=>{dropinOpen=!dropinOpen;renderStudentApp();};
   const upcomingMoreEl=document.getElementById('upcomingMoreToggle');
@@ -4018,24 +4060,17 @@ document.getElementById('showQrBtn').onclick=()=>{
     </div></div>`;
 };
 let deferredInstallPrompt=null;
-window.addEventListener('beforeinstallprompt',(e)=>{
-  e.preventDefault();
-  deferredInstallPrompt=e;
-  const btn=document.getElementById('pwaInstallBtn');
-  if(btn)btn.style.display='block';
-});
-const pwaBtn=document.getElementById('pwaInstallBtn');
-if(pwaBtn)pwaBtn.onclick=async()=>{
-  if(!deferredInstallPrompt)return;
-  deferredInstallPrompt.prompt();
-  await deferredInstallPrompt.userChoice;
-  deferredInstallPrompt=null;
-  pwaBtn.style.display='none';
-};
-window.addEventListener('appinstalled',()=>{
-  const btn=document.getElementById('pwaInstallBtn');
-  if(btn)btn.style.display='none';
-});
+  (function(){const btn=document.getElementById('pwaInstallBtn');const e=installEnv();
+    if(btn&&!isStandaloneApp()&&(e.android||e.ios))btn.style.display='block'; // 휴대폰이면 항상 보이게 (누르면 방법 안내)
+    if(btn)btn.onclick=()=>installHelpSheet();})();
+  window.addEventListener('beforeinstallprompt',(e)=>{
+    e.preventDefault();deferredInstallPrompt=e;
+    const btn=document.getElementById('pwaInstallBtn');if(btn&&!isStandaloneApp())btn.style.display='block';
+  });
+  window.addEventListener('appinstalled',()=>{
+    const btn=document.getElementById('pwaInstallBtn');if(btn)btn.style.display='none';
+    const c=document.getElementById('installCard');if(c)c.remove();
+  });
 </script>
 </body>
 </html>
