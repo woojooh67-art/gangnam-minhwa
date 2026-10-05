@@ -1132,7 +1132,7 @@ function paidSessions(st){
 }
 function isClosedDay(c,iso){return (data.studioClosedDates||[]).some(x=>x.iso===iso)||((c&&c.skippedDates)||[]).indexOf(iso)>=0;}
 function marksOf(st){const out=[];data.classes.forEach(c=>{
-  c.sessions.forEach(s=>{if(!s.temp&&isClosedDay(c,s.iso))return;const v=c.records[s.id+':'+st.id];if(v)out.push({iso:s.iso,label:s.label,cls:c.name,mark:v,classId:c.id,sessionId:s.id});});});
+  c.sessions.forEach(s=>{const v=c.records[s.id+':'+st.id];if(v==='absent'&&!s.temp&&isClosedDay(c,s.iso))return;if(v)out.push({iso:s.iso,label:s.label,cls:c.name,mark:v,classId:c.id,sessionId:s.id});});});
   return out.sort((a,b)=>a.iso<b.iso?1:-1);}
 function scopedMarks(st){const all=marksOf(st);return st.cycleStart?all.filter(m=>m.iso>=st.cycleStart):all;}
 function usedSessions(st){return scopedMarks(st).filter(m=>m.iso<=todayISO()&&(m.mark==='present'||m.mark==='late')).length;}
@@ -1198,7 +1198,8 @@ function cycleMapOf(st){
     .slice().sort((a,b)=>{const x=payEffDate(a),y=payEffDate(b);return x<y?-1:x>y?1:0;});
   const cum=[];let tot=0;pays.forEach(p=>{cum.push(tot);tot+=p.sessions;});
   const adj=st.remainAdjust||0;
-  const marks=scopedMarks(st).filter(m=>m.mark==='present'||m.mark==='late'||m.mark==='absent').sort((a,b)=>a.iso<b.iso?-1:a.iso>b.iso?1:0);
+  /* 회차 번호는 실제로 수업을 들은 날(출석·지각·보강)에 붙여요. 결석한 날은 회차가 남아 있으니 번호 없음 */
+  const marks=scopedMarks(st).filter(m=>m.mark==='present'||m.mark==='late'||m.mark==='makeup').sort((a,b)=>a.iso<b.iso?-1:a.iso>b.iso?1:0);
   const days={};
   marks.forEach((m,k)=>{
     const pos=k-adj;let e;
@@ -2064,7 +2065,7 @@ function renderReport(){try{renderActivityLog();}catch(e){console.error('activit
   const scopeLabel=repScope==='month'?'이번달':repScope==='3m'?'최근 3개월':'전체 누적';
   let rows='';
   studs.forEach(st=>{let p=0,a=0,m=0;
-    scopeSessions.forEach(s=>{if(!s.temp&&isClosedDay(c,s.iso))return;const v=c.records[s.id+':'+st.id];if(v==='present'||v==='late')p++;else if(v==='makeup')m++;else if(v==='absent')a++;});
+    scopeSessions.forEach(s=>{const v=c.records[s.id+':'+st.id];if(v==='absent'&&!s.temp&&isClosedDay(c,s.iso))return;if(v==='present'||v==='late')p++;else if(v==='makeup')m++;else if(v==='absent')a++;});
     rows+=`<tr><td>${esc(st.name)}</td><td class="c-p">${p}</td><td class="c-a">${a}</td><td class="c-m">${m}</td><td>${remainSessions(st)}</td></tr>`;});
   const scopeChips=[['month','이번달'],['3m','최근 3개월'],['all','전체 누적']]
     .map(o=>`<button class="fchip ${repScope===o[0]?'on':''}" data-rs="${o[0]}">${o[1]}</button>`).join('');
