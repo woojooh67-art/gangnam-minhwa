@@ -312,7 +312,7 @@
       <div id="revenueChart"></div>
       <div class="sechead">백업 · 설정</div>
       <div class="barbtns"><button class="alt" id="backupSave">💾 백업 저장</button><button id="rulesEdit">📜 화실 이용 규칙 관리</button></div>
-      <div class="barbtns"><button id="diagBtn">🔍 전체 잔여 회차 진단</button></div>
+      <div class="barbtns"><button id="diagBtn">🔍 전체 잔여 회차 진단</button><button id="formBlankBtn">📄 빈 수강신청서 인쇄</button></div>
       <div class="note">· 하루 1회 자동으로 클라우드에 백업돼요(최근 30일 보관). 앱 파일을 바꾸기 전처럼 중요한 작업 전에는 <b>💾 백업 저장</b>으로 내 컴퓨터에도 한 부 남겨두세요.</div>
       <details style="margin-top:14px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--card)">
         <summary style="cursor:pointer;font-weight:700;color:var(--ink-soft)">⚙ 관리 도구 <small style="font-weight:400">(평소엔 안 쓰셔도 돼요 · 엑셀 내보내기·복구용)</small></summary>
@@ -2594,7 +2594,7 @@ function studentSheet(st){const fee=feeFor(st);
       ${ml>0&&due?`<div class="note" style="background:${dueExpired(st)?'var(--verm-tint)':'var(--blue-tint)'};color:${dueExpired(st)?'var(--verm)':'var(--blue)'};padding:9px 11px;border-radius:9px;margin:-6px 0 12px">보강 기한 ${due}${dueExpired(st)?' · 기한이 지났습니다':''}</div>`:''}
       ${isDueSoonAdmin(st)?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;margin:-6px 0 12px">⏳ 이용 기한(${makeupDue(st)})이 2주 안으로 다가왔는데 아직 회차가 남아 있어요.</div>`:''}${expiredLeftover(st)?`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">⌛ 이용 기한(${makeupDue(st)})이 지나 남은 ${expiredLeftover(st)}회가 소멸됐어요. 학생 화면에도 안내돼요. 사정이 있으면 고급 설정의 "이용 기한 직접 지정"으로 늘려줄 수 있어요.</div>`:''}
       ${dropinPackActive(st)?`<div class="note" style="background:var(--purple-tint);color:var(--purple);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">💜 하루수업 선결제 ${dropinPackRemain(st)}/${st.dropinPack.total}회 남음 · ${st.dropinPack.expiry}까지</div>`:''}
-      <div class="barbtns"><button id="stMsg">📩 안내 문구 보내기</button></div>
+      <div class="barbtns"><button id="stMsg">📩 안내 문구 보내기</button><button id="stForm">📄 수강신청서 인쇄</button></div>
       <button class="minibtn" id="stToolsToggle" type="button" style="width:100%;margin:4px 0 12px;color:var(--ink-soft)">⚙ 고급 도구 — 지난 기록 정리 (평소엔 안 건드려도 돼요) ▾</button>
       <div id="stToolsBox" class="hidden">
         <div class="barbtns"><button id="stBulk" style="border-color:var(--ochre);color:var(--ochre)">📅 지난 결제 일괄 입력</button></div>
@@ -2726,6 +2726,7 @@ function studentSheet(st){const fee=feeFor(st);
     };
     q('#stBulk').onclick=()=>bulkSheet(st);
     q('#stClearHist').onclick=()=>studentClearHistSheet(st);
+    q('#stForm').onclick=()=>enrollFormSheet(st);
     q('#stMsg').onclick=()=>msgSheet(st);
     oroot().querySelectorAll('.hx').forEach(b=>b.onclick=()=>{delId=b.dataset.id;draw();});
     oroot().querySelectorAll('.hmemo').forEach(b=>b.onclick=()=>{
@@ -2815,6 +2816,107 @@ function bulkSheet(st){
 }
 
 /* ---------- 안내 문구 (학생에게 카톡으로 보내기) ---------- */
+
+/* ---------- 📄 수강신청서 인쇄 (정규반·연구반) ---------- */
+const DEFAULT_FORM_RULES={regular:"강남민화연구소는 소수 정예 예약제로 운영되며, 모든 수업은 지정 좌석 기반으로 진행됩니다. 보다 안정적인 수업 환경을 위해 아래 규정을 안내드립니다.\n\n[수업 운영]\n* 모든 수업은 사전 예약된 좌석 기준으로 운영됩니다.\n* 수강료는 매달 첫 수업 때 선불로 결제해 주세요. (계좌: 카카오뱅크 3333-35-7615961, 강남민화연구소 · 카드 가능)\n* 이용 기한: 결제일부터 수업 요일대로 센 '마지막 수업 예정일'에서 4주까지입니다. 결석 여부와 상관없이 이 날짜는 바뀌지 않으며, 결제일·마지막 수업 예정일·이용 기한은 앱에서 확인하실 수 있습니다.\n* 4주의 여유 기간은 갑작스러운 일정이나 건강 문제로 부득이하게 빠지신 분들을 위한 배려입니다. 정해진 요일에 꾸준히 나오시는 것이 작품 진도와 실력 향상에 가장 좋으니, 여유 기간은 꼭 필요할 때만 사용해 주세요. 기한 막바지에는 예약이 몰려 원하는 날짜에 자리가 없을 수 있습니다.\n* 수강료 이월 불가: 이용 기한이 지나면 남은 회차는 소멸되며 이월되지 않습니다. 단, 4주 이상 휴강하실 경우 쉬시기 전에 미리 말씀해 주시면 남은 회차가 기한 없이 보존됩니다. 이미 결석 처리된 회차는 나중에 휴강으로 소급되지 않습니다(질병·사고 예외 상의 가능).\n\n[선결제 할인 안내]\n정규반은 선결제 시 아래와 같은 할인 혜택이 적용됩니다.\n* 3개월 선결제 : 600,000원 → 540,000원 (10% 할인)\n* 6개월 선결제 : 1,200,000원 → 1,020,000원 (15% 할인)\n※ 선결제 회차권도 이용 기한은 같은 기준(마지막 수업 예정일 + 4주)이 적용됩니다.\n\n[결석 및 다른 날 수업]\n* 결석하신 회차는 그대로 남습니다. 이용 기한 안에 앱의 '다른 날 수업 예약'에서 앞으로 일주일 안의 날짜를 직접 골라 오시면 됩니다.\n* 수업 시작 이후 입실 시에도 수업은 정상적으로 진행되며, 개인 지각으로 인한 별도의 시간 연장은 제공되지 않습니다.\n\n[휴강 및 일정 변경]\n연구소 휴강일(강사 일정, 천재지변 등)과 공휴일(명절·국경일)은 회차가 차감되지 않으며, 그만큼 마지막 수업 예정일과 이용 기한이 뒤로 밀립니다. 공휴일에 수업이 열려도 참석하지 못하시면 결석이 아닙니다.\n\n[환불 및 중도 해지]\n수업 진행 중 중도 해지하실 경우, 이미 수강하신 회차는 정상가(회당 60,000원)로 정산하며, 남은 금액에서 환불 처리 수수료 10%를 공제하고 환불해 드립니다. 선결제 할인을 받으신 경우에도 같은 기준으로 정산합니다.\n\n[재료 · 도안 · 작품 관리]\n* 재료: 정규반 수업료에는 채색 재료비가 포함되어 있으며, 공용 재료(물감 등)는 연구소 내 사용이 원칙입니다. 붓·종이는 개별 구매입니다.\n* 포수: 화실에서 포수 시 포수비 10,000원이 별도로 발생합니다.\n* 도안 소유권: 제공되는 모든 도안의 소유권은 연구소에 있으며, 수업 종료 후 반드시 반납해 주셔야 합니다.\n* 출력 지원: 수업용 도안의 A4 사이즈 복사 및 출력까지는 연구소에서 무상 지원해 드립니다. A4 초과 대형 출력 또는 특수 인쇄가 필요한 경우, 외부 인쇄소를 이용해야 하며 관련 비용은 수강생 본인 부담입니다.\n* 작품 관리: 그림은 개인 소지를 원칙으로 하며, 화실 보관 중 분실·오염·훼손은 책임지지 않습니다.",research:"[수업 운영 및 시간]\n연구반 수업은 매주 목요일 고정석으로 운영됩니다.\n본 수업은 점심시간 1시간을 포함하여 총 6시간 기준이며, 집중도 높은 작품 활동을 위해 지정 좌석제로 운영됩니다.\n* 개인 지각으로 인한 별도의 시간 연장은 없습니다.\n수강료는 매달 첫 수업 때 선불로 결제해 주세요. (계좌: 카카오뱅크 3333-35-7615961, 강남민화연구소 · 카드 가능)\n이용 기한: 결제일부터 매주 목요일로 센 '마지막 수업 예정일'에서 4주까지이며, 결석해도 바뀌지 않습니다. (앱에서 확인 가능)\n4주 여유 기간은 부득이한 결석을 위한 배려입니다. 꾸준한 출석이 작품 완성에 가장 좋으니 꼭 필요할 때만 사용해 주세요. 기한 막바지에는 예약이 몰릴 수 있습니다.\n수강료 이월 불가: 이용 기한이 지나면 남은 회차는 소멸됩니다. 단, 4주 이상 휴강은 미리 말씀해 주시면 남은 회차가 보존됩니다(결석 처리된 회차는 소급 불가, 질병·사고는 상의 가능).\n\n[결석 및 다른 날 수업]\n결석하신 회차는 그대로 남아, 이용 기한 안에 앱의 '다른 날 수업 예약'에서 일주일 안의 날짜를 골라 오시면 됩니다. 다른 날 수업은 정규 타임(3시간) 내에서 지원됩니다.\n\n[휴강 및 일정 변경]\n연구소 휴강일(강사 일정, 천재지변 등)과 공휴일은 회차가 차감되지 않고 마지막 수업 예정일과 이용 기한이 그만큼 밀립니다. 공휴일 수업에 못 오셔도 결석이 아닙니다.\n\n[선결제 할인 안내]\n선결제 시 장기 등록 혜택이 적용됩니다.\n* 3개월(10%) : 750,000원 → 675,000원\n* 6개월(15%) : 1,500,000원 → 1,275,000원\n※ 선결제 회차권도 이용 기한은 같은 기준이 적용됩니다.\n\n[환불 및 중도 해지]\n중도 해지 시 이미 수강하신 회차는 정상가(회당 90,000원)로 정산하고, 남은 금액에서 환불 처리 수수료 10%를 공제하여 환불합니다. (선결제 할인 시에도 동일)\n\n[재료 · 도안 · 작품 관리]\n기본 재료: 정규반 수준의 기초 공용 재료(기본 분채 등)는 수업 내에서 제공됩니다. 붓·종이는 개별 구매입니다.\n특수 재료비 별도: 연구반 수업 중 발생하는 특수 안료(석채 등), 대형 판넬, 특수 비단 등 고가의 특수 재료는 수강료에 포함되지 않으며, 필요 시 수강생 본인이 개별 준비하거나 별도 비용이 발생할 수 있습니다.\n포수: 화실에서 포수 시 포수비 10,000원 별도입니다.\n도안 및 출력: 수업용 도안의 A4 사이즈 복사 및 출력까지는 연구소에서 지원합니다. A4를 초과하는 대형 출력은 외부 전문 인쇄소를 이용해야 하며 관련 비용은 수강생 본인 부담입니다. 모든 도안의 소유권은 연구소에 있으며, 수업 종료 후 반드시 반납해 주셔야 합니다.\n작품 관리: 그림은 개인 소지를 원칙으로 하며, 화실 보관 중 분실·오염·훼손은 책임지지 않습니다."};
+function formRules(type){return ((data.formRules||{})[type])||DEFAULT_FORM_RULES[type];}
+function formTypeOf(st){if(!st)return 'regular';return (st.classIds||[]).map(classById).some(c=>c&&c.type==='연구')?'research':'regular';}
+function formRulesHTML(txt){
+  return esc(txt).split('\n').map(l=>{const t=l.trim();if(!t)return '<div class="f-gap"></div>';
+    if(/^\[.*\]$/.test(t))return `<div class="f-h3">${t}</div>`;
+    if(t.startsWith('* '))return `<div class="f-li">• ${t.slice(2)}</div>`;
+    if(t.startsWith('※'))return `<div class="f-note">${t}</div>`;
+    return `<div class="f-p">${t}</div>`;}).join('');
+}
+function enrollFormHTML(st,type){
+  const nm=st?esc(st.name):'';const cls=st?(st.classIds||[]).map(classById).filter(Boolean):[];
+  const sched=cls.map(c=>esc(c.name)+(c.sched?' ('+esc(c.sched)+')':'')).join(', ');
+  const blank='<span class="f-blank"></span>';
+  const isR=type==='research';
+  const title=isR?'연구반(목요반) 수강 신청 및 동의서':'정규반 수강 신청 및 동의서';
+  const intro=isR?'본 신청서는 강남민화연구소 연구반(심화 과정)의 전문적인 수업 운영과 수강생의 심화 작품 완성을 지원하기 위해 작성되었습니다. 아래 내용을 충분히 확인하신 후 신청해 주시기 바랍니다.'
+    :'본 신청서는 강남민화연구소의 원활한 수업 운영과 수강생 맞춤형 커리큘럼 제공을 위해 작성됩니다. 아래 내용을 충분히 확인하신 후 신청해 주시기 바랍니다.';
+  const info=isR
+    ?`<div class="f-row">성명: ${nm?`<b>${nm}</b>`:blank}</div><div class="f-row">연락처: ${blank}</div>
+      <div class="f-row">신청 과정: ${st?'■':'□'} 연구반 (월 4회 / 매주 목요일)</div>
+      <div class="f-row">수업 시간: 11:00 ~ 17:00 (총 6시간 / 점심시간 1시간 포함) · 수업료: 월 ${won(cls.find(c=>c.type==='연구')?.fee||250000)}</div>
+      <div class="f-row">민화 경력: □ 1년 미만 □ 1~3년 □ 3년 이상 (약 ____ 년)</div>`
+    :`<div class="f-row">성명: ${nm?`<b>${nm}</b>`:blank}</div><div class="f-row">연락처: ${blank}</div>
+      <div class="f-row">신청 과정: ${st?'■':'□'} 정규반(주 1회 3시간 · 월 4회 : ${won(cls.find(c=>c.type==='정규')?.fee||200000)})</div>
+      <div class="f-row">민화 경험: □ 처음 □ 있음 (약 ____ 개월/년)</div>
+      <div class="f-row">희망 요일 / 시간: ${sched?`<b>${sched}</b>`:'(요일) ____________ / (시간) ____________'}</div>`;
+  const consent=isR
+    ?`<div class="f-h2">3. 개인정보 및 작품 활용 동의</div>
+      <div class="f-p">개인정보 수집 및 이용 동의 (수강 관리용) : □ 동의함 □ 동의하지 않음</div>
+      <div class="f-p">작품 및 수업 사진 활용 동의 (홍보 및 기록용) : □ 동의함 □ 동의하지 않음</div>
+      <div class="f-p" style="margin-top:10px">본인은 위 연구반 수강 규정 및 환불 정책을 충분히 이해하였으며, 이에 동의하여 수강을 신청합니다.</div>`
+    :`<div class="f-h2">3. 개인정보 수집 및 이용 동의</div>
+      <div class="f-p">강남민화연구소는 수강 관리, 공지사항 전달, 작품 기록 및 보관을 위해 위 개인정보를 수집·이용합니다. 또한 수업 중 촬영된 작품 및 수업 사진은 연구소의 기록 및 홍보(SNS, 웹사이트 등)에 활용될 수 있습니다.</div>
+      <div class="f-p">□ 동의함 □ 동의하지 않음</div>
+      <div class="f-p" style="margin-top:10px">본인은 위 안내된 수강 규정 및 환불 정책을 충분히 이해하였으며, 이에 동의하지 않을 경우 수강 신청이 어려울 수 있음을 확인합니다.</div>`;
+  const d=new Date();
+  return `<div class="f-page">
+    <div class="f-org">[강남민화연구소]</div><div class="f-title">${title}</div>
+    <div class="f-p">${intro}</div>
+    <div class="f-h2">1. 신청인 정보</div>${info}
+    <div class="f-h2">2. ${isR?'연구반 운영 규정':'수강 안내 및 운영 규정'} (필독)</div>
+    ${formRulesHTML(formRules(type))}
+    ${consent}
+    <div class="f-sign"><div>${d.getFullYear()}년 &nbsp;&nbsp;&nbsp; 월 &nbsp;&nbsp;&nbsp; 일</div>
+    <div style="margin-top:14px">신청인 성명 : ${nm?`<b>${nm}</b>`:'____________________'} &nbsp;&nbsp;(서명/인)</div></div>
+  </div>`;
+}
+function ensureFormCss(){
+  if(document.getElementById('formPrintCss'))return;
+  const st=document.createElement('style');st.id='formPrintCss';
+  st.textContent=`#printArea{display:none}
+  .f-page{font-family:'Noto Serif KR','Nanum Myeongjo',serif;color:#111;font-size:10.5pt;line-height:1.55;background:#fff}
+  .f-org{text-align:center;font-size:11pt;letter-spacing:.1em}.f-title{text-align:center;font-size:16pt;font-weight:700;margin:4px 0 12px}
+  .f-h2{font-weight:700;font-size:11.5pt;margin:12px 0 4px;border-bottom:1px solid #999;padding-bottom:2px}
+  .f-h3{font-weight:700;margin:8px 0 2px}.f-li{padding-left:1em;text-indent:-.8em}.f-note{font-size:10pt}.f-gap{height:2px}
+  .f-row{padding:5px 0;border-bottom:1px dotted #bbb}.f-blank{display:inline-block;min-width:180px;border-bottom:1px solid #333;height:1em}
+  .f-sign{text-align:right;margin-top:18px;font-size:11pt}
+  .f-preview{background:#fff;border:1px solid var(--line);border-radius:8px;padding:18px;max-height:62vh;overflow:auto}
+  @media print{
+    @page{size:A4;margin:14mm 15mm}
+    body>*:not(#printArea){display:none!important}
+    #printArea{display:block!important}
+    .f-page{font-size:10pt}
+  }`;
+  document.head.appendChild(st);
+}
+function enrollFormSheet(st,type){
+  ensureFormCss();
+  type=type||formTypeOf(st);
+  oroot().innerHTML=`<div class="overlay"><div class="sheet" style="max-width:720px"><button class="quickx" onclick="closeOverlay()">✕</button><h3>📄 수강신청서${st?' · '+esc(st.name):''}</h3>
+    <div class="filters" style="margin:0 0 10px"><button class="fchip ${type==='regular'?'on':''}" data-ft="regular">정규반</button><button class="fchip ${type==='research'?'on':''}" data-ft="research">연구반</button></div>
+    <div class="subt">${st?'학생 이름과 반이 미리 채워져 있어요. ':''}아래 <b>인쇄</b>를 누르면 A4로 출력되고, 인쇄 창에서 "PDF로 저장"도 고를 수 있어요.</div>
+    <div class="f-preview">${enrollFormHTML(st,type)}</div>
+    <div class="actions" style="margin-top:12px"><button class="btn-ghost" id="efEdit">✎ 문구 수정</button><button class="btn-ghost" id="efClose">닫기</button><button class="btn-primary" id="efPrint">🖨 인쇄</button></div></div></div>`;
+  const q=x=>oroot().querySelector(x);
+  oroot().querySelectorAll('[data-ft]').forEach(b=>b.onclick=()=>enrollFormSheet(st,b.dataset.ft));
+  q('#efClose').onclick=()=>{if(st)studentSheet(st);else closeOverlay();};
+  q('#efEdit').onclick=()=>formRulesEditSheet(type,()=>enrollFormSheet(st,type));
+  q('#efPrint').onclick=()=>{
+    let pa=document.getElementById('printArea');if(!pa){pa=document.createElement('div');pa.id='printArea';document.body.appendChild(pa);}
+    pa.innerHTML=enrollFormHTML(st,type);
+    setTimeout(()=>{window.print();},50);
+  };
+}
+function formRulesEditSheet(type,back){
+  const nm=type==='research'?'연구반':'정규반';
+  oroot().innerHTML=`<div class="overlay"><div class="sheet" style="max-width:720px"><button class="quickx" onclick="closeOverlay()">✕</button><h3>✎ ${nm} 신청서 · 운영 규정 문구</h3>
+    <div class="subt">신청서 "2. 운영 규정" 부분이에요. <b>[제목]</b>은 굵은 소제목, <b>* </b>로 시작하면 점(•) 목록, <b>※</b>는 작은 안내로 보여요. 빈 줄은 간격이 돼요.</div>
+    <textarea class="msg" id="frTa" style="min-height:46vh;font-size:13px">${esc(formRules(type))}</textarea>
+    <div class="actions"><button class="btn-ghost" id="frReset">처음 문구로</button><button class="btn-ghost" id="frNo">취소</button><button class="btn-primary" id="frOk">저장</button></div></div></div>`;
+  const q=x=>oroot().querySelector(x);
+  q('#frNo').onclick=()=>back?back():closeOverlay();
+  q('#frReset').onclick=()=>{q('#frTa').value=DEFAULT_FORM_RULES[type];};
+  q('#frOk').onclick=()=>{if(!data.formRules)data.formRules={};const v=q('#frTa').value.trim();
+    if(v===DEFAULT_FORM_RULES[type])delete data.formRules[type];else data.formRules[type]=v;
+    pushLog('admin',`(원장님) ${nm} 수강신청서 문구를 수정했어요.`,todayISO());save();toast('저장했어요.');back?back():closeOverlay();};
+}
+
 function msgSheet(st,withGuide){
   if(withGuide===undefined)withGuide=!st.uid; // 아직 앱에 로그인한 적 없는 학생은 사용법을 기본으로 포함
   const md=x=>{const q=(x||'').split('-');return q.length===3?`${+q[1]}월 ${+q[2]}일`:x;};
@@ -3375,6 +3477,7 @@ document.getElementById('feeExport').onclick=exportFeeCsv;
 document.getElementById('backupSave').onclick=backupSave;
 document.getElementById('backupLoad').onclick=backupLoad;
 document.getElementById('autoBackupList').onclick=openAutoBackups;
+document.getElementById('formBlankBtn').onclick=()=>enrollFormSheet(null,'regular');
 document.getElementById('mergeSelfChecks').onclick=()=>mergeAllStudentActivity(true);
 document.getElementById('markLogSeen').onclick=markLogSeen;
 document.getElementById('adminLogout').onclick=()=>confirmSheet('로그아웃 할까요?',()=>auth.signOut(),'로그아웃');
