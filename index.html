@@ -1360,10 +1360,10 @@ function calRowsHTML(startDow,dim,dayHTML){
   return html;
 }
 function aggregateDayStatus(iso,dow){
-  if((data.studioClosedDates||[]).some(x=>x.iso===iso))return 'skipped';
   const todayIso=todayISO();
   let anyTemp=false;
   data.classes.forEach(c=>{if(c.sessions.some(s=>s.iso===iso&&s.temp))anyTemp=true;});
+  if(!anyTemp&&(data.studioClosedDates||[]).some(x=>x.iso===iso))return 'skipped';
   const matches=data.classes.filter(c=>classWeekday(c)===dow);
   let anySkipped=false,anyHas=false;
   matches.forEach(c=>{
@@ -1501,8 +1501,8 @@ function renderCheckCal(){
     const treatAsHas=sessObj&&(iso<=todayIso||hasRecordForSess);
     const cls=['calcell'];
     const studioClosed=(data.studioClosedDates||[]).some(x=>x.iso===iso);
-    if(studioClosed)cls.push('skipped');
-    else if(sessObj&&sessObj.temp)cls.push('temp');
+    if(sessObj&&sessObj.temp)cls.push('temp');
+    else if(studioClosed)cls.push('skipped');
     else if(treatAsHas)cls.push('has');
     else if(skipped.indexOf(iso)>=0)cls.push('skipped');
     else if(cw!==null&&new Date(y,m-1,d).getDay()===cw)cls.push('expected');
@@ -1686,7 +1686,7 @@ function renderCheck(){
   const shortD=shortDate(sess.iso);
   title.textContent=sess.label;date.textContent=(sess.label===shortD)?'':(' · '+shortD);
   const studioClosed=(data.studioClosedDates||[]).find(x=>x.iso===sess.iso);
-  if(studioClosed){
+  if(studioClosed&&!sess.temp){
     tally.innerHTML='';
     list.innerHTML=`<div class="empty">🏖 <b>화실 전체 휴무일이에요</b> (${esc(studioClosed.label||'휴무')}).<br>이 날은 출석 체크가 필요 없어요.</div>`;
     return;
