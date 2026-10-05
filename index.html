@@ -1276,7 +1276,16 @@ function expectedPaceEnd(st){
   if(st.lastClassOverride)return st.lastClassOverride;
   const p=lastPayment(st);if(!p)return '';const pl=planOf(st,p);
   const base=(st.regDateOverride&&st.regDateOverride>payEffDate(p))?st.regDateOverride:payEffDate(p);
-  return addDays(base,pl*7);}
+  /* 실제 수업 요일(겸반 포함)대로 세고, 휴강·화실 휴무일은 건너뜀. 마지막 예정 수업 + 1주가 정상 진행 기간 */
+  const cls=(st.classIds||[]).map(classById).filter(x=>x&&classWeekday(x)!==null);
+  if(!cls.length)return addDays(base,pl*7);
+  const d=new Date(base+'T00:00:00');let n=0,last='';
+  for(let i=0;i<730&&n<pl;i++){
+    const iso=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());const dow=d.getDay();
+    cls.forEach(c=>{if(n>=pl)return;if(classWeekday(c)!==dow)return;if(isClosedDay(c,iso))return;n++;last=iso;});
+    d.setDate(d.getDate()+1);
+  }
+  return last?addDays(last,7):addDays(base,pl*7);}
 function projectedRepayDate(st){
   const rem=remainSessions(st);if(rem<=0)return null;
   const c=(st.classIds||[]).map(classById).find(x=>x&&classWeekday(x)!==null);
@@ -2442,7 +2451,7 @@ function studentSheet(st){const fee=feeFor(st);
         <button class="stpRA" data-d="1">＋</button>
         <button class="btn-primary" id="raApply" style="margin-left:8px;padding:9px 16px">적용</button></span></div>
       ${ml>0&&due?`<div class="note" style="background:${dueExpired(st)?'var(--verm-tint)':'var(--blue-tint)'};color:${dueExpired(st)?'var(--verm)':'var(--blue)'};padding:9px 11px;border-radius:9px;margin:-6px 0 12px">보강 기한 ${due}${dueExpired(st)?' · 기한이 지났습니다':''}</div>`:''}
-      ${isDelayedUsage(st)?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;margin:-6px 0 12px">⏰ 정상 진행 기간(주 1회 기준)이 지났지만 잔여 회차가 남아있어 계속 수강 중이에요.</div>`:''}
+      ${isDelayedUsage(st)?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;margin:-6px 0 12px">⏰ 정상 진행 기간(수업 요일·휴강일 반영)이 지났지만 잔여 회차가 남아있어 계속 수강 중이에요.</div>`:''}
       ${dropinPackActive(st)?`<div class="note" style="background:var(--purple-tint);color:var(--purple);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">💜 하루수업 선결제 ${dropinPackRemain(st)}/${st.dropinPack.total}회 남음 · ${st.dropinPack.expiry}까지</div>`:''}
       <div class="barbtns"><button id="stMsg">📩 안내 문구</button><button id="stGuide">📱 앱 사용법 안내</button></div>
       <button class="minibtn" id="stToolsToggle" type="button" style="width:100%;margin:4px 0 12px;color:var(--ink-soft)">⚙ 고급 도구 — 지난 기록 정리 (평소엔 안 건드려도 돼요) ▾</button>
