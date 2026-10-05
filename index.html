@@ -740,7 +740,15 @@ function editAbsenceReason(c,key,current,onDone){
 
 /* ---------- model ---------- */
 /* ---------- auto session by weekday ---------- */
-function classWeekday(c){if(!c.sched)return null;const ch=c.sched.trim()[0];
+/* 반 보관: 시간표·수업 일정에서 빼고 기록은 그대로 둠 */
+function archiveClass(c){
+  c.archived=true;const t=todayISO();
+  c.sessions=c.sessions.filter(se=>se.iso<=t||Object.keys(c.records).some(k=>k.indexOf(se.id+':')===0));
+  pushLog('admin',`(원장님) '${esc(c.name)}' 반을 보관했어요.`,t);
+  if(data.activeClass===c.id){const nxt=data.classes.find(x=>!x.isTempContainer&&!x.archived);if(nxt)data.activeClass=nxt.id;}
+}
+function isActiveStudent(x){return x.status!=='paused'&&x.status!=='ended';}
+function classWeekday(c){if(!c.sched||c.archived)return null;const ch=c.sched.trim()[0];
   const map={'일':0,'월':1,'화':2,'수':3,'목':4,'금':5,'토':6};return map[ch]!==undefined?map[ch]:null;}
 /* ---------- 시간표(요일×시간대 그리드) ---------- */
 function classRowSlots(c){
@@ -943,7 +951,7 @@ function holidaySheet(){
       <div class="fgroup"><label>시작일</label><input type="date" id="hFrom" class="selin" value="${t}"></div>
       <div class="fgroup"><label>종료일</label><input type="date" id="hTo" class="selin" value="${t}"></div>
       ${mode==='class'?`<div class="fgroup"><label>대상 반 <button class="minibtn" id="hAllChk" style="margin-left:6px;padding:2px 8px;font-size:11.5px">전체 선택/해제</button></label>
-        ${data.classes.filter(c=>!c.isTempContainer).map(c=>`<label class="chk"><input type="checkbox" data-hcid="${c.id}" checked> ${esc(c.name)} <small style="color:var(--ink-soft)">(${esc(c.sched||'')})</small></label>`).join('')}</div>`
+        ${data.classes.filter(c=>!c.isTempContainer&&!c.archived).map(c=>`<label class="chk"><input type="checkbox" data-hcid="${c.id}" checked> ${esc(c.name)} <small style="color:var(--ink-soft)">(${esc(c.sched||'')})</small></label>`).join('')}</div>`
       :`<div class="fgroup"><label>휴무 사유 (선택)</label><input id="hLabel" class="selin" placeholder="예: 명절 연휴, 개인 사정"></div>`}
       <div class="actions"><button class="btn-ghost" id="hNo">취소</button><button class="btn-primary" id="hList">📋 등록된 휴강일</button><button class="btn-danger" id="hOk">휴강 처리</button></div>
       <button class="btn-ghost" id="hAuto" style="width:100%;margin-top:10px;border-color:var(--verm);color:var(--verm);font-weight:700">🇰🇷 공휴일 한 번에 등록 (앞으로 1년)</button>
@@ -1420,18 +1428,19 @@ function renderClasses(){const sel=document.getElementById('classSel');sel.inner
     if(checkMode==='all')allOpt.selected=true;
     sel.appendChild(allOpt);
   }
-  const sortedClasses=data.classes.filter(x=>!x.isTempContainer).slice().sort((a,b)=>classSortKey(a)-classSortKey(b));
-  sortedClasses.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;if(!(tab==='check'&&(checkMode==='all'||checkMode==='paused'))&&c.id===data.activeClass)o.selected=true;sel.appendChild(o);});
+  const sortedClasses=data.classes.filter(x=>!x.isTempContainer).slice().sort((a,b)=>((a.archived?1:0)-(b.archived?1:0))||(classSortKey(a)-classSortKey(b)));
+  const clsLbl=c=>c.archived?'📦 '+c.name+' (보관)':c.name;
+  sortedClasses.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=clsLbl(c);if(!(tab==='check'&&(checkMode==='all'||checkMode==='paused'))&&c.id===data.activeClass)o.selected=true;sel.appendChild(o);});
   const repSel=document.getElementById('repClassSel');
   if(repSel){repSel.innerHTML='';
-    sortedClasses.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;if(c.id===data.activeClass)o.selected=true;repSel.appendChild(o);});
+    sortedClasses.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=clsLbl(c);if(c.id===data.activeClass)o.selected=true;repSel.appendChild(o);});
   }
   const checkSel=document.getElementById('checkClassSel');
   if(checkSel){checkSel.innerHTML='';
     const allOpt2=document.createElement('option');allOpt2.value='__all__';allOpt2.textContent='반 선택';
     if(checkMode==='all')allOpt2.selected=true;
     checkSel.appendChild(allOpt2);
-    sortedClasses.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;if(checkMode!=='all'&&checkMode!=='paused'&&c.id===data.activeClass)o.selected=true;checkSel.appendChild(o);});
+    sortedClasses.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=clsLbl(c);if(checkMode!=='all'&&checkMode!=='paused'&&c.id===data.activeClass)o.selected=true;checkSel.appendChild(o);});
     const tcSel=data.classes.find(x=>x.isTempContainer);
     if(tcSel&&(tcSel.sessions||[]).length){const o=document.createElement('option');o.value=tcSel.id;o.textContent='🆕 임시수업';if(checkMode!=='all'&&checkMode!=='paused'&&tcSel.id===data.activeClass)o.selected=true;checkSel.appendChild(o);}
   }
@@ -2868,7 +2877,7 @@ function editStudent(st){
       <option value="ended"${st.status==='ended'?' selected':''}>종료 (그만둠 · 기록은 보존)</option></select></div>
     <div class="fgroup"><label>특이사항 메모 <small style="color:var(--ink-soft)">(연락처와 별개, 자유롭게)</small></label><input id="esNotes" class="selin" value="${esc(st.notes||'')}" placeholder="예: 2/6 12회차 선결제 이후 휴강, 4/10 재등록"></div>
     <div class="fgroup"><label>수강 반 (여러 반 겸용 가능)</label>
-      ${data.classes.filter(c=>!c.isTempContainer).map(c=>`<label class="chk"><input type="checkbox" data-cid="${c.id}" ${(st.classIds||[]).indexOf(c.id)>=0?'checked':''}> ${esc(c.name)}</label>`).join('')}</div>
+      ${data.classes.filter(c=>!c.isTempContainer&&(!c.archived||(st.classIds||[]).indexOf(c.id)>=0)).map(c=>`<label class="chk"><input type="checkbox" data-cid="${c.id}" ${(st.classIds||[]).indexOf(c.id)>=0?'checked':''}> ${esc(c.name)}</label>`).join('')}</div>
     <button class="minibtn" id="esAdvToggle" type="button" style="width:100%;margin:4px 0 12px;color:var(--ink-soft)">⚙ 고급 설정 — 이용 기한·회차·반 이동 예외 처리 ${hasAdvValues?'(설정된 값 있음) ':''}▾</button>
     <div id="esAdvBox" class="hidden">
       <div class="fgroup"><button class="minibtn" id="esMoveClass" style="color:var(--blue)">🔀 반 이동 (예전 반 기록 정리하러 가기)</button></div>
@@ -2953,6 +2962,7 @@ function editStudent(st){
     if(st.status!=='paused'&&newStat==='paused')st.pausedSince=todayISO();
     if(st.status==='paused'&&newStat!=='paused')delete st.pausedSince;
     st.status=newStat;st.extend=Math.max(0,parseInt(q('#esExt').value)||0);st.lastClassOverride=q('#esLastClass').value||'';st.makeupDueOverride=q('#esDueOverride').value||'';st.regDateOverride=q('#esRegDate').value||'';st.memo=q('#esMemo').value.trim();st.notes=q('#esNotes').value.trim();
+    const prevCids=(st.classIds||[]).slice();
     const cids=[...oroot().querySelectorAll('input[data-cid]:checked')].map(x=>x.dataset.cid);
     if(!cids.length&&!nowPaused){toast('최소 한 개 반을 선택하세요. (휴강중·종료 상태면 반 없이도 저장 가능해요)');return;}
     st.classIds=cids;
@@ -2962,7 +2972,19 @@ function editStudent(st){
       data.classes.forEach(c=>c.sessions.forEach(s=>{const k=s.id+':'+st.id;
         if(s.iso>=t&&c.records[k]!==undefined){delete c.records[k];cleared++;}}));}
     save();closeOverlay();render();
-    toast(cleared?`휴강 처리 · 오늘 이후 ${cleared}건 출석기록 정리`:'저장되었습니다.');};
+    toast(cleared?`휴강 처리 · 오늘 이후 ${cleared}건 출석기록 정리`:'저장되었습니다.');
+    /* 휴강·종료로 바뀌어 반에 남은 수강생이 없으면 → 반 보관을 물어봄 / 복귀했는데 반이 보관 중이면 → 다시 열기를 물어봄 */
+    const myCls=[...new Set([...prevCids,...cids])].map(classById).filter(c=>c&&!c.isTempContainer);
+    if(!wasPaused&&nowPaused){
+      const empty=myCls.filter(c=>!c.archived&&!data.students.some(x=>x.id!==st.id&&isActiveStudent(x)&&(x.classIds||[]).indexOf(c.id)>=0));
+      if(empty.length)setTimeout(()=>confirmSheet(`${esc(st.name)}님이 ${newStat==='ended'?'종료':'휴강'}되면서 <b>${empty.map(c=>esc(c.name)).join(', ')}</b>에 다니는 수강생이 없어요.<br><br>이 반을 <b>보관</b>할까요? 시간표와 수업 일정에서는 빠지고, 출석 기록과 잔여 회차는 그대로 남아요. 나중에 학생이 다시 오면 언제든 다시 열 수 있어요.`,()=>{
+        empty.forEach(archiveClass);save();closeOverlay();render();toast('반을 보관했어요. 기록은 그대로 남아 있어요.');},'보관하기'),350);
+    }
+    if(wasPaused&&!nowPaused){
+      const arch=cids.map(classById).filter(c=>c&&c.archived);
+      if(arch.length)setTimeout(()=>confirmSheet(`${esc(st.name)}님이 다니는 <b>${arch.map(c=>esc(c.name)).join(', ')}</b>은(는) 지금 보관된 반이에요.<br>다시 열까요?`,()=>{
+        arch.forEach(c=>{delete c.archived;pushLog('admin',`(원장님) '${esc(c.name)}' 반을 다시 열었어요.`,todayISO());});save();closeOverlay();render();toast('반을 다시 열었어요.');},'다시 열기'),350);
+    }};
   q('#esDel').onclick=()=>confirmSheet(`'${esc(st.name)}' 학생을 <b>완전히 삭제</b>할까요?<br>출석·결제·수납 기록이 모두 사라지고 되돌릴 수 없습니다.<br><br>그만둔 학생이라면 삭제 대신 <b>상태를 '종료'</b>로 바꾸세요. 기록이 보존됩니다.`,async()=>{
     await releaseStudentLogin(st);
     data.students=data.students.filter(x=>x.id!==st.id);save();closeOverlay();render();toast('삭제되었습니다.');});}
@@ -3055,11 +3077,22 @@ function editClass(){const c=curClass();oroot().innerHTML=`<div class="overlay">
   <div class="fgroup"><label>반 이름</label><input id="ecName" class="selin" value="${esc(c.name)}"></div>
   <div class="fgroup"><label>요일·시간</label><input id="ecSched" class="selin" value="${esc(c.sched||'')}"></div>
   <div class="fgroup"><label>월요금(4회, 원)</label><input id="ecFee" type="number" class="selin" value="${c.fee}"></div>
-  <div class="actions"><button class="btn-danger" id="ecDel">반 삭제</button><button class="btn-ghost" id="ecNo">취소</button><button class="btn-primary" id="ecOk">저장</button></div></div></div>`;
+  <div class="fgroup" style="background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px">${c.archived
+      ?'<div class="note" style="margin:0 0 8px">📦 지금 <b>보관된 반</b>이에요. 수업 일정·시간표에는 안 나오고 출석 기록만 남아 있어요.</div><button class="btn-primary" id="ecArch" style="width:100%">다시 열기 (수업 재개)</button>'
+      :'<div class="note" style="margin:0 0 8px">수업이 없어진 반은 삭제하지 말고 <b>보관</b>하세요. 시간표와 수업 일정에서는 빠지고, 학생들 출석 기록과 잔여 회차는 그대로 남아요.</div><button class="btn-ghost" id="ecArch" style="width:100%;border-color:var(--ochre);color:var(--ochre);font-weight:700">📦 반 보관 (수업 중단)</button>'}</div>
+    <div class="actions"><button class="btn-danger" id="ecDel">반 삭제</button><button class="btn-ghost" id="ecNo">취소</button><button class="btn-primary" id="ecOk">저장</button></div></div></div>`;
+  oroot().querySelector('#ecArch').onclick=()=>{
+    if(c.archived){delete c.archived;pushLog('admin',`(원장님) '${esc(c.name)}' 반을 다시 열었어요.`,todayISO());save();closeOverlay();render();toast('반을 다시 열었어요.');return;}
+    const act=data.students.filter(x=>x.status!=='ended'&&x.status!=='paused'&&(x.classIds||[]).indexOf(c.id)>=0);
+    confirmSheet(`'${esc(c.name)}' 반을 보관할까요?<br>시간표와 수업 일정에서 빠지고, 출석 기록은 그대로 남아요. 언제든 다시 열 수 있어요.`+(act.length?`<br><b style="color:var(--ochre)">지금 이 반에 등록된 수강생: ${act.map(x=>esc(x.name)).join(', ')}</b><br>이 학생들은 학생 정보에서 다른 반으로 옮겨주세요.`:''),()=>{
+      archiveClass(c);
+      save();closeOverlay();render();toast('반을 보관했어요. 기록은 그대로 남아 있어요.');},'보관하기');
+  };
   const q=s=>oroot().querySelector(s);q('#ecNo').onclick=closeOverlay;
   q('#ecOk').onclick=()=>{c.name=q('#ecName').value.trim()||c.name;c.sched=q('#ecSched').value.trim();c.fee=parseInt(q('#ecFee').value)||c.fee;save();closeOverlay();render();toast('저장되었습니다.');};
   q('#ecDel').onclick=()=>{if(data.classes.length<=1){toast('마지막 반은 삭제할 수 없어요.');return;}
     const nRec=Object.keys(c.records||{}).length;
+    if(nRec){confirmSheet(`'${esc(c.name)}' 반에는 출석 기록이 ${nRec}건 있어요.<br>삭제하면 이 기록이 모두 사라져 학생들 잔여 회차가 틀어져요.<br><b>삭제 대신 "📦 반 보관"을 써주세요.</b>`,()=>editClass(),'돌아가기');return;}
     confirmSheet(`'${esc(c.name)}' 반을 삭제할까요?<br>학생은 이 반에서 제외됩니다.`+(nRec?`<br><b style="color:var(--verm)">⚠ 이 반에 출석 기록 ${nRec}건이 있어요.</b> 같이 지워져서 학생들 잔여 회차가 틀어질 수 있어요. 삭제 전에 [기록] 탭에서 백업해 두세요.`:'<br>출석 기록이 없어서 지워도 영향이 없어요.'),()=>{
       data.students.forEach(s=>{s.classIds=(s.classIds||[]).filter(x=>x!==c.id);});
       data.classes=data.classes.filter(x=>x.id!==c.id);data.activeClass=data.classes[0].id;save();closeOverlay();render();toast('반이 삭제되었습니다.');});};}
