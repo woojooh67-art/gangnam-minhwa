@@ -1214,7 +1214,7 @@ function paidSessions(st){
 }
 function isClosedDay(c,iso){return (data.studioClosedDates||[]).some(x=>x.iso===iso)||((c&&c.skippedDates)||[]).indexOf(iso)>=0;}
 function marksOf(st){const out=[];data.classes.forEach(c=>{
-  c.sessions.forEach(s=>{const v=c.records[s.id+':'+st.id];if(v==='absent'&&!s.temp&&isClosedDay(c,s.iso))return;if(v)out.push({iso:s.iso,label:s.label,cls:c.name,mark:v,classId:c.id,sessionId:s.id});});});
+  c.sessions.forEach(s=>{const v=c.records[s.id+':'+st.id];if(v==='absent'&&!s.temp&&(isClosedDay(c,s.iso)||publicHolidayLabel(s.iso)))return;if(v)out.push({iso:s.iso,label:s.label,cls:c.name,mark:v,classId:c.id,sessionId:s.id});});});
   return out.sort((a,b)=>a.iso<b.iso?1:-1);}
 function scopedMarks(st){const all=marksOf(st);return st.cycleStart?all.filter(m=>m.iso>=st.cycleStart):all;}
 function usedSessions(st){return scopedMarks(st).filter(m=>m.iso<=todayISO()&&(m.mark==='present'||m.mark==='late')).length;}
@@ -1366,10 +1366,14 @@ function scheduledLastClassDate(st){
   const base=(st.regDateOverride&&st.regDateOverride>payEffDate(p))?st.regDateOverride:payEffDate(p);
   const cls=(st.classIds||[]).map(classById).filter(x=>x&&classWeekday(x)!==null);
   if(!cls.length)return addDays(base,(pl-1)*7);
+  /* 공휴일에 수업을 열었어도, 그날 안 온 학생은 그 주를 세지 않고 한 주 연장 (지난 날짜만 판단, 앞으로의 공휴일은 오는 걸로 가정) */
+  const t=todayISO();
+  const came=new Set(marksOf(st).filter(m=>m.mark==='present'||m.mark==='late'||m.mark==='makeup').map(m=>m.classId+'|'+m.iso));
   const d=new Date(base+'T00:00:00');let n=0,last='';
   for(let i=0;i<730&&n<pl;i++){
     const iso=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());const dow=d.getDay();
-    cls.forEach(c=>{if(n>=pl)return;if(classWeekday(c)!==dow)return;if(isClosedDay(c,iso))return;n++;last=iso;});
+    const hol=iso<t&&publicHolidayLabel(iso);
+    cls.forEach(c=>{if(n>=pl)return;if(classWeekday(c)!==dow)return;if(isClosedDay(c,iso))return;if(hol&&!came.has(c.id+'|'+iso))return;n++;last=iso;});
     d.setDate(d.getDate()+1);
   }
   return last||addDays(base,(pl-1)*7);
@@ -2149,7 +2153,7 @@ function renderReport(){try{renderActivityLog();}catch(e){console.error('activit
   const scopeLabel=repScope==='month'?'이번달':repScope==='3m'?'최근 3개월':'전체 누적';
   let rows='';
   studs.forEach(st=>{let p=0,a=0,m=0;
-    scopeSessions.forEach(s=>{const v=c.records[s.id+':'+st.id];if(v==='absent'&&!s.temp&&isClosedDay(c,s.iso))return;if(v==='present'||v==='late')p++;else if(v==='makeup')m++;else if(v==='absent')a++;});
+    scopeSessions.forEach(s=>{const v=c.records[s.id+':'+st.id];if(v==='absent'&&!s.temp&&(isClosedDay(c,s.iso)||publicHolidayLabel(s.iso)))return;if(v==='present'||v==='late')p++;else if(v==='makeup')m++;else if(v==='absent')a++;});
     rows+=`<tr><td>${esc(st.name)}</td><td class="c-p">${p}</td><td class="c-a">${a}</td><td class="c-m">${m}</td><td>${remainSessions(st)}</td></tr>`;});
   const scopeChips=[['month','이번달'],['3m','최근 3개월'],['all','전체 누적']]
     .map(o=>`<button class="fchip ${repScope===o[0]?'on':''}" data-rs="${o[0]}">${o[1]}</button>`).join('');
