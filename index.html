@@ -1267,6 +1267,8 @@ function renderClasses(){const sel=document.getElementById('classSel');sel.inner
     if(checkMode==='all')allOpt2.selected=true;
     checkSel.appendChild(allOpt2);
     sortedClasses.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;if(checkMode!=='all'&&checkMode!=='paused'&&c.id===data.activeClass)o.selected=true;checkSel.appendChild(o);});
+    const tcSel=data.classes.find(x=>x.isTempContainer);
+    if(tcSel&&(tcSel.sessions||[]).length){const o=document.createElement('option');o.value=tcSel.id;o.textContent='🆕 임시수업';if(checkMode!=='all'&&checkMode!=='paused'&&tcSel.id===data.activeClass)o.selected=true;checkSel.appendChild(o);}
   }
   const meta=document.getElementById('classMeta');
   if(tab==='check'&&checkMode==='all'){meta.textContent='전체보기 · 모든 반이 한 달력에 표시돼요';return;}
@@ -1463,6 +1465,31 @@ function renderCheckCal(){
   box.querySelectorAll('.calcell[data-iso]').forEach(cell=>cell.onclick=()=>{
     const iso=cell.dataset.iso;
     const sameDay=c.sessions.filter(s=>s.iso===iso);
+    const others=[];
+    data.classes.forEach(x=>{if(x.id===c.id)return;(x.sessions||[]).forEach(s=>{if(s.iso===iso)others.push({cid:x.id,sid:s.id,name:x.isTempContainer?(s.label||'임시수업'):x.name,temp:!!x.isTempContainer});});});
+    const cellDow=new Date(iso+'T00:00:00').getDay();
+    if(others.length&&(sameDay.length||(cw!==null&&cellDow===cw)||(c.isTempContainer))){
+      const ownRows=sameDay.length
+        ?sameDay.map(x=>`<div class="srow" style="margin-bottom:8px;cursor:pointer" data-own="${x.id}"><span class="nm">${esc(c.isTempContainer?(x.label||'임시수업'):c.name+(sameDay.length>1?' · '+x.label:''))} <small style="color:var(--ink-soft)">(지금 보는 반)</small></span><span class="pill" style="background:var(--jade-tint);color:var(--jade-deep)">보기</span></div>`).join('')
+        :(cw!==null&&cellDow===cw?`<div class="srow" style="margin-bottom:8px;cursor:pointer" data-own="__new__"><span class="nm">${esc(c.name)} <small style="color:var(--ink-soft)">(지금 보는 반 · 회차 없음)</small></span><span class="pill" style="background:var(--jade-tint);color:var(--jade-deep)">선택</span></div>`:'');
+      const otherRows=others.map(o=>`<div class="srow" style="margin-bottom:8px;cursor:pointer${o.temp?';border-color:var(--blue)':''}" data-oc="${o.cid}" data-os="${o.sid}"><span class="nm">${esc(o.name)}</span><span class="pill" style="${o.temp?'background:var(--blue-tint,#e6f0fa);color:var(--blue)':'background:var(--jade-tint);color:var(--jade-deep)'}">이동</span></div>`).join('');
+      oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>${shortDate(iso)} · 어느 수업이에요?</h3>
+        ${ownRows}${otherRows}
+        <div class="actions" style="margin-top:10px"><button class="btn-ghost" onclick="closeOverlay()" style="flex:1">취소</button></div></div></div>`;
+      oroot().querySelectorAll('[data-own]').forEach(r=>r.onclick=()=>{
+        closeOverlay();
+        if(r.dataset.own==='__new__'){others.length=0;handleOwnCell(iso);return;}
+        activeSess[c.id]=r.dataset.own;renderCheckCal();renderCheck();});
+      oroot().querySelectorAll('[data-oc]').forEach(r=>r.onclick=()=>{
+        closeOverlay();const cid=r.dataset.oc;
+        activeSess[cid]=r.dataset.os;const [ty,tm]=iso.split('-').map(Number);checkCalYM[cid]={y:ty,m:tm};
+        data.activeClass=cid;checkMode='single';save();render();});
+      return;
+    }
+    handleOwnCell(iso);
+  });
+  function handleOwnCell(iso){
+    const sameDay=c.sessions.filter(s=>s.iso===iso);
     if(sameDay.length>1){
       oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>${shortDate(iso)} · 어느 수업이에요?</h3>
         ${sameDay.map(x=>`<div class="srow" style="margin-bottom:8px;cursor:pointer" data-ps="${x.id}"><span class="nm">${esc(x.label)}</span><span class="pill" style="background:var(--jade-tint);color:var(--jade-deep)">보기</span></div>`).join('')}
@@ -1526,7 +1553,7 @@ function renderCheckCal(){
     const s={id:uid(),label:shortDate(iso),iso};c.sessions.push(s);
     if(iso===todayISO())activeIn(c.id).forEach(st=>{c.records[s.id+':'+st.id]='present';});
     activeSess[c.id]=s.id;save();renderCheck();toast('회차를 만들었어요.');
-  });
+  }
 }
 function renderCheck(){
   const toggleBtn=document.getElementById('checkAllToggle');
