@@ -358,10 +358,51 @@ const KR_LUNAR_HOLIDAYS={
   '2026-02-16':'설날 연휴','2026-02-17':'설날','2026-02-18':'설날 연휴',
   '2026-09-24':'추석 연휴','2026-09-25':'추석','2026-09-26':'추석 연휴'
 };
+/* 공휴일 자동 계산: 양력 공휴일 + 음력(설날·부처님오신날·추석)은 브라우저의 한국 음력(단기) 달력으로 매년 자동 계산,
+   대체공휴일 규칙도 적용. 음력 계산이 안 되는 기기에서는 위 표(KR_LUNAR_HOLIDAYS)로 대신해요. */
+const _krHolCache={};
+function _isoOf(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function krHolidaysOfYear(y){
+  if(_krHolCache[y])return _krHolCache[y];
+  const H={};
+  Object.entries(KR_FIXED_HOLIDAYS).forEach(([md,l])=>{H[y+'-'+md]=l;});
+  let lunarOk=false;const lunarDays={};
+  try{
+    const f=new Intl.DateTimeFormat('ko-KR-u-ca-dangi',{month:'numeric',day:'numeric',timeZone:'Asia/Seoul'});
+    const d=new Date(y,0,1,12);
+    while(d.getFullYear()===y){
+      const pp=f.formatToParts(d);const m=(pp.find(x=>x.type==='month')||{}).value,dd=(pp.find(x=>x.type==='day')||{}).value;
+      if(m==='1'&&dd==='1')lunarDays.seol=_isoOf(d);
+      if(m==='4'&&dd==='8')lunarDays.buddha=_isoOf(d);
+      if(m==='8'&&dd==='15')lunarDays.chuseok=_isoOf(d);
+      d.setDate(d.getDate()+1);
+    }
+    lunarOk=!!(lunarDays.seol&&lunarDays.chuseok);
+  }catch(e){lunarOk=false;}
+  if(!lunarOk){
+    Object.entries(KR_LUNAR_HOLIDAYS).forEach(([iso,l])=>{if(iso.startsWith(y+'-'))H[iso]=l;});
+    return (_krHolCache[y]=H);
+  }
+  // 설날·추석 연휴(전날·당일·다음날)
+  const block=(center,name)=>{const days=[addDays(center,-1),center,addDays(center,1)];
+    let needSub=false;
+    days.forEach((iso,i)=>{if(new Date(iso+'T00:00:00').getDay()===0||H[iso])needSub=true;H[iso]=i===1?name:name+' 연휴';});
+    if(needSub){let c=addDays(center,2);while(H[c]||new Date(c+'T00:00:00').getDay()===0)c=addDays(c,1);H[c]=name+' 대체공휴일';}};
+  if(lunarDays.buddha)H[lunarDays.buddha]=H[lunarDays.buddha]?H[lunarDays.buddha]+'·부처님오신날':'부처님오신날';
+  block(lunarDays.seol,'설날');block(lunarDays.chuseok,'추석');
+  // 주말·다른 공휴일과 겹치면 대체공휴일 (삼일절·어린이날·부처님오신날·광복절·개천절·한글날·성탄절)
+  const subTargets=[...new Set([y+'-03-01',y+'-05-05',y+'-08-15',y+'-10-03',y+'-10-09',y+'-12-25'].concat(lunarDays.buddha?[lunarDays.buddha]:[]))];
+  subTargets.forEach(iso=>{const dow=new Date(iso+'T00:00:00').getDay();
+    const own=iso===lunarDays.buddha?(KR_FIXED_HOLIDAYS[iso.slice(5)]?KR_FIXED_HOLIDAYS[iso.slice(5)]+'·부처님오신날':'부처님오신날'):KR_FIXED_HOLIDAYS[iso.slice(5)];
+    if(H[iso]&&/설날|추석/.test(H[iso]))return; // 설·추석 연휴와 겹치면 연휴 쪽 대체공휴일 하루로 처리
+    const clash=(H[iso]&&H[iso]!==own)||(iso===lunarDays.buddha&&!!KR_FIXED_HOLIDAYS[iso.slice(5)]);
+    if(dow===0||dow===6||clash){let c=addDays(iso,1);while(H[c]||[0,6].includes(new Date(c+'T00:00:00').getDay()))c=addDays(c,1);H[c]=own.split('·')[0]+' 대체공휴일';}});
+  return (_krHolCache[y]=H);
+}
 function publicHolidayLabel(iso){
-  if(KR_LUNAR_HOLIDAYS[iso])return KR_LUNAR_HOLIDAYS[iso];
-  const md=iso.slice(5);
-  return KR_FIXED_HOLIDAYS[md]||null;
+  if(!iso)return null;
+  const y=+iso.slice(0,4);
+  return krHolidaysOfYear(y)[iso]||null;
 }
 function todayISO(){const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
 function shortDate(iso){if(!iso)return '';const p=iso.split('-');return p.length===3?(+p[1])+'/'+(+p[2]):iso}
@@ -900,6 +941,7 @@ function holidaySheet(){
         ${data.classes.filter(c=>!c.isTempContainer).map(c=>`<label class="chk"><input type="checkbox" data-hcid="${c.id}" checked> ${esc(c.name)} <small style="color:var(--ink-soft)">(${esc(c.sched||'')})</small></label>`).join('')}</div>`
       :`<div class="fgroup"><label>휴무 사유 (선택)</label><input id="hLabel" class="selin" placeholder="예: 명절 연휴, 개인 사정"></div>`}
       <div class="actions"><button class="btn-ghost" id="hNo">취소</button><button class="btn-primary" id="hList">📋 목록 보기</button><button class="btn-danger" id="hOk">휴강 처리</button></div>
+      <button class="btn-ghost" id="hAuto" style="width:100%;margin-top:10px;border-color:var(--verm);color:var(--verm);font-weight:700">🇰🇷 공휴일 한 번에 등록 (앞으로 1년)</button>
       </div></div>`;
     const q=s=>oroot().querySelector(s);
     q('#dtNotes').onclick=()=>studioNotesSheet();
@@ -907,6 +949,7 @@ function holidaySheet(){
     q('#modeClass').onclick=()=>{mode='class';draw();};
     q('#modeAll').onclick=()=>{mode='all';draw();};
     q('#hList').onclick=()=>bulkUncancelListSheet();
+    q('#hAuto').onclick=()=>publicHolidayBulkSheet();
     let allOn=true;
     if(mode==='class'&&q('#hAllChk'))q('#hAllChk').onclick=()=>{allOn=!allOn;oroot().querySelectorAll('[data-hcid]').forEach(el=>el.checked=allOn);};
     q('#hOk').onclick=()=>{
@@ -952,6 +995,45 @@ function holidaySheet(){
     };
   }
   draw();
+}
+function publicHolidayBulkSheet(){
+  const t=todayISO(),end=addDays(t,365);
+  const DOW='일월화수목금토';
+  const items=[];
+  for(let iso=t;iso<=end;iso=addDays(iso,1)){
+    const label=publicHolidayLabel(iso);if(!label)continue;
+    if((data.studioClosedDates||[]).some(x=>x.iso===iso))continue;
+    const dow=new Date(iso+'T00:00:00').getDay();
+    const cls=data.classes.filter(c=>!c.isTempContainer&&classWeekday(c)===dow&&(c.skippedDates||[]).indexOf(iso)<0);
+    if(!cls.length)continue;
+    const recN=cls.reduce((n,c)=>{const se=c.sessions.find(x=>x.iso===iso);return n+(se?Object.keys(c.records).filter(k=>k.indexOf(se.id+':')===0).length:0);},0);
+    items.push({iso,label,dow,cls,recN});
+  }
+  if(!items.length){toast('앞으로 1년 동안 수업 요일과 겹치는 공휴일이 없거나, 이미 모두 휴강으로 등록돼 있어요.');return;}
+  oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>🇰🇷 공휴일 한 번에 등록</h3>
+    <div class="subt">앞으로 1년 동안의 공휴일 중 <b>수업 요일과 겹치는 날</b>만 모았어요. 모두 체크돼 있으니, <b>수업을 하실 날만 체크를 빼고</b> 등록하세요. 등록한 날은 해당 반만 휴강 처리돼서 회차가 차감되지 않고, 그날 임시 수업은 따로 열 수 있어요.</div>
+    <div style="max-height:52vh;overflow:auto">
+      ${items.map((it,i)=>`<label class="chk" style="align-items:flex-start"><input type="checkbox" data-phi="${i}" checked> <span>${shortDate(it.iso)}(${DOW[it.dow]}) <b>${esc(it.label)}</b><br><small style="color:var(--ink-soft)">${it.cls.map(c=>esc(c.name)).join(', ')}${it.recN?` · <span style="color:var(--verm)">이미 기록·예약 ${it.recN}건 있음 (등록하면 지워져요)</span>`:''}</small></span></label>`).join('')}
+    </div>
+    <div class="actions" style="margin-top:12px"><button class="btn-ghost" id="phNo">돌아가기</button><button class="btn-danger" id="phOk">체크한 날 휴강 등록</button></div>
+  </div></div>`;
+  const q=x=>oroot().querySelector(x);
+  q('#phNo').onclick=()=>holidaySheet();
+  q('#phOk').onclick=()=>{
+    const picked=[...oroot().querySelectorAll('[data-phi]:checked')].map(el=>items[+el.dataset.phi]);
+    if(!picked.length){toast('등록할 날을 하나 이상 체크해주세요.');return;}
+    confirmSheet(`체크하신 ${picked.length}일을 해당 반 휴강으로 등록할까요?`,()=>{
+      let count=0;
+      picked.forEach(it=>{it.cls.forEach(c=>{
+        if(!c.skippedDates)c.skippedDates=[];
+        if(c.skippedDates.indexOf(it.iso)<0)c.skippedDates.push(it.iso);
+        const ex=c.sessions.find(x=>x.iso===it.iso&&!x.temp);
+        if(ex){c.sessions=c.sessions.filter(x=>x.id!==ex.id);Object.keys(c.records).forEach(k=>{if(k.indexOf(ex.id+':')===0)delete c.records[k];});}
+        count++;});});
+      pushLog('admin',`(원장님) 공휴일 ${picked.length}일을 휴강으로 한 번에 등록했어요.`,todayISO());
+      save();closeOverlay();render();toast(`공휴일 ${picked.length}일(${count}개 반 수업)을 휴강으로 등록했어요.`);
+    },'휴강 등록');
+  };
 }
 function studentClearHistSheet(st){
   const t=todayISO();
