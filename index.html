@@ -1076,7 +1076,7 @@ function logStatusChange(st,c,prevMark,newMark,iso){
 }
 function logIsExpired(e){return !!(e.relIso&&e.relIso<todayISO());}
 function unseenLogCount(){return (data.activityLog||[]).filter(e=>!e.seen&&!logIsExpired(e)).length;}
-function markLogSeen(){(data.activityLog||[]).forEach(e=>e.seen=true);save();render();}
+function markLogSeen(){const n=(data.activityLog||[]).filter(e=>!e.seen).length;(data.activityLog||[]).forEach(e=>e.seen=true);save();render();if(n)toast(n+'건 확인했어요. 아래 \'확인한 알림\'에서 다시 볼 수 있어요.');}
 function updateReportBadge(){const b=document.getElementById('reportBadge');if(!b)return;
   const n=unseenLogCount();b.textContent=n>0?String(n):'';b.classList.toggle('hidden',n<=0);}
 function classById(id){return data.classes.find(c=>c.id===id);}
@@ -1230,7 +1230,7 @@ function isDelayedUsage(st){if(st.regDateOverride)return false;const p=lastPayme
 function statusOf(st){if(st.status==='ended')return 'ended';if(st.status==='paused')return 'paused';const r=remainSessions(st);if(r<=0)return 'out';if(r<=2)return 'low';return 'ok';}
 
 /* ---------- render ---------- */
-function render(){renderClasses();renderCheck();renderStuMode();renderFee();renderRoster();renderReport();updateReportBadge();}
+function render(){try{renderActivityLog();}catch(e){console.error('activityLog',e);}renderClasses();renderCheck();renderStuMode();renderFee();renderRoster();renderReport();updateReportBadge();}
 function renderStuMode(){
   const box=document.getElementById('stuModeToggle');if(!box)return;
   box.innerHTML=[['fee','₩ 결제상태별 보기'],['roster','☰ 반별 보기']].map(o=>`<button class="fchip ${stuMode===o[0]?'on':''}" data-sm="${o[0]}" style="flex:1">${o[1]}</button>`).join('');
@@ -1933,7 +1933,8 @@ function incomeSheet(it){
   if(!isNew)q('#iDel').onclick=()=>confirmSheet('이 기타 수입 기록을 삭제할까요?',()=>{
     data.income=data.income.filter(z=>z.id!==it.id);save();closeOverlay();renderReport();toast('삭제되었습니다.');});
 }
-function renderReport(){const c=curClass();
+function renderReport(){try{renderActivityLog();}catch(e){console.error('activityLog',e);}
+  const c=curClass();
   renderRevenueChart();
   const pausedCnt=data.students.filter(s=>s.status==='paused').length;
   const totalStud=enrolled().length-pausedCnt, endedCnt=data.students.length-enrolled().length;
@@ -1965,44 +1966,57 @@ function renderReport(){const c=curClass();
     <table class="sum"><thead><tr><th>이름</th><th>출석</th><th>결석</th><th>보강</th><th>잔여</th></tr></thead><tbody>${rows}</tbody></table>
     <div class="note">· ${scopeLabel} 기준 ${scopeSessions.length}회차 (반 전체 누적 ${c.sessions.length}회차 중) · 회차 차감은 출석·지각만(결석·보강 차감 없음).</div>`;
   box.querySelectorAll('[data-rs]').forEach(b=>b.onclick=()=>{repScope=b.dataset.rs;renderReport();});
-  const logBox=document.getElementById('activityLog');
+}
+function renderActivityLog(){
+  const logBox=document.getElementById('activityLog');if(!logBox)return;
   const allLog=(data.activityLog||[]).slice(0,50);
   const unseen=allLog.filter(e=>!e.seen);
   const seen=allLog.filter(e=>e.seen);
-  if(!allLog.length){logBox.innerHTML='<div class="note">아직 학생 활동이 없어요.</div>';}
-  else{
-    const rowHtml=e=>{
-      const ago=Math.max(0,Math.round((Date.now()-e.ts)/60000));
-      const when=ago<60?ago+'분 전':ago<1440?Math.round(ago/60)+'시간 전':Math.round(ago/1440)+'일 전';
-      const icon=e.type==='absent'?'🔺':e.type==='makeup'?'🔁':e.type==='admin'?'🗑':e.type==='selfcheck'?'🙋':'✓';
-      const isCheckin=e.type==='selfcheck';
-      return `<div class="hrow" style="${e.seen?'':'font-weight:700'}${isCheckin?';background:var(--jade-tint);border-radius:8px;padding:8px 10px;margin-bottom:4px':''}"><span>${icon} ${esc(e.text)}</span><span style="display:flex;align-items:center;gap:6px"><span style="color:var(--ink-soft);font-size:11px">${when}</span><span data-logdel="${e.id}" style="color:var(--ink-soft);cursor:pointer;font-size:13px;padding:2px 4px" title="이 기록 지우기">✕</span></span></div>`;
-    };
-    const unseenCheckins=unseen.filter(e=>e.type==='selfcheck');
-    const unseenRest=unseen.filter(e=>e.type!=='selfcheck');
-    let html='';
-    if(unseenCheckins.length){
-      html+=`<div class="note" style="font-weight:700;color:var(--jade-deep);margin:2px 0 4px">🙋 체크인 (${unseenCheckins.length})</div>`;
-      html+=unseenCheckins.map(rowHtml).join('');
-      html+=`<div class="note" style="font-weight:700;color:var(--ink-soft);margin:10px 0 4px;border-top:1px solid var(--line);padding-top:8px">🔔 결석·보강 알림</div>`;
-    }
-    html+=unseenRest.length?unseenRest.map(rowHtml).join(''):(unseenCheckins.length?'':'<div class="note">확인 안 한 새 활동이 없어요.</div>');
-    if(seen.length){
-      html+=`<div class="note" id="logOlderToggle" style="text-align:center;margin:8px 0;cursor:pointer;color:var(--ink-soft);border-top:1px solid var(--line);padding-top:8px">${logOlderOpen?'▲ 확인된 기록 접기':'▼ 확인된 기록 더보기 ('+seen.length+'건)'}</div>`;
-      if(logOlderOpen)html+=seen.map(rowHtml).join('')+'<div class="note" style="text-align:right;margin-top:4px"><span id="logClearAll" style="color:var(--verm);cursor:pointer">전체 지우기</span></div>';
-    }
-    logBox.innerHTML=html;
-    const olderToggle=document.getElementById('logOlderToggle');
-    if(olderToggle)olderToggle.onclick=()=>{logOlderOpen=!logOlderOpen;renderReport();};
+  const recentCut=Date.now()-7*86400000;
+  const recentSeen=seen.filter(e=>e.ts>=recentCut||(e.relIso&&e.relIso>=todayISO()));
+  const olderSeen=seen.filter(e=>recentSeen.indexOf(e)<0);
+  if(!allLog.length){logBox.innerHTML='<div class="note">아직 학생 활동이 없어요.</div>';return;}
+  const rowHtml=e=>{
+    const ago=Math.max(0,Math.round((Date.now()-e.ts)/60000));
+    const when=ago<60?ago+'분 전':ago<1440?Math.round(ago/60)+'시간 전':Math.round(ago/1440)+'일 전';
+    const icon=e.type==='absent'?'🔺':e.type==='makeup'?'🔁':e.type==='admin'?'🗑':e.type==='selfcheck'?'🙋':'✓';
+    const isCheckin=e.type==='selfcheck'&&!e.seen;
+    const past=logIsExpired(e);
+    return `<div class="hrow" style="${e.seen?'color:var(--ink-soft)':'font-weight:700'}${past?';opacity:.6':''}${isCheckin?';background:var(--jade-tint);border-radius:8px;padding:8px 10px;margin-bottom:4px':''}"><span>${icon} ${esc(e.text)}</span><span style="display:flex;align-items:center;gap:6px"><span style="color:var(--ink-soft);font-size:11px;white-space:nowrap">${when}</span><span data-logdel="${e.id}" style="color:var(--ink-soft);cursor:pointer;font-size:13px;padding:2px 4px" title="이 기록 지우기">✕</span></span></div>`;
+  };
+  const unseenCheckins=unseen.filter(e=>e.type==='selfcheck');
+  const unseenRest=unseen.filter(e=>e.type!=='selfcheck');
+  let html='';
+  if(unseenCheckins.length){
+    html+=`<div class="note" style="font-weight:700;color:var(--jade-deep);margin:2px 0 4px">🙋 체크인 (${unseenCheckins.length})</div>`;
+    html+=unseenCheckins.map(rowHtml).join('');
+  }
+  if(unseenRest.length){
+    html+=`<div class="note" style="font-weight:700;color:var(--verm);margin:${unseenCheckins.length?'10px':'2px'} 0 4px">🔔 새 결석·보강 알림 (${unseenRest.length})</div>`;
+    html+=unseenRest.map(rowHtml).join('');
+  }
+  if(!unseen.length)html+='<div class="note">새로 확인할 알림은 없어요.</div>';
+  if(recentSeen.length){
+    html+=`<div class="note" style="font-weight:700;color:var(--ink-soft);margin:10px 0 4px;border-top:1px solid var(--line);padding-top:8px">✓ 확인한 알림 · 최근 7일 (${recentSeen.length})</div>`;
+    html+=recentSeen.map(rowHtml).join('');
+  }
+  if(olderSeen.length){
+    html+=`<div class="note" id="logOlderToggle" style="text-align:center;margin:8px 0;cursor:pointer;color:var(--ink-soft);border-top:1px solid var(--line);padding-top:8px">${logOlderOpen?'▲ 지난 기록 접기':'▼ 지난 기록 더보기 ('+olderSeen.length+'건)'}</div>`;
+    if(logOlderOpen)html+=olderSeen.map(rowHtml).join('');
+  }
+  if(seen.length)html+='<div class="note" style="text-align:right;margin-top:4px"><span id="logClearAll" style="color:var(--verm);cursor:pointer">확인한 기록 지우기</span></div>';
+  logBox.innerHTML=html;
+  const olderToggle=document.getElementById('logOlderToggle');
+  if(olderToggle)olderToggle.onclick=()=>{logOlderOpen=!logOlderOpen;renderActivityLog();};
   logBox.querySelectorAll('[data-logdel]').forEach(el=>el.onclick=()=>{
     data.activityLog=(data.activityLog||[]).filter(x=>x.id!==el.dataset.logdel);
-    save();renderReport();
+    save();renderActivityLog();updateReportBadge();
   });
   const clearAll=document.getElementById('logClearAll');
-  if(clearAll)clearAll.onclick=()=>confirmSheet('최근 활동 기록을 전체 지울까요?',()=>{
-    data.activityLog=[];save();closeOverlay();renderReport();toast('전체 지웠어요.');
-  },'전체 지우기');
-  }}
+  if(clearAll)clearAll.onclick=()=>confirmSheet('확인한 알림 기록을 모두 지울까요? (아직 확인 안 한 새 알림은 남아요)',()=>{
+    data.activityLog=(data.activityLog||[]).filter(x=>!x.seen);save();closeOverlay();renderActivityLog();updateReportBadge();toast('지웠어요.');
+  },'지우기');
+}
 function showKpiList(kind){
   const titles={all:'재적 학생',out:'재결제 대상',makeup:'보강 대상'};
   let list;
