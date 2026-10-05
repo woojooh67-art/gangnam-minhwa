@@ -1132,7 +1132,7 @@ function paidSessions(st){
 }
 function isClosedDay(c,iso){return (data.studioClosedDates||[]).some(x=>x.iso===iso)||((c&&c.skippedDates)||[]).indexOf(iso)>=0;}
 function marksOf(st){const out=[];data.classes.forEach(c=>{
-  c.sessions.forEach(s=>{if(isClosedDay(c,s.iso))return;const v=c.records[s.id+':'+st.id];if(v)out.push({iso:s.iso,label:s.label,cls:c.name,mark:v,classId:c.id,sessionId:s.id});});});
+  c.sessions.forEach(s=>{if(!s.temp&&isClosedDay(c,s.iso))return;const v=c.records[s.id+':'+st.id];if(v)out.push({iso:s.iso,label:s.label,cls:c.name,mark:v,classId:c.id,sessionId:s.id});});});
   return out.sort((a,b)=>a.iso<b.iso?1:-1);}
 function scopedMarks(st){const all=marksOf(st);return st.cycleStart?all.filter(m=>m.iso>=st.cycleStart):all;}
 function usedSessions(st){return scopedMarks(st).filter(m=>m.iso<=todayISO()&&(m.mark==='present'||m.mark==='late')).length;}
@@ -2049,7 +2049,7 @@ function renderReport(){try{renderActivityLog();}catch(e){console.error('activit
   const scopeLabel=repScope==='month'?'이번달':repScope==='3m'?'최근 3개월':'전체 누적';
   let rows='';
   studs.forEach(st=>{let p=0,a=0,m=0;
-    scopeSessions.forEach(s=>{if(isClosedDay(c,s.iso))return;const v=c.records[s.id+':'+st.id];if(v==='present'||v==='late')p++;else if(v==='makeup')m++;else if(v==='absent')a++;});
+    scopeSessions.forEach(s=>{if(!s.temp&&isClosedDay(c,s.iso))return;const v=c.records[s.id+':'+st.id];if(v==='present'||v==='late')p++;else if(v==='makeup')m++;else if(v==='absent')a++;});
     rows+=`<tr><td>${esc(st.name)}</td><td class="c-p">${p}</td><td class="c-a">${a}</td><td class="c-m">${m}</td><td>${remainSessions(st)}</td></tr>`;});
   const scopeChips=[['month','이번달'],['3m','최근 3개월'],['all','전체 누적']]
     .map(o=>`<button class="fchip ${repScope===o[0]?'on':''}" data-rs="${o[0]}">${o[1]}</button>`).join('');
