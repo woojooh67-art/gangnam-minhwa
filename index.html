@@ -224,7 +224,7 @@
 <div id="loginScreen">
   <div class="loginwrap">
     <div class="lg"><img id="logoImgLogin" style="width:96px;height:96px;border-radius:50%;display:block;margin:0 auto 12px;box-shadow:var(--shadow)"><h1>강남민화연구소</h1><p>출석 · 수업료 관리</p></div>
-    <div class="roletabs">
+    <div class="roletabs" id="roleTabs">
       <button id="roleAdminBtn" class="on">관리자</button>
       <button id="roleStudentBtn">학생</button>
     </div>
@@ -2626,6 +2626,7 @@ function studentSheet(st){const fee=feeFor(st);
       ${isDueSoonAdmin(st)?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;margin:-6px 0 12px">⏳ 이용 기한(${makeupDue(st)})이 2주 안으로 다가왔는데 아직 회차가 남아 있어요.</div>`:''}${expiredLeftover(st)?`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">⌛ 이용 기한(${makeupDue(st)})이 지나 남은 ${expiredLeftover(st)}회가 소멸됐어요. 학생 화면에도 안내돼요. 사정이 있으면 고급 설정의 "이용 기한 직접 지정"으로 늘려줄 수 있어요.</div>`:''}
       ${dropinPackActive(st)?`<div class="note" style="background:var(--purple-tint);color:var(--purple);padding:9px 11px;border-radius:9px;margin:-6px 0 12px;font-weight:700">💜 하루수업 선결제 ${dropinPackRemain(st)}/${st.dropinPack.total}회 남음 · ${st.dropinPack.expiry}까지</div>`:''}
       <div class="barbtns"><button id="stMsg">📩 안내 문구 보내기</button><button id="stForm">📄 수강신청서 인쇄</button></div>
+      <div class="barbtns"><button id="stPreview">👀 학생 화면 미리보기</button></div>
       <button class="minibtn" id="stToolsToggle" type="button" style="width:100%;margin:4px 0 12px;color:var(--ink-soft)">⚙ 고급 도구 — 지난 기록 정리 (평소엔 안 건드려도 돼요) ▾</button>
       <div id="stToolsBox" class="hidden">
         <div class="barbtns"><button id="stBulk" style="border-color:var(--ochre);color:var(--ochre)">📅 지난 결제 일괄 입력</button></div>
@@ -2758,6 +2759,7 @@ function studentSheet(st){const fee=feeFor(st);
     q('#stBulk').onclick=()=>bulkSheet(st);
     q('#stClearHist').onclick=()=>studentClearHistSheet(st);
     q('#stForm').onclick=()=>enrollFormSheet(st);
+    q('#stPreview').onclick=()=>previewStudentView(st);
     q('#stMsg').onclick=()=>msgSheet(st);
     oroot().querySelectorAll('.hx').forEach(b=>b.onclick=()=>{delId=b.dataset.id;draw();});
     oroot().querySelectorAll('.hmemo').forEach(b=>b.onclick=()=>{
@@ -3020,6 +3022,36 @@ function newStudentDoneSheet(st,codeOk){
   q('#ndMsg').onclick=()=>msgSheet(st,true);
   q('#ndForm').onclick=()=>enrollFormSheet(st);
   q('#ndClose').onclick=closeOverlay;
+}
+
+
+/* ---------- 👀 학생 화면 미리보기 (원장님 화면에서, 로그인·명단 추가 없이 보기 전용) ---------- */
+let STU_PREVIEW=false;
+async function previewStudentView(st){
+  if(!st.uid){toast('이 학생은 아직 로그인 코드가 없어 학생 화면이 없어요.');return;}
+  closeOverlay();toast('학생 화면을 불러오는 중...');
+  regenerateStudentViews&&await regenerateStudentViews();
+  let v=null;try{const snap=await db.collection('studentViews').doc(st.uid).get();v=snap.exists?snap.data():null;}catch(e){console.error(e);}
+  if(!v){toast('학생 화면을 불러오지 못했어요.');return;}
+  const pend=async(col,map)=>{try{const q=await db.collection(col).where('uid','==',st.uid).get();return q.docs.map(d=>map(d.data()));}catch(e){return [];}};
+  v._pendingAbsent=await pend('selfChecks',d=>d.sessionId);
+  v._pendingMakeup=await pend('makeupRequests',d=>d.toSessionId);
+  v._pendingDropin=await pend('dropinRequests',d=>({sessionId:d.sessionId,rate:d.amount}));
+  v._pendingMakeupCancel=await pend('makeupCancelRequests',d=>d.sessionId);
+  v._pendingAbsentCancel=await pend('absentCancelRequests',d=>d.sessionId);
+  STU_PREVIEW=true;stuData=v;
+  document.getElementById('adminApp').classList.add('hidden');
+  document.getElementById('studentApp').classList.remove('hidden');
+  renderStudentApp();
+  const app=document.getElementById('studentApp');
+  app.querySelectorAll('button,input,select,textarea').forEach(el=>{if(!el.classList.contains('calnav'))el.disabled=true;});
+  const ic=document.getElementById('installCard');if(ic)ic.remove();
+  let bar=document.getElementById('previewBar');if(!bar){bar=document.createElement('div');bar.id='previewBar';document.body.appendChild(bar);}
+  bar.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:9999;background:var(--jade-deep,#2e6b57);color:#fff;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:10px;font-size:14px;box-shadow:0 -2px 10px rgba(0,0,0,.15)';
+  bar.innerHTML=`<div style="flex:1">👀 <b>${esc(st.name)}</b>님 학생 화면 미리보기<br><small style="opacity:.85">보기 전용이라 버튼은 눌러도 동작하지 않아요</small></div><button id="previewBack" style="border:none;border-radius:999px;padding:9px 16px;font-weight:700;background:#fff;color:var(--jade-deep,#2e6b57);font-family:inherit">원장님 화면으로</button>`;
+  document.getElementById('previewBack').onclick=()=>{STU_PREVIEW=false;stuData=null;bar.remove();
+    document.getElementById('studentApp').classList.add('hidden');document.getElementById('adminApp').classList.remove('hidden');render();studentSheet(st);};
+  window.scrollTo(0,0);
 }
 
 function msgSheet(st,withGuide){
@@ -3669,9 +3701,16 @@ document.getElementById('adminRefresh').onclick=async()=>{
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
 
 /* ---------- login screen ---------- */
-let loginRole='admin';
+/* 학생 휴대폰에서는 학생 로그인만 보이게. 원장님 기기(한 번이라도 원장님 로그인한 기기)나 주소 끝에 ?admin 이 있으면 관리자 선택 가능 */
+const IS_ADMIN_DEVICE=(()=>{try{return localStorage.getItem('gmh_admin_device')==='1'||/[?&]admin\b/.test(location.search);}catch(e){return /[?&]admin\b/.test(location.search);}})();
+let loginRole=IS_ADMIN_DEVICE?'admin':'student';
 function renderLoginForm(){
   const box=document.getElementById('loginFormBox'),hint=document.getElementById('loginHint');
+  const tabs=document.getElementById('roleTabs');if(tabs)tabs.style.display=(IS_ADMIN_DEVICE||loginRole==='admin')?'':'none';
+  let al=document.getElementById('adminLoginLink');
+  if(!al){al=document.createElement('div');al.id='adminLoginLink';al.style.cssText='text-align:center;margin-top:18px;font-size:12px;color:var(--ink-soft);cursor:pointer;opacity:.7';al.textContent='원장님 로그인';
+    al.onclick=()=>{loginRole='admin';renderLoginForm();};const ls=document.querySelector('#loginScreen .loginwrap');if(ls)ls.appendChild(al);}
+  al.style.display=(!IS_ADMIN_DEVICE&&loginRole==='student')?'':'none';
   document.getElementById('roleAdminBtn').classList.toggle('on',loginRole==='admin');
   document.getElementById('roleStudentBtn').classList.toggle('on',loginRole==='student');
   if(loginRole==='admin'){
