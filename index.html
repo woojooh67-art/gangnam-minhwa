@@ -4076,7 +4076,7 @@ function renderStudentApp(){
           ?`<div style="margin-top:6px;color:var(--ochre);font-weight:700;line-height:1.6">🌿 정규 수업 기간이 끝나고, 지금은 <b>4주 여유 기간</b>이에요.</div><div style="margin-top:2px;color:var(--ink);line-height:1.6">남은 <b>${totalLeft}회</b>를 <b>${md(stuData.makeupDue)}</b>까지 써주세요. 여유 기간 막바지에는 예약이 몰릴 수 있으니, 아래 <b>"다른 날 수업 예약"</b>에서 미리 날짜를 잡아두시면 좋아요.</div>`
           :(soon?'<div style="margin-top:4px;color:var(--ochre);font-weight:700">⏳ 이용 기한이 가까워졌어요. 남은 회차를 기한 안에 써주세요.</div>':'');
         return `<div class="note" style="margin:-6px 0 10px;padding:9px 11px;border-radius:9px;border:1px solid ${warm?'var(--ochre)':'var(--line)'};background:${warm?'var(--ochre-tint)':'var(--card)'};font-size:13.5px">${h}${msg}</div>`;})()}
-      <div class="note" style="margin:-4px 2px 10px;color:var(--ink-soft)">이용 기한은 마지막 수업 예정일 + 4주예요. 못 오신 날의 회차는 그대로 남으니, 기한 안에 편한 날 오셔서 쓰시면 돼요.</div>
+      <div class="note" style="margin:-4px 2px 10px;color:var(--ink-soft)">${totalLeft>0?'이용 기한은 마지막 수업 예정일 + 4주예요. 못 오신 날의 회차는 그대로 남으니, 기한 안에 편한 날 오셔서 쓰시면 돼요.':'다음 수업 오시는 날 결제해 주시면 돼요. 결제하시면 그날부터 새 회차와 이용 기한이 다시 시작돼요. (이용 기한은 마지막 수업 예정일 + 4주예요.)'}</div>
       ${borrowed>0?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;margin:-2px 0 12px;font-weight:700">⚠ 남은 회차보다 ${borrowed}회 먼저 예약하셨어요.</div>`:''}
       ${stuData.delayedUsage?`<div class="note" style="color:var(--ochre)">⏰ 정상 수업 종료일은 지났습니다. 남은 회차 수강 중입니다.</div>`:''}</div>
     <div class="stucard"><h3>다가오는 수업</h3>${upcomingRows||'<div class="note">이번주는 예정된 수업이 없어요.</div>'}
