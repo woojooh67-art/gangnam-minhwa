@@ -598,6 +598,7 @@ async function mergeAllStudentActivity(showToast){
   await step('checkinRequests',async()=>{
     const q8=await db.collection('checkinRequests').get();
     q8.forEach(doc=>{const d=doc.data();
+      if(d.kind==='reenroll'){const msg=`🔁 ${d.studentName||'학생'}님이 재등록을 신청했어요${d.note?` (희망: ${d.note})`:''} · 학생 정보에서 상태를 수강으로 바꾸고 결제를 입력해 주세요.`;pushLog('reenroll',msg,todayISO());msgs.push(msg);total++;return;}
       const timeStr=(()=>{const dt=new Date(d.ts);return pad(dt.getHours())+':'+pad(dt.getMinutes());})();
       const msg=`🙋 ${d.studentName||'학생'}님이 방금 체크인했어요 (${timeStr}) · [출석] 탭에서 확인해주세요.`;
       pushLog('selfcheck',msg,todayISO());msgs.push(msg);total++;
@@ -2241,7 +2242,7 @@ function renderActivityLog(){
   const rowHtml=e=>{
     const ago=Math.max(0,Math.round((Date.now()-e.ts)/60000));
     const when=ago<60?ago+'분 전':ago<1440?Math.round(ago/60)+'시간 전':Math.round(ago/1440)+'일 전';
-    const icon=isAdminLog(e)?'🛠':e.type==='absent'?'🔺':e.type==='makeup'?'🔁':e.type==='selfcheck'?'🙋':'✓';
+    const icon=isAdminLog(e)?'🛠':e.type==='reenroll'?'🔁':e.type==='absent'?'🔺':e.type==='makeup'?'🔁':e.type==='selfcheck'?'🙋':'✓';
     const isCheckin=e.type==='selfcheck'&&!e.seen;
     const past=logIsExpired(e);
     return `<div class="hrow" style="${e.seen?'color:var(--ink-soft)':'font-weight:700'}${past?';opacity:.6':''}${isCheckin?';background:var(--jade-tint);border-radius:8px;padding:8px 10px;margin-bottom:4px':''}"><span>${icon} ${esc(e.text)}</span><span style="display:flex;align-items:center;gap:6px"><span style="color:var(--ink-soft);font-size:11px;white-space:nowrap">${when}</span><span data-logdel="${e.id}" style="color:var(--ink-soft);cursor:pointer;font-size:13px;padding:2px 4px" title="이 기록 지우기">✕</span></span></div>`;
@@ -4053,8 +4054,8 @@ function renderStudentApp(){
         return `<div class="note" style="margin-top:8px;padding:9px 11px;border-radius:9px;border:1px solid ${soon?'var(--verm)':'var(--ochre)'};background:var(--card);color:var(--ink);line-height:1.7">
           아직 <b>${stuData.remain}회</b> 수업을 더 하실 수 있어요.<br>
           휴강 중 남은 회차는 <b>휴강 시작일부터 6개월</b>간 보존돼요${stuData.holdEnd?` (<b>${md(stuData.holdEnd)}</b>까지)`:''}. 그 안에 복귀하시면 이어서 쓰실 수 있고, 6개월이 지나면 소멸돼요.
-          ${soon?`<div style="margin-top:4px;color:var(--verm);font-weight:700">⏳ 보존 기간이 한 달도 남지 않았어요. 복귀를 원하시면 원장님께 말씀해 주세요.</div>`:''}</div>`;})():(stuData.expiredLeft>0?`<div class="note" style="margin-top:8px;color:var(--verm);font-weight:700">휴강 보존 기간(${stuData.holdEnd})이 지나 남은 ${stuData.expiredLeft}회가 소멸됐어요.</div>`:'')}<div class="note" style="margin-top:8px;color:var(--ink)">💜 휴강중에도 아래 "하루수업 신청"으로 언제든 하루씩 참여하실 수 있어요.</div></div>`:''}
-    ${stuData.status==='ended'?`<div class="stucard" style="background:var(--line-soft)"><h3>수강이 종료된 상태예요</h3><div class="note">다시 다니고 싶으시면 언제든 원장님께 연락 주세요.</div></div>`:''}
+          ${soon?`<div style="margin-top:4px;color:var(--verm);font-weight:700">⏳ 보존 기간이 한 달도 남지 않았어요. 복귀를 원하시면 원장님께 말씀해 주세요.</div>`:''}</div>`;})():(stuData.expiredLeft>0?`<div class="note" style="margin-top:8px;color:var(--verm);font-weight:700">휴강 보존 기간(${stuData.holdEnd})이 지나 남은 ${stuData.expiredLeft}회가 소멸됐어요.</div>`:'')}<div class="note" style="margin-top:8px;color:var(--ink)">💜 휴강중에도 아래 "하루수업 신청"으로 언제든 하루씩 참여하실 수 있어요.</div><button class="btn-primary" id="stuReenrollBtn" style="width:100%;margin-top:12px">🔁 재등록 신청하기</button><div class="note" id="stuReenrollNote" style="margin-top:6px;text-align:center"></div></div>`:''}
+    ${stuData.status==='ended'?`<div class="stucard" style="background:var(--line-soft)"><h3>수강이 종료된 상태예요</h3><div class="note">다시 다니고 싶으시면 아래 버튼으로 신청해 주세요. 원장님이 확인 후 연락드려요.</div><button class="btn-primary" id="stuReenrollBtn" style="width:100%;margin-top:12px">🔁 재등록 신청하기</button><div class="note" id="stuReenrollNote" style="margin-top:6px;text-align:center"></div></div>`:''}
     ${(stuData.status!=='paused'&&stuData.status!=='ended'&&stuData.hasRealClass===false)?`<div class="stucard" style="background:var(--purple-tint);border-color:var(--purple)"><h3>🎫 하루수업 쿠폰 이용중</h3><div class="note" style="color:var(--ink)">정규 반 등록 없이 아래 "하루수업 신청"으로 자유롭게 이용하시는 계정이에요.</div><div class="note" style="color:var(--ink);margin-top:6px">⏳ 결제일로부터 <b>${stuData.dropin8Days||90}일 이내</b>에 사용하셔야 하며, 기한 내 미사용 회차는 소멸돼요. 부득이한 사정은 원장님과 상의해 주세요.</div></div>`:''}
     ${(stuData.status==='paused'||stuData.hasRealClass===false)?'':`<div class="stucard"><h3>출석 · 잔여 회차</h3>
       <div class="tally"><span class="p"><b>${totalLeft}</b>회 남음</span></div>
@@ -4119,6 +4120,28 @@ function renderStudentApp(){
     catch(e){console.error(e);toast('새로고침 실패 — 인터넷 연결을 확인해주세요.');}
     finally{if(document.body.contains(stuRefreshBtn))stuRefreshBtn.textContent='🔄 새로고침';}
   };
+  const reBtn=document.getElementById('stuReenrollBtn');
+  if(reBtn){
+    let sentAt=null;try{sentAt=localStorage.getItem('gmh_reenroll_'+stuData.studentId);}catch(e){}
+    const markSent=d=>{reBtn.disabled=true;reBtn.style.opacity='.7';reBtn.textContent='✅ 재등록 신청 완료';const n=document.getElementById('stuReenrollNote');if(n)n.textContent=`${d} 신청하셨어요. 원장님이 확인 후 연락드릴게요.`;};
+    if(sentAt&&sentAt>=addDays(todayISO(),-7))markSent(sentAt);
+    reBtn.onclick=()=>{
+      const names=[...new Set((stuData.allUpcoming||[]).map(u=>u.className))];
+      oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>🔁 재등록 신청</h3>
+        <div class="subt">다시 함께하실 수 있어 반가워요! 원하시는 반을 고르시거나 희망 요일·시간을 적어주시면, 원장님이 확인 후 연락드려요.</div>
+        ${names.length?`<div class="filters" style="flex-wrap:wrap;overflow:visible;white-space:normal;gap:6px;margin-bottom:8px">${names.map(n=>`<button type="button" class="fchip" data-rn="${esc(n)}" style="flex:0 0 auto;margin:0">${esc(n)}</button>`).join('')}</div>`:''}
+        <input id="reNote" class="selin" placeholder="희망 요일·시간 (선택)" maxlength="60">
+        <div class="actions" style="margin-top:12px"><button class="btn-ghost" id="reNo">취소</button><button class="btn-primary" id="reOk">신청하기</button></div></div></div>`;
+      const q=x=>oroot().querySelector(x);
+      oroot().querySelectorAll('[data-rn]').forEach(b=>b.onclick=()=>{oroot().querySelectorAll('[data-rn]').forEach(x=>x.classList.toggle('on',x===b));q('#reNote').value=b.dataset.rn;});
+      q('#reNo').onclick=closeOverlay;
+      q('#reOk').onclick=async()=>{const ok=q('#reOk');ok.disabled=true;ok.textContent='전송 중...';
+        try{await db.collection('checkinRequests').add({kind:'reenroll',note:q('#reNote').value.trim(),uid:auth.currentUser.uid,studentId:stuData.studentId,studentName:stuData.name,ts:Date.now(),createdAt:Date.now()});
+          try{localStorage.setItem('gmh_reenroll_'+stuData.studentId,todayISO());}catch(e){}
+          closeOverlay();markSent(todayISO());toast('재등록 신청을 보냈어요.');}
+        catch(e){console.error(e);ok.disabled=false;ok.textContent='신청하기';toast('전송에 실패했어요. 잠시 후 다시 시도해 주세요.');}};
+    };
+  }
   const stuCheckinBtn=document.getElementById('stuCheckinBtn');
   if(stuCheckinBtn){
     let alreadyToday=false;
