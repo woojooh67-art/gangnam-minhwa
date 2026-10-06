@@ -1995,7 +1995,8 @@ function renderFee(){const c=curClass(),board=document.getElementById('feeBoard'
   const fl=document.getElementById('feeFilters');
   const opts=[['active','수강생'],['makeup','결석분 남음'],['all','전체'],['paused','휴강중'],['ended','종료'],['nologin','📵 앱 미접속']];
   const cntOf=k=>all.filter(st=>k==='active'?(st.status!=='ended'&&st.status!=='paused'):k==='all'?st.status!=='ended':k==='makeup'?(st.status!=='ended'&&makeupLeft(st)>0):k==='paused'?st.status==='paused':k==='nologin'?(st.status!=='ended'&&!stuLoginTs(st)):st.status==='ended').length;
-  fl.innerHTML=opts.map(o=>`<button class="fchip ${feeFilter===o[0]?'on':''}" data-f="${o[0]}">${o[1]} <b>${cntOf(o[0])}</b>명</button>`).join('');
+  fl.style.cssText='flex-wrap:wrap;overflow:visible;white-space:normal;gap:6px';
+  fl.innerHTML=opts.map(o=>`<button class="fchip ${feeFilter===o[0]?'on':''}" data-f="${o[0]}" style="flex:0 0 auto;margin:0">${o[1]} <b>${cntOf(o[0])}</b>명</button>`).join('');
   fl.querySelectorAll('.fchip').forEach(b=>b.onclick=()=>{feeFilter=b.dataset.f;renderFee();});
   if(!all.length){board.innerHTML='';list.innerHTML=feeScope==='all'?'<div class="empty"><b>등록된 학생이 없어요.</b></div>':'<div class="empty"><b>이 반에 학생이 없어요.</b><br>[명단] 탭에서 추가하세요.</div>';return;}
   let ok=0,low=0,out=0,rev=0;const mk=curMonthKey();
