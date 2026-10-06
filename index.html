@@ -3276,22 +3276,59 @@ function rulesSheet(){
   oroot().querySelector('#rulesTa').oninput=e=>{oroot().querySelector('#rulesPreview').innerHTML=esc(applyRuleTokens(e.target.value));};
   oroot().querySelector('#ruOk').onclick=()=>{data.studioRules=oroot().querySelector('#rulesTa').value.trim();save();closeOverlay();toast('저장되었습니다. 학생 앱에 바로 반영돼요.');};}
 
-function addClass(){oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>새 반 추가</h3>
-  <div class="fgroup"><label>반 이름</label><input id="ncName" class="selin" placeholder="예: 화요 정규반"></div>
-  <div class="fgroup"><label>구분</label><select id="ncType" class="selin"><option value="정규">정규</option><option value="연구">연구</option></select></div>
-  <div class="fgroup"><label>월요금(4회, 원)</label><input id="ncFee" type="number" class="selin" value="200000"></div>
-  <div class="fgroup"><label>요일·시간</label><input id="ncSched" class="selin" placeholder="예: 화 14:30~17:30"></div>
-  <div class="actions"><button class="btn-ghost" id="ncNo">취소</button><button class="btn-primary" id="ncOk">추가</button></div></div></div>`;
-  const q=s=>oroot().querySelector(s);
-  q('#ncType').onchange=e=>{q('#ncFee').value=e.target.value==='연구'?250000:200000;};
-  q('#ncNo').onclick=closeOverlay;
-  q('#ncOk').onclick=()=>{const name=q('#ncName').value.trim();if(!name){toast('반 이름을 입력하세요.');return;}
-    const cid=uid();data.classes.push({id:cid,name,type:q('#ncType').value,fee:parseInt(q('#ncFee').value)||200000,sched:q('#ncSched').value.trim(),sessions:[],records:{}});
-    data.activeClass=cid;save();closeOverlay();render();toast('반이 추가되었습니다.');};}
+/* ---------- 반 만들기·수정: 요일·구분·시간을 골라서 입력 ---------- */
+const CP_DAYS=['월','화','수','목','금','토','일'];
+function cpTimes(){const a=[];for(let h=8;h<=22;h++){a.push(pad(h)+':00');if(h<22)a.push(pad(h)+':30');}return a;}
+function cpAddH(t,h){const [H,M]=t.split(':').map(Number);let m=H*60+M+h*60;m=Math.min(m,22*60);return pad(Math.floor(m/60))+':'+pad(m%60);}
+function cpParse(c){
+  const sc=(c&&c.sched)||'';const d=(sc.match(/^([월화수목금토일])/)||[])[1]||((c&&c.name||'').match(/^([월화수목금토일])요/)||[])[1]||'';
+  const t=sc.match(/(\d{1,2}):(\d{2})\s*~\s*(\d{1,2}):(\d{2})/);
+  const n=(c&&c.name)||'';const slot=/오전/.test(n)?'오전':/오후/.test(n)?'오후':/저녁|밤/.test(n)?'저녁':'';
+  return {day:d,type:(c&&c.type)||'정규',slot,start:t?pad(+t[1])+':'+t[2]:'',end:t?pad(+t[3])+':'+t[4]:''};
+}
+function classPickerHTML(v){
+  const chip=(grp,val,label,on)=>`<button type="button" class="fchip ${on?'on':''}" data-cp="${grp}" data-v="${val}" style="flex:0 0 auto;margin:0">${label}</button>`;
+  const opts=sel=>'<option value="">--</option>'+cpTimes().map(t=>`<option ${t===sel?'selected':''}>${t}</option>`).join('');
+  const wrap='class="filters" style="margin-top:6px;flex-wrap:wrap;overflow:visible;white-space:normal;gap:6px"';
+  return `<div class="fgroup"><label>요일</label><div ${wrap}>${CP_DAYS.map(d=>chip('day',d,d,v.day===d)).join('')}</div></div>
+    <div class="fgroup"><label>구분</label><div ${wrap}>${chip('type','정규','정규 (3시간)',v.type!=='연구')}${chip('type','연구','연구 (6시간)',v.type==='연구')}</div></div>
+    <div class="fgroup"><label>시간대 <small style="color:var(--ink-soft)">(반 이름에 쓰여요 · 같은 요일에 반이 하나면 안 골라도 돼요)</small></label><div ${wrap}>${chip('slot','','없음',!v.slot)}${chip('slot','오전','오전',v.slot==='오전')}${chip('slot','오후','오후',v.slot==='오후')}${chip('slot','저녁','저녁',v.slot==='저녁')}</div></div>
+    <div class="fgroup"><label>수업 시간 <small style="color:var(--ink-soft)">(시작을 고르면 끝나는 시간이 자동으로 채워져요)</small></label>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:6px"><select id="cpStart" class="selin" style="margin:0;flex:1">${opts(v.start)}</select><span>~</span><select id="cpEnd" class="selin" style="margin:0;flex:1">${opts(v.end)}</select></div></div>
+    <div class="fgroup"><label>반 이름 <small style="color:var(--ink-soft)">(자동으로 만들어져요 · 바꿔도 돼요)</small></label><input id="cpName" class="selin" value="${esc(v.name||'')}"></div>`;
+}
+function bindClassPicker(v,onType){
+  const R=oroot();const nameEl=R.querySelector('#cpName');let manual=!!v.nameManual;
+  const autoName=()=>{if(!v.day)return '';return v.type==='연구'?`${v.day}요 연구반`:(v.slot?`${v.day}요 ${v.slot}반`:`${v.day}요 정규반`);};
+  const refresh=()=>{if(!manual){const n=autoName();if(n)nameEl.value=n;}};
+  R.querySelectorAll('[data-cp]').forEach(b=>b.onclick=()=>{const g=b.dataset.cp;v[g]=b.dataset.v;
+    R.querySelectorAll(`[data-cp="${g}"]`).forEach(x=>x.classList.toggle('on',x===b));
+    if(g==='type'){if(onType)onType(v.type);const st=R.querySelector('#cpStart').value;if(st)R.querySelector('#cpEnd').value=cpAddH(st,v.type==='연구'?6:3);}
+    if(g==='slot'&&!R.querySelector('#cpStart').value){const d={'오전':'10:00','오후':'14:00','저녁':'19:00'}[v.slot];if(d){R.querySelector('#cpStart').value=d;R.querySelector('#cpEnd').value=cpAddH(d,v.type==='연구'?6:(v.slot==='저녁'?2:3));}}
+    refresh();});
+  R.querySelector('#cpStart').onchange=e=>{if(e.target.value)R.querySelector('#cpEnd').value=cpAddH(e.target.value,v.type==='연구'?6:3);};
+  nameEl.oninput=()=>{manual=true;};
+  refresh();
+  return ()=>{const st=R.querySelector('#cpStart').value,en=R.querySelector('#cpEnd').value;
+    return {day:v.day,type:v.type,name:nameEl.value.trim()||autoName(),sched:v.day?(v.day+(st&&en?` ${st}~${en}`:'')):''};};
+}
 
-function editClass(){const c=curClass();oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>반 수정</h3>
-  <div class="fgroup"><label>반 이름</label><input id="ecName" class="selin" value="${esc(c.name)}"></div>
-  <div class="fgroup"><label>요일·시간</label><input id="ecSched" class="selin" value="${esc(c.sched||'')}"></div>
+function addClass(){const v={day:'',type:'정규',slot:'',start:'',end:'',name:''};
+  oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>새 반 추가</h3>
+  <div class="subt">요일과 구분, 시간을 고르면 반 이름이 자동으로 만들어져요.</div>
+  ${classPickerHTML(v)}
+  <div class="fgroup"><label>월요금(4회, 원)</label><input id="ncFee" type="number" class="selin" value="200000"></div>
+  <div class="actions"><button class="btn-ghost" id="ncNo">취소</button><button class="btn-primary" id="ncOk">추가</button></div></div></div>`;
+  const q=x=>oroot().querySelector(x);
+  const read=bindClassPicker(v,t=>{q('#ncFee').value=t==='연구'?250000:200000;});
+  q('#ncNo').onclick=closeOverlay;
+  q('#ncOk').onclick=()=>{const r=read();if(!r.day){toast('요일을 골라주세요.');return;}if(!r.name){toast('반 이름을 확인해 주세요.');return;}
+    if(data.classes.some(c=>!c.isTempContainer&&c.name===r.name)){toast('같은 이름의 반이 이미 있어요. 시간대를 고르거나 이름을 바꿔주세요.');return;}
+    const cid=uid();data.classes.push({id:cid,name:r.name,type:r.type,fee:parseInt(q('#ncFee').value)||200000,sched:r.sched,sessions:[],records:{}});
+    data.activeClass=cid;save();closeOverlay();render();toast(`'${r.name}'이 추가되었습니다.`);};}
+
+function editClass(){const c=curClass();const v=Object.assign(cpParse(c),{name:c.name,nameManual:true});oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>반 수정</h3>
+  ${classPickerHTML(v)}
   <div class="fgroup"><label>월요금(4회, 원)</label><input id="ecFee" type="number" class="selin" value="${c.fee}"></div>
   <div class="fgroup" style="background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px">${c.archived
       ?'<div class="note" style="margin:0 0 8px">📦 지금 <b>보관된 반</b>이에요. 수업 일정·시간표에는 안 나오고 출석 기록만 남아 있어요.</div><button class="btn-primary" id="ecArch" style="width:100%">다시 열기 (수업 재개)</button>'
@@ -3305,7 +3342,8 @@ function editClass(){const c=curClass();oroot().innerHTML=`<div class="overlay">
       save();closeOverlay();render();toast('반을 보관했어요. 기록은 그대로 남아 있어요.');},'보관하기');
   };
   const q=s=>oroot().querySelector(s);q('#ecNo').onclick=closeOverlay;
-  q('#ecOk').onclick=()=>{c.name=q('#ecName').value.trim()||c.name;c.sched=q('#ecSched').value.trim();c.fee=parseInt(q('#ecFee').value)||c.fee;save();closeOverlay();render();toast('저장되었습니다.');};
+  const readCp=bindClassPicker(v);
+  q('#ecOk').onclick=()=>{const r=readCp();if(!r.day){toast('요일을 골라주세요.');return;}c.name=r.name||c.name;c.type=r.type;c.sched=r.sched;c.fee=parseInt(q('#ecFee').value)||c.fee;save();closeOverlay();render();toast('저장되었습니다.');};
   q('#ecDel').onclick=()=>{if(data.classes.length<=1){toast('마지막 반은 삭제할 수 없어요.');return;}
     const nRec=Object.keys(c.records||{}).length;
     if(nRec){confirmSheet(`'${esc(c.name)}' 반에는 출석 기록이 ${nRec}건 있어요.<br>삭제하면 이 기록이 모두 사라져 학생들 잔여 회차가 틀어져요.<br><b>삭제 대신 "📦 반 보관"을 써주세요.</b>`,()=>editClass(),'돌아가기');return;}
