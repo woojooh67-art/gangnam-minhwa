@@ -3716,7 +3716,10 @@ async function enterAdmin(){
   let d=migrate(loaded.data);
   const isFirstTimeSetup=!d||!d.classes||!d.classes.length;
   if(isFirstTimeSetup)d=seed();
-  data=d;const made=autoCreateUpcomingSessions();const merged=await mergeAllStudentActivity(false);await save();render();
+  data=d;
+  /* 휴강 보존 6개월 규칙 도입 전부터 휴강 중이던 학생: 휴강 시작일이 없으면 오늘로 기록 (오늘부터 6개월 보존) */
+  (data.students||[]).forEach(x=>{if(x.status==='paused'&&!x.pausedSince){x.pausedSince=todayISO();pushLog('admin',`(원장님) ${esc(x.name)}님 휴강 보존 기간 시작일을 오늘로 정했어요 (6개월 보존).`,todayISO());}});
+  const made=autoCreateUpcomingSessions();const merged=await mergeAllStudentActivity(false);await save();render();
   if(made>0)toast(`앞으로 14일치 수업 회차 ${made}개를 자동으로 만들었어요.`);
   if(merged.total>0)newActivitySheet(merged.msgs);
   autoBackupIfNeeded();
@@ -4026,7 +4029,11 @@ function renderStudentApp(){
       <div class="note" id="stuCheckinNote" style="margin-top:8px;color:var(--jade-deep)">화실 도착하시면 눌러주세요. 원장님이 확인하면 출석 처리돼요.</div>
     </div>`;
     })()}
-    ${stuData.status==='paused'?`<div class="stucard" style="background:var(--ochre-tint);border-color:var(--ochre)"><h3>🌱 현재 휴강중이에요</h3><div class="note" style="color:var(--ink)">언제든 다시 오세요! 재등록해주시면 잔여 회차·이용기한 모두 그날부터 다시 이어져요. 재등록은 원장님께 말씀해주세요.</div>${stuData.remain>0?`<div class="note" style="margin-top:8px;font-weight:700;color:var(--ink)">아직 <b>${stuData.remain}회</b> 수업을 더 하실 수 있어요.${stuData.holdEnd?` 남은 회차는 <b>${stuData.holdEnd}</b>까지 보존돼요.`:''}</div>`:(stuData.expiredLeft>0?`<div class="note" style="margin-top:8px;color:var(--verm);font-weight:700">휴강 보존 기간(${stuData.holdEnd})이 지나 남은 ${stuData.expiredLeft}회가 소멸됐어요.</div>`:'')}<div class="note" style="margin-top:8px;color:var(--ink)">💜 휴강중에도 아래 "하루수업 신청"으로 언제든 하루씩 참여하실 수 있어요.</div></div>`:''}
+    ${stuData.status==='paused'?`<div class="stucard" style="background:var(--ochre-tint);border-color:var(--ochre)"><h3>🌱 현재 휴강중이에요</h3><div class="note" style="color:var(--ink)">언제든 다시 오세요! 복귀는 원장님께 말씀해 주시면 돼요.</div>${stuData.remain>0?(()=>{const md=x=>{const q=(x||'').split('-');return q.length===3?`${q[0]}년 ${+q[1]}월 ${+q[2]}일`:x;};const t=todayISO();const soon=stuData.holdEnd&&addDays(t,31)>=stuData.holdEnd;
+        return `<div class="note" style="margin-top:8px;padding:9px 11px;border-radius:9px;border:1px solid ${soon?'var(--verm)':'var(--ochre)'};background:var(--card);color:var(--ink);line-height:1.7">
+          아직 <b>${stuData.remain}회</b> 수업을 더 하실 수 있어요.<br>
+          휴강 중 남은 회차는 <b>휴강 시작일부터 6개월</b>간 보존돼요${stuData.holdEnd?` (<b>${md(stuData.holdEnd)}</b>까지)`:''}. 그 안에 복귀하시면 이어서 쓰실 수 있고, 6개월이 지나면 소멸돼요.
+          ${soon?`<div style="margin-top:4px;color:var(--verm);font-weight:700">⏳ 보존 기간이 한 달도 남지 않았어요. 복귀를 원하시면 원장님께 말씀해 주세요.</div>`:''}</div>`;})():(stuData.expiredLeft>0?`<div class="note" style="margin-top:8px;color:var(--verm);font-weight:700">휴강 보존 기간(${stuData.holdEnd})이 지나 남은 ${stuData.expiredLeft}회가 소멸됐어요.</div>`:'')}<div class="note" style="margin-top:8px;color:var(--ink)">💜 휴강중에도 아래 "하루수업 신청"으로 언제든 하루씩 참여하실 수 있어요.</div></div>`:''}
     ${stuData.status==='ended'?`<div class="stucard" style="background:var(--line-soft)"><h3>수강이 종료된 상태예요</h3><div class="note">다시 다니고 싶으시면 언제든 원장님께 연락 주세요.</div></div>`:''}
     ${(stuData.status!=='paused'&&stuData.status!=='ended'&&stuData.hasRealClass===false)?`<div class="stucard" style="background:var(--purple-tint);border-color:var(--purple)"><h3>🎫 하루수업 쿠폰 이용중</h3><div class="note" style="color:var(--ink)">정규 반 등록 없이 아래 "하루수업 신청"으로 자유롭게 이용하시는 계정이에요.</div><div class="note" style="color:var(--ink);margin-top:6px">⏳ 결제일로부터 <b>${stuData.dropin8Days||90}일 이내</b>에 사용하셔야 하며, 기한 내 미사용 회차는 소멸돼요. 부득이한 사정은 원장님과 상의해 주세요.</div></div>`:''}
     ${(stuData.status==='paused'||stuData.hasRealClass===false)?'':`<div class="stucard"><h3>출석 · 잔여 회차</h3>
