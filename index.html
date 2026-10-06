@@ -3649,6 +3649,7 @@ document.getElementById('markLogSeen').onclick=markLogSeen;
 document.getElementById('adminLogout').onclick=()=>confirmSheet('로그아웃 할까요?',()=>auth.signOut(),'로그아웃');
 document.getElementById('adminRefresh').onclick=async()=>{
   const btn=document.getElementById('adminRefresh');btn.textContent='⏳ 새로고침 중...';
+  try{sessionStorage.setItem('gmh_refresh_tab',tab);sessionStorage.setItem('gmh_refresh_stumode',stuMode||'');}catch(e){}
   try{
     if('serviceWorker' in navigator){
       const regs=await navigator.serviceWorker.getRegistrations();
@@ -3736,6 +3737,8 @@ async function enterAdmin(){
   /* 휴강 보존 6개월 규칙 도입 전부터 휴강 중이던 학생: 휴강 시작일이 없으면 오늘로 기록 (오늘부터 6개월 보존) */
   (data.students||[]).forEach(x=>{if(x.status==='paused'&&!x.pausedSince){x.pausedSince=todayISO();pushLog('admin',`(원장님) ${esc(x.name)}님 휴강 보존 기간 시작일을 오늘로 정했어요 (6개월 보존).`,todayISO());}});
   const made=autoCreateUpcomingSessions();const merged=await mergeAllStudentActivity(false);await save();render();
+  /* 새로고침 전에 보던 탭으로 돌아가기 */
+  try{const back=sessionStorage.getItem('gmh_refresh_tab');if(back){sessionStorage.removeItem('gmh_refresh_tab');const sm=sessionStorage.getItem('gmh_refresh_stumode');sessionStorage.removeItem('gmh_refresh_stumode');if(sm)stuMode=sm;if(back!=='check')switchTab(back);else if(sm)renderStuMode();}}catch(e){}
   if(made>0)toast(`앞으로 14일치 수업 회차 ${made}개를 자동으로 만들었어요.`);
   if(merged.total>0)newActivitySheet(merged.msgs);
   autoBackupIfNeeded();
