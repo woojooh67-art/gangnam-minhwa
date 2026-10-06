@@ -2854,7 +2854,7 @@ function enrollFormHTML(st,type){
       <div class="f-row">수업 시간: 11:00 ~ 17:00 (총 6시간 / 점심시간 1시간 포함) · 수업료: 월 ${won(cls.find(c=>c.type==='연구')?.fee||250000)}</div>
       <div class="f-row">민화 경력: □ 1년 미만 □ 1~3년 □ 3년 이상 (약 ____ 년)</div>`
     :`<div class="f-row">성명: ${nm?`<b>${nm}</b>`:blank}</div><div class="f-row">연락처: ${ph?`<b>${ph}</b>`:blank}</div>
-      <div class="f-row">신청 과정: ${st?'■':'□'} 정규반(주 1회 3시간 · 월 4회 : ${won(cls.find(c=>c.type==='정규')?.fee||200000)})</div>
+      <div class="f-row">신청 과정: ${(()=>{const rc=cls.find(c=>c.type==='직장인')||cls.find(c=>c.type!=='연구');const wk=rc&&rc.type==='직장인';return `${st?'■':'□'} ${wk?'직장인반':'정규반'}(주 1회 ${wk?2:3}시간 · 월 4회 : ${won((rc&&rc.fee)||(wk?150000:200000))})`;})()}</div>
       <div class="f-row">민화 경험: □ 처음 □ 있음 (약 ____ 개월/년)</div>
       <div class="f-row">희망 요일 / 시간: ${sched?`<b>${sched}</b>`:'(요일) ____________ / (시간) ____________'}</div>`;
   const consent=isR
@@ -2943,7 +2943,8 @@ function newStudentSheet(pre){
   oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>＋ 신규 학생 등록</h3>
     <div class="subt">세 가지만 입력하면 돼요. 저장하면 로그인 코드가 자동으로 만들어지고, 이어서 결제·안내 문구·수강신청서로 바로 넘어갈 수 있어요.</div>
     <div class="fgroup"><label>① 이름 <span style="color:var(--verm)">*</span></label><input id="nsName" class="selin" value="${esc(pre.name||'')}" placeholder="예: 홍길동" autocomplete="off"></div>
-    <div class="fgroup"><label>② 전화번호 <small style="color:var(--ink-soft)">(뒷자리 4개가 로그인 코드가 돼요)</small></label><input id="nsPhone" class="selin" inputmode="tel" value="${esc(pre.phone||'')}" placeholder="010-1234-5678" autocomplete="off"></div>
+    <div class="fgroup"><label>② 전화번호 <small style="color:var(--ink-soft)">(숫자 8자리만 · 뒷자리 4개가 로그인 코드가 돼요)</small></label>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:5px"><span style="font-size:16px;font-weight:700;color:var(--ink);padding:0 4px">010 -</span><input id="nsPhone" class="selin" inputmode="numeric" maxlength="9" value="${esc((pre.phone||'').replace(/^010-?/,''))}" placeholder="1234-5678" autocomplete="off" style="margin:0;flex:1;font-size:16px;letter-spacing:.05em"></div></div>
     <div class="fgroup"><label>③ 수강 반 <span style="color:var(--verm)">*</span> <small style="color:var(--ink-soft)">(일주일에 두 번 오면 두 반 모두 고르세요)</small></label>
       <div class="filters" style="margin-top:6px;flex-wrap:wrap;overflow:visible;white-space:normal;gap:6px">${cls.map(c=>`<button type="button" class="fchip ${sel.has(c.id)?'on':''}" style="flex:0 0 auto;margin:0" data-nscls="${c.id}">${esc(c.name)}${c.sched?` <small style="font-weight:400">${esc(c.sched.replace(/^\S+\s*/,''))}</small>`:''}</button>`).join('')}</div></div>
     <div class="note" id="nsDup" style="display:none;background:var(--ochre-tint);color:var(--ochre);padding:8px 10px;border-radius:8px;font-weight:600"></div>
@@ -2957,9 +2958,12 @@ function newStudentSheet(pre){
       const a=q('#nsOpenOld');if(a)a.onclick=e=>{e.preventDefault();studentSheet(d);};}
     else box.style.display='none';};
   q('#nsName').oninput=dupCheck;dupCheck();
+  q('#nsPhone').oninput=e=>{let d=e.target.value.replace(/\D/g,'');if(d.length>8&&d.startsWith('010'))d=d.slice(3);d=d.slice(0,8);e.target.value=d.length>4?d.slice(0,4)+'-'+d.slice(4):d;};
   q('#nsNo').onclick=closeOverlay;
   q('#nsOk').onclick=async()=>{
-    const name=q('#nsName').value.trim(),phone=q('#nsPhone').value.trim();
+    const name=q('#nsName').value.trim(),pd=q('#nsPhone').value.replace(/\D/g,'');
+    if(pd&&pd.length!==8){toast('전화번호 뒤 8자리를 모두 입력해 주세요.');return;}
+    const phone=pd?`010-${pd.slice(0,4)}-${pd.slice(4)}`:'';
     if(!name){toast('이름을 입력해 주세요.');q('#nsName').focus();return;}
     if(!sel.size){toast('수강 반을 하나 이상 골라주세요.');return;}
     const btn=q('#nsOk');btn.disabled=true;btn.textContent='등록 중...';
@@ -3278,6 +3282,9 @@ function rulesSheet(){
 
 /* ---------- 반 만들기·수정: 요일·구분·시간을 골라서 입력 ---------- */
 const CP_DAYS=['월','화','수','목','금','토','일'];
+const CP_HOURS={'정규':3,'연구':6,'직장인':2};
+const CP_FEE={'정규':200000,'연구':250000,'직장인':150000};
+const cpDur=t=>CP_HOURS[t]||3;
 function cpTimes(){const a=[];for(let h=8;h<=22;h++){a.push(pad(h)+':00');if(h<22)a.push(pad(h)+':30');}return a;}
 function cpAddH(t,h){const [H,M]=t.split(':').map(Number);let m=H*60+M+h*60;m=Math.min(m,22*60);return pad(Math.floor(m/60))+':'+pad(m%60);}
 function cpParse(c){
@@ -3291,7 +3298,7 @@ function classPickerHTML(v){
   const opts=sel=>'<option value="">--</option>'+cpTimes().map(t=>`<option ${t===sel?'selected':''}>${t}</option>`).join('');
   const wrap='class="filters" style="margin-top:6px;flex-wrap:wrap;overflow:visible;white-space:normal;gap:6px"';
   return `<div class="fgroup"><label>요일</label><div ${wrap}>${CP_DAYS.map(d=>chip('day',d,d,v.day===d)).join('')}</div></div>
-    <div class="fgroup"><label>구분</label><div ${wrap}>${chip('type','정규','정규 (3시간)',v.type!=='연구')}${chip('type','연구','연구 (6시간)',v.type==='연구')}</div></div>
+    <div class="fgroup"><label>구분</label><div ${wrap}>${chip('type','정규','정규 (3시간)',v.type!=='연구'&&v.type!=='직장인')}${chip('type','연구','연구 (6시간)',v.type==='연구')}${chip('type','직장인','직장인·저녁 (2시간)',v.type==='직장인')}</div></div>
     <div class="fgroup"><label>시간대 <small style="color:var(--ink-soft)">(반 이름에 쓰여요 · 같은 요일에 반이 하나면 안 골라도 돼요)</small></label><div ${wrap}>${chip('slot','','없음',!v.slot)}${chip('slot','오전','오전',v.slot==='오전')}${chip('slot','오후','오후',v.slot==='오후')}${chip('slot','저녁','저녁',v.slot==='저녁')}</div></div>
     <div class="fgroup"><label>수업 시간 <small style="color:var(--ink-soft)">(시작을 고르면 끝나는 시간이 자동으로 채워져요)</small></label>
       <div style="display:flex;gap:8px;align-items:center;margin-top:6px"><select id="cpStart" class="selin" style="margin:0;flex:1">${opts(v.start)}</select><span>~</span><select id="cpEnd" class="selin" style="margin:0;flex:1">${opts(v.end)}</select></div></div>
@@ -3299,14 +3306,16 @@ function classPickerHTML(v){
 }
 function bindClassPicker(v,onType){
   const R=oroot();const nameEl=R.querySelector('#cpName');let manual=!!v.nameManual;
-  const autoName=()=>{if(!v.day)return '';return v.type==='연구'?`${v.day}요 연구반`:(v.slot?`${v.day}요 ${v.slot}반`:`${v.day}요 정규반`);};
+  const autoName=()=>{if(!v.day)return '';return v.type==='연구'?`${v.day}요 연구반`:v.type==='직장인'?`${v.day}요 직장인반`:(v.slot?`${v.day}요 ${v.slot}반`:`${v.day}요 정규반`);};
   const refresh=()=>{if(!manual){const n=autoName();if(n)nameEl.value=n;}};
   R.querySelectorAll('[data-cp]').forEach(b=>b.onclick=()=>{const g=b.dataset.cp;v[g]=b.dataset.v;
     R.querySelectorAll(`[data-cp="${g}"]`).forEach(x=>x.classList.toggle('on',x===b));
-    if(g==='type'){if(onType)onType(v.type);const st=R.querySelector('#cpStart').value;if(st)R.querySelector('#cpEnd').value=cpAddH(st,v.type==='연구'?6:3);}
-    if(g==='slot'&&!R.querySelector('#cpStart').value){const d={'오전':'10:00','오후':'14:00','저녁':'19:00'}[v.slot];if(d){R.querySelector('#cpStart').value=d;R.querySelector('#cpEnd').value=cpAddH(d,v.type==='연구'?6:(v.slot==='저녁'?2:3));}}
+    if(g==='type'){if(onType)onType(v.type);let st=R.querySelector('#cpStart').value;
+      if(v.type==='직장인'&&!st){st='19:00';R.querySelector('#cpStart').value=st;v.slot='저녁';R.querySelectorAll('[data-cp="slot"]').forEach(x=>x.classList.toggle('on',x.dataset.v==='저녁'));}
+      if(st)R.querySelector('#cpEnd').value=cpAddH(st,cpDur(v.type));}
+    if(g==='slot'&&!R.querySelector('#cpStart').value){const d={'오전':'10:00','오후':'14:00','저녁':'19:00'}[v.slot];if(d){R.querySelector('#cpStart').value=d;R.querySelector('#cpEnd').value=cpAddH(d,cpDur(v.type));}}
     refresh();});
-  R.querySelector('#cpStart').onchange=e=>{if(e.target.value)R.querySelector('#cpEnd').value=cpAddH(e.target.value,v.type==='연구'?6:3);};
+  R.querySelector('#cpStart').onchange=e=>{if(e.target.value)R.querySelector('#cpEnd').value=cpAddH(e.target.value,cpDur(v.type));};
   nameEl.oninput=()=>{manual=true;};
   refresh();
   return ()=>{const st=R.querySelector('#cpStart').value,en=R.querySelector('#cpEnd').value;
@@ -3320,7 +3329,7 @@ function addClass(){const v={day:'',type:'정규',slot:'',start:'',end:'',name:'
   <div class="fgroup"><label>월요금(4회, 원)</label><input id="ncFee" type="number" class="selin" value="200000"></div>
   <div class="actions"><button class="btn-ghost" id="ncNo">취소</button><button class="btn-primary" id="ncOk">추가</button></div></div></div>`;
   const q=x=>oroot().querySelector(x);
-  const read=bindClassPicker(v,t=>{q('#ncFee').value=t==='연구'?250000:200000;});
+  const read=bindClassPicker(v,t=>{q('#ncFee').value=CP_FEE[t]||200000;});
   q('#ncNo').onclick=closeOverlay;
   q('#ncOk').onclick=()=>{const r=read();if(!r.day){toast('요일을 골라주세요.');return;}if(!r.name){toast('반 이름을 확인해 주세요.');return;}
     if(data.classes.some(c=>!c.isTempContainer&&c.name===r.name)){toast('같은 이름의 반이 이미 있어요. 시간대를 고르거나 이름을 바꿔주세요.');return;}
@@ -3342,7 +3351,7 @@ function editClass(){const c=curClass();const v=Object.assign(cpParse(c),{name:c
       save();closeOverlay();render();toast('반을 보관했어요. 기록은 그대로 남아 있어요.');},'보관하기');
   };
   const q=s=>oroot().querySelector(s);q('#ecNo').onclick=closeOverlay;
-  const readCp=bindClassPicker(v);
+  const readCp=bindClassPicker(v,t=>{if(!c.fee||[200000,250000,150000].includes(+q('#ecFee').value))q('#ecFee').value=CP_FEE[t]||200000;});
   q('#ecOk').onclick=()=>{const r=readCp();if(!r.day){toast('요일을 골라주세요.');return;}c.name=r.name||c.name;c.type=r.type;c.sched=r.sched;c.fee=parseInt(q('#ecFee').value)||c.fee;save();closeOverlay();render();toast('저장되었습니다.');};
   q('#ecDel').onclick=()=>{if(data.classes.length<=1){toast('마지막 반은 삭제할 수 없어요.');return;}
     const nRec=Object.keys(c.records||{}).length;
