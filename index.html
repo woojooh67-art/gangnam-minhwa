@@ -3352,7 +3352,17 @@ function editClass(){const c=curClass();const v=Object.assign(cpParse(c),{name:c
   };
   const q=s=>oroot().querySelector(s);q('#ecNo').onclick=closeOverlay;
   const readCp=bindClassPicker(v,t=>{if(!c.fee||[200000,250000,150000].includes(+q('#ecFee').value))q('#ecFee').value=CP_FEE[t]||200000;});
-  q('#ecOk').onclick=()=>{const r=readCp();if(!r.day){toast('요일을 골라주세요.');return;}c.name=r.name||c.name;c.type=r.type;c.sched=r.sched;c.fee=parseInt(q('#ecFee').value)||c.fee;save();closeOverlay();render();toast('저장되었습니다.');};
+  q('#ecOk').onclick=()=>{const r=readCp();if(!r.day){toast('요일을 골라주세요.');return;}
+    const before=cpParse(c);const changedCore=before.day!==r.day||(c.type||'정규')!==r.type;
+    const stuN=data.students.filter(x=>x.status!=='ended'&&(x.classIds||[]).indexOf(c.id)>=0).length;
+    const apply=()=>{const oldName=c.name;c.name=r.name||c.name;c.type=r.type;c.sched=r.sched;c.fee=parseInt(q('#ecFee').value)||c.fee;
+      /* 요일이 바뀌면, 아직 기록이 없는 앞으로의 빈 수업 회차 중 새 요일과 안 맞는 것은 정리 */
+      const t=todayISO(),dw=classWeekday(c);
+      c.sessions=c.sessions.filter(se=>se.temp||se.iso<=t||Object.keys(c.records).some(k=>k.indexOf(se.id+':')===0)||dw===null||new Date(se.iso+'T00:00:00').getDay()===dw);
+      pushLog('admin',`(원장님) 반 정보를 수정했어요: '${esc(oldName)}' → '${esc(c.name)}' (${esc(c.sched||'')})`,t);
+      save();closeOverlay();render();toast('저장되었습니다.');};
+    if(changedCore&&stuN){confirmSheet(`<b>'${esc(c.name)}'</b>에는 수강생 ${stuN}명이 있어요.<br>요일이나 구분을 바꾸면 이 학생들의 수업 요일·이용 기한도 함께 바뀌어요.<br><br><b>새 반을 만들려는 거라면</b> 취소하고 반 선택 옆 <b>＋</b>를 눌러주세요.<br>정말 이 반을 바꾸시겠어요?`,apply,'이 반 바꾸기');return;}
+    apply();};
   q('#ecDel').onclick=()=>{if(data.classes.length<=1){toast('마지막 반은 삭제할 수 없어요.');return;}
     const nRec=Object.keys(c.records||{}).length;
     if(nRec){confirmSheet(`'${esc(c.name)}' 반에는 출석 기록이 ${nRec}건 있어요.<br>삭제하면 이 기록이 모두 사라져 학생들 잔여 회차가 틀어져요.<br><b>삭제 대신 "📦 반 보관"을 써주세요.</b>`,()=>editClass(),'돌아가기');return;}
