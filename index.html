@@ -2867,7 +2867,7 @@ function enrollFormHTML(st,type){
       <div class="f-p">□ 동의함 □ 동의하지 않음</div>
       <div class="f-p" style="margin-top:10px">본인은 위 안내된 수강 규정 및 환불 정책을 충분히 이해하였으며, 이에 동의하지 않을 경우 수강 신청이 어려울 수 있음을 확인합니다.</div>`;
   const d=new Date();
-  return `<div class="f-page"><img class="f-wm" src="${LOGO_URI}" alt="">
+  return `<div class="f-page f-${type}"><img class="f-wm" src="${LOGO_URI}" alt="">
     <div class="f-head"><img class="f-logo" src="${LOGO_URI}" alt="강남민화연구소"><div><div class="f-org">강남민화연구소 · GANGNAM MINHWA LAB</div><div class="f-title">${title}</div></div></div>
     <div class="f-p">${intro}</div>
     <div class="f-h2">1. 신청인 정보</div>${info}
@@ -2882,22 +2882,25 @@ function ensureFormCss(){
   if(document.getElementById('formPrintCss'))return;
   const st=document.createElement('style');st.id='formPrintCss';
   st.textContent=`#printArea{display:none}
-  .f-page{font-family:'Noto Serif KR','Nanum Myeongjo',serif;color:#111;font-size:10.5pt;line-height:1.55;background:#fff}
+  .f-page{font-family:'Noto Serif KR','Nanum Myeongjo',serif;color:#111;font-size:10.5pt;line-height:1.6;background:#fff}
   .f-page{position:relative}.f-page>*:not(.f-wm){position:relative;z-index:1}
-  .f-head{display:flex;align-items:center;justify-content:center;gap:14px;margin:0 0 12px}
+  .f-head{display:flex;align-items:center;justify-content:center;gap:14px;margin:0 0 14px}
   .f-logo{width:64px;height:64px;flex:0 0 auto}
   .f-wm{position:absolute;top:28%;left:50%;width:62%;transform:translateX(-50%);opacity:.06;z-index:0;pointer-events:none}
-  .f-org{font-size:10pt;letter-spacing:.12em;color:#444}.f-title{font-size:16pt;font-weight:700;margin:2px 0 0}
-  .f-h2{font-weight:700;font-size:11.5pt;margin:12px 0 4px;border-bottom:1px solid #999;padding-bottom:2px}
-  .f-h3{font-weight:700;margin:8px 0 2px}.f-li{padding-left:1em;text-indent:-.8em}.f-note{font-size:10pt}.f-gap{height:2px}
-  .f-row{padding:5px 0;border-bottom:1px dotted #bbb}.f-blank{display:inline-block;min-width:180px;border-bottom:1px solid #333;height:1em}
-  .f-sign{text-align:right;margin-top:18px;font-size:11pt}
+  .f-org{font-size:10pt;letter-spacing:.12em;color:#444}.f-title{font-size:17pt;font-weight:700;margin:2px 0 0}
+  .f-h2{font-weight:700;font-size:12pt;margin:14px 0 6px;border-bottom:1.2px solid #777;padding-bottom:3px}
+  .f-h3{font-weight:700;margin:9px 0 3px;color:#222}.f-li{padding-left:1.1em;text-indent:-.85em;margin:2px 0}.f-p{margin:2px 0}.f-note{font-size:.95em;color:#333}.f-gap{height:4px}
+  .f-row{padding:6px 0;border-bottom:1px dotted #bbb}.f-blank{display:inline-block;min-width:180px;border-bottom:1px solid #333;height:1em}
+  .f-sign{text-align:right;margin-top:22px;font-size:12pt;line-height:2}
   .f-preview{background:#fff;border:1px solid var(--line);border-radius:8px;padding:18px;max-height:62vh;overflow:auto}
   @media print{
-    @page{size:A4;margin:14mm 15mm}
+    @page{size:A4;margin:13mm 16mm}
     body>*:not(#printArea){display:none!important}
     #printArea{display:block!important}
-    .f-page{font-size:10pt}
+    .f-page{font-size:10.5pt;line-height:1.7}
+    .f-page.f-research{font-size:11.5pt;line-height:1.85}.f-research .f-h2{margin-top:20px}.f-research .f-h3{margin-top:12px}
+    .f-page.f-regular{font-size:10.5pt;line-height:1.75}
+    .f-h2{break-after:avoid}.f-h3{break-after:avoid}.f-sign{break-inside:avoid}
     .f-wm{position:fixed;top:50%;left:50%;width:120mm;transform:translate(-50%,-50%)}
   }`;
   document.head.appendChild(st);
