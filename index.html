@@ -588,9 +588,10 @@ async function mergeAllStudentActivity(showToast){
       if(!d.isAdminDevice&&(!latestStuDevice[d.studentId]||d.ts>latestStuDevice[d.studentId]))latestStuDevice[d.studentId]=d.ts;});
     /* 학생 본인 기기로 들어온 마지막 시각은 따로 보관 (원장님 테스트 로그인에 덮이지 않게) */
     Object.keys(latestStuDevice).forEach(sid=>{const st=studentById(sid);if(!st)return;
+      if(st.loginClearedAt&&latestStuDevice[sid]<=st.loginClearedAt)return;
       if(!st.lastStudentLogin||latestStuDevice[sid]>st.lastStudentLogin){st.lastStudentLogin=latestStuDevice[sid];loginEventsProcessed=true;}});
     Object.keys(latestByStudent).forEach(sid=>{const st=studentById(sid);if(!st)return;
-      const d=latestByStudent[sid];
+      const d=latestByStudent[sid];if(st.loginClearedAt&&d.ts<=st.loginClearedAt)return;
       if(!st.lastLogin||d.ts>st.lastLogin.ts){st.lastLogin={ts:d.ts,isAdminDevice:!!d.isAdminDevice,deviceLabel:d.adminDeviceLabel||''};loginEventsProcessed=true;}
     });
     if(!q7.empty){const b7=db.batch();q7.forEach(doc=>b7.delete(doc.ref));await b7.commit();}
@@ -2607,7 +2608,7 @@ function studentSheet(st){const fee=feeFor(st);
     const ml=makeupLeft(st),due=makeupDue(st);
     oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button>
       <h3>${esc(st.name)} · 출결·수업료</h3><div class="subt">${esc(clsNames(st))} · 기준 월요금(4회) ${won(fee)}${st.rate?' · 특별요금':''}${st.status==='paused'?' · 휴강중':''}${st.code?` · <b style="color:var(--jade-deep)">코드 ${st.code}</b>`:' · <span style="color:var(--verm)">코드 미발급</span>'}</div>
-      <div class="note" style="margin:-4px 3px 8px;color:var(--ink-soft)">${st.lastLogin?(st.lastLogin.isAdminDevice?`⚠ 마지막 로그인 ${loginTimeStr(st.lastLogin.ts)} (원장님 기기${st.lastLogin.deviceLabel?': '+st.lastLogin.deviceLabel:''} — 테스트일 수 있어요)`:`✅ 마지막 로그인 ${loginTimeStr(st.lastLogin.ts)} (학생 기기)`):'아직 로그인 기록이 없어요'}</div>
+      <div class="note" style="margin:-4px 3px 8px;color:var(--ink-soft)">${st.lastLogin?(st.lastLogin.isAdminDevice?`⚠ 마지막 로그인 ${loginTimeStr(st.lastLogin.ts)} (원장님 기기${st.lastLogin.deviceLabel?': '+st.lastLogin.deviceLabel:''} — 테스트일 수 있어요)`:`✅ 마지막 로그인 ${loginTimeStr(st.lastLogin.ts)} (학생 기기)`):'아직 로그인 기록이 없어요'}${(st.lastLogin||st.lastStudentLogin)?` · <span id="stClrLogin" style="color:var(--verm);cursor:pointer;text-decoration:underline">접속 기록 지우기</span>`:''}</div>
       <button class="minibtn" id="stEdit" style="width:100%;margin:8px 0 4px;border-color:var(--blue);color:var(--blue)">✎ 정보 수정</button>
       ${!hasRealClassSt?`<div class="note" style="background:var(--purple-tint);color:var(--purple);padding:8px 11px;border-radius:9px;margin:6px 0 2px;font-weight:600">🎫 정규 요일이 없는 쿠폰 전용 학생이에요 — 하루수업 8회 선결제 외 옵션은 흐리게 표시돼요.</div>`:''}
       ${st.notes?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:8px 11px;border-radius:9px;margin:6px 0 2px;font-weight:600">📌 ${esc(st.notes)}</div>`:''}
@@ -2760,6 +2761,9 @@ function studentSheet(st){const fee=feeFor(st);
     q('#stClearHist').onclick=()=>studentClearHistSheet(st);
     q('#stForm').onclick=()=>enrollFormSheet(st);
     q('#stPreview').onclick=()=>previewStudentView(st);
+    if(q('#stClrLogin'))q('#stClrLogin').onclick=()=>{if(!confirm(`${st.name}님의 앱 접속 기록을 지울까요?\n원장님이 테스트로 들어간 기록일 때 쓰세요. 출석·결제 기록은 그대로예요.`))return;
+      delete st.lastStudentLogin;delete st.lastLogin;st.loginClearedAt=Date.now();
+      pushLog('admin',`(원장님) ${esc(st.name)}님 앱 접속 기록을 지웠어요.`,todayISO());save();render();studentSheet(st);toast('접속 기록을 지웠어요.');};
     q('#stMsg').onclick=()=>msgSheet(st);
     oroot().querySelectorAll('.hx').forEach(b=>b.onclick=()=>{delId=b.dataset.id;draw();});
     oroot().querySelectorAll('.hmemo').forEach(b=>b.onclick=()=>{
@@ -3676,7 +3680,7 @@ document.getElementById('backupSave').onclick=backupSave;
 document.getElementById('backupLoad').onclick=backupLoad;
 document.getElementById('autoBackupList').onclick=openAutoBackups;
 document.getElementById('loginResetBtn').onclick=()=>confirmSheet('모든 학생의 앱 접속 기록을 지울까요?<br>출석·결제 기록은 그대로이고, 접속 표시만 "앱 미접속"으로 돌아가요.<br><br><b>이 기기는 원장님 기기로 표시돼서</b>, 이후 여기서 학생으로 테스트해도 접속으로 세지 않아요.',()=>{
-  (data.students||[]).forEach(x=>{delete x.lastStudentLogin;delete x.lastLogin;});
+  const _now=Date.now();(data.students||[]).forEach(x=>{delete x.lastStudentLogin;delete x.lastLogin;x.loginClearedAt=_now;});
   try{localStorage.setItem('gmh_admin_device','1');}catch(e){}
   pushLog('admin','(원장님) 학생 앱 접속 기록을 초기화했어요.',todayISO());save();closeOverlay();render();toast('접속 기록을 초기화했어요.');},'초기화');
 document.getElementById('formBlankBtn').onclick=()=>enrollFormSheet(null,'regular');
