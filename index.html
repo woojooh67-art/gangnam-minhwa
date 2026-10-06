@@ -2936,10 +2936,10 @@ function newStudentSheet(pre){
     <div class="fgroup"><label>① 이름 <span style="color:var(--verm)">*</span></label><input id="nsName" class="selin" value="${esc(pre.name||'')}" placeholder="예: 홍길동" autocomplete="off"></div>
     <div class="fgroup"><label>② 전화번호 <small style="color:var(--ink-soft)">(뒷자리 4개가 로그인 코드가 돼요)</small></label><input id="nsPhone" class="selin" inputmode="tel" value="${esc(pre.phone||'')}" placeholder="010-1234-5678" autocomplete="off"></div>
     <div class="fgroup"><label>③ 수강 반 <span style="color:var(--verm)">*</span> <small style="color:var(--ink-soft)">(일주일에 두 번 오면 두 반 모두 고르세요)</small></label>
-      <div class="filters" style="margin-top:6px">${cls.map(c=>`<button type="button" class="fchip ${sel.has(c.id)?'on':''}" data-nscls="${c.id}">${esc(c.name)}${c.sched?` <small style="font-weight:400">${esc(c.sched.replace(/^\S+\s*/,''))}</small>`:''}</button>`).join('')}</div></div>
+      <div class="filters" style="margin-top:6px;flex-wrap:wrap;overflow:visible;white-space:normal;gap:6px">${cls.map(c=>`<button type="button" class="fchip ${sel.has(c.id)?'on':''}" style="flex:0 0 auto;margin:0" data-nscls="${c.id}">${esc(c.name)}${c.sched?` <small style="font-weight:400">${esc(c.sched.replace(/^\S+\s*/,''))}</small>`:''}</button>`).join('')}</div></div>
     <div class="note" id="nsDup" style="display:none;background:var(--ochre-tint);color:var(--ochre);padding:8px 10px;border-radius:8px;font-weight:600"></div>
     <div class="actions" style="margin-top:12px"><button class="btn-ghost" id="nsNo">취소</button><button class="btn-primary" id="nsOk">등록하기</button></div>
-    <div class="note" style="margin-top:10px;text-align:center">여러 명을 한꺼번에 넣으실 땐 아래 "명단" 화면의 입력칸을 쓰셔도 돼요.</div>
+    <div class="note" style="margin-top:10px;text-align:center">여러 명을 한꺼번에 넣으실 땐 학생 탭의 "☰ 반별 보기" 화면 입력칸을 쓰셔도 돼요.</div>
   </div></div>`;
   const q=x=>oroot().querySelector(x);
   oroot().querySelectorAll('[data-nscls]').forEach(b=>b.onclick=()=>{const id=b.dataset.nscls;if(sel.has(id))sel.delete(id);else sel.add(id);b.classList.toggle('on');});
