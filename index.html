@@ -639,7 +639,7 @@ async function regenerateStudentViews(){
     allUpcoming.sort((a,b)=>a.iso<b.iso?-1:1);
     const timetableGrid=buildTimetableGrid();
     const allSkipped=[];
-    data.classes.forEach(cc=>(cc.skippedDates||[]).forEach(iso=>allSkipped.push({className:cc.name,iso})));
+    data.classes.forEach(cc=>(cc.skippedDates||[]).forEach(iso=>{const r=holidayRangeFor(cc.id,iso);allSkipped.push({className:cc.name,classId:cc.id,iso,reason:r?r.reason:(publicHolidayLabel(iso)||''),rangeId:r?r.id:'',from:r?r.from:'',to:r?r.to:''});}));
     (data.studioClosedDates||[]).forEach(x=>allSkipped.push({className:x.label||'화실 전체 휴무',iso:x.iso}));
     allSkipped.sort((a,b)=>a.iso<b.iso?-1:1);
     const allUpcomingSkipped=allSkipped.filter(x=>x.iso>=t);
@@ -956,6 +956,7 @@ function clearClosedSession(c,iso){
     if(v==='present'||v==='late'||v==='makeup')kept++;else delete c.records[k];});
   if(!kept)c.sessions=c.sessions.filter(x=>x.id!==ex.id);
 }
+function holidayRangeFor(cid,iso){return (data.holidayRanges||[]).find(r=>iso>=r.from&&iso<=r.to&&(r.classIds||[]).indexOf(cid)>=0)||null;}
 function holidaySheet(){
   const t=todayISO();
   let mode='class';
@@ -965,7 +966,8 @@ function holidaySheet(){
       <div class="fgroup"><label>시작일</label><input type="date" id="hFrom" class="selin" value="${t}"></div>
       <div class="fgroup"><label>종료일</label><input type="date" id="hTo" class="selin" value="${t}"></div>
       ${mode==='class'?`<div class="fgroup"><label>대상 반 <button class="minibtn" id="hAllChk" style="margin-left:6px;padding:2px 8px;font-size:11.5px">전체 선택/해제</button></label>
-        ${data.classes.filter(c=>!c.isTempContainer&&!c.archived).slice().sort((a,b)=>classSortKey(a)-classSortKey(b)).map(c=>`<label class="chk"><input type="checkbox" data-hcid="${c.id}" checked> ${esc(c.name)} <small style="color:var(--ink-soft)">(${esc(c.sched||'')})</small></label>`).join('')}</div>`
+        ${data.classes.filter(c=>!c.isTempContainer&&!c.archived).slice().sort((a,b)=>classSortKey(a)-classSortKey(b)).map(c=>`<label class="chk"><input type="checkbox" data-hcid="${c.id}" checked> ${esc(c.name)} <small style="color:var(--ink-soft)">(${esc(c.sched||'')})</small></label>`).join('')}</div>
+      <div class="fgroup"><label>휴강 이유 <small style="color:var(--ink-soft)">(선택 · 학생 화면에 함께 보여요)</small></label><input id="hReason" class="selin" placeholder="예: 전시 준비, 강의 일정, 개인 사정" maxlength="40"></div>`
       :`<div class="fgroup"><label>휴무 사유 (선택)</label><input id="hLabel" class="selin" placeholder="예: 명절 연휴, 개인 사정"></div>`}
       <div class="actions"><button class="btn-ghost" id="hNo">취소</button><button class="btn-primary" id="hList">📋 등록된 휴강일</button><button class="btn-danger" id="hOk">휴강 처리</button></div>
       <button class="btn-ghost" id="hAuto" style="width:100%;margin-top:10px;border-color:var(--verm);color:var(--verm);font-weight:700">🇰🇷 공휴일 한 번에 등록 (앞으로 1년)</button>
@@ -995,8 +997,11 @@ function holidaySheet(){
       }
       const ids=[...oroot().querySelectorAll('[data-hcid]:checked')].map(el=>el.dataset.hcid);
       if(!ids.length){toast('반을 하나 이상 선택해주세요.');return;}
-      confirmSheet(`${from} ~ ${to} 기간, 선택하신 ${ids.length}개 반의 해당 요일 수업을 모두 휴강 처리할까요?`,()=>{
+      const reason=(q('#hReason')&&q('#hReason').value.trim())||'';
+      confirmSheet(`${from} ~ ${to} 기간, 선택하신 ${ids.length}개 반의 해당 요일 수업을 모두 휴강 처리할까요?${reason?`<br>이유: ${esc(reason)}`:''}`,()=>{
         let count=0;
+        if(!data.holidayRanges)data.holidayRanges=[];
+        data.holidayRanges.push({id:uid(),from,to,reason,classIds:ids.slice()});
         const d0=new Date(from+'T00:00:00'),d1=new Date(to+'T00:00:00');
         for(let d=new Date(d0);d<=d1;d.setDate(d.getDate()+1)){
           const iso=`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
@@ -1010,6 +1015,7 @@ function holidaySheet(){
             count++;
           });
         }
+        pushLog('admin',`(원장님) ${from}~${to} 휴강을 등록했어요${reason?` (${esc(reason)})`:''}.`,from);
         save();closeOverlay();render();toast(`${count}건 휴강 처리했어요.`);
       },'휴강 처리');
     };
@@ -1113,7 +1119,7 @@ function bulkClearRecordsSheet(){
 function bulkUncancelListSheet(){
   const t=todayISO(),DOW='일월화수목금토';
   const items=[];
-  data.classes.forEach(c=>{(c.skippedDates||[]).forEach(iso=>{items.push({type:'class',classId:c.id,name:c.name,iso});});});
+  data.classes.forEach(c=>{(c.skippedDates||[]).forEach(iso=>{const r=holidayRangeFor(c.id,iso);items.push({type:'class',classId:c.id,name:c.name+(r&&r.reason?' · '+r.reason:''),iso});});});
   (data.studioClosedDates||[]).forEach(x=>{items.push({type:'all',iso:x.iso,name:'화실 전체'+(x.label?' · '+x.label:'')});});
   if(!items.length){toast('등록된 휴강일이 없어요.');holidaySheet();return;}
   const up=items.filter(x=>x.iso>=t).sort((a,b)=>a.iso<b.iso?-1:a.iso>b.iso?1:a.name.localeCompare(b.name));
@@ -4024,10 +4030,15 @@ function renderStudentApp(){
   }
   let skippedNotice='';
   {
-    const upcoming=(stuData.allUpcomingSkipped||[]).slice().sort((a,b)=>a.iso<b.iso?-1:1);
+    const myIds=new Set((stuData.classes||[]).filter(c=>c.official!==false).map(c=>c.id));
+    const upcoming=(stuData.allUpcomingSkipped||[]).filter(u=>!u.classId||myIds.has(u.classId)).slice().sort((a,b)=>a.iso<b.iso?-1:1);
     if(upcoming.length){
-      const rows=upcoming.map(u=>`<div class="stuhist"><span>${esc(u.className)} · ${shortDate(u.iso)}</span><b style="color:var(--verm)">휴강</b></div>`).join('');
-      skippedNotice=`<div class="stucard"><h3>📅 예정된 휴강 (화실 전체)</h3>${rows}<div class="note">원장님 사정으로 휴강되는 날짜예요. 다른 날 수업 예약 시에도 참고해주세요.</div></div>`;
+      const md=x=>{const q=(x||'').split('-');return q.length===3?`${+q[1]}/${+q[2]}`:x;};
+      const groups=[];const byRange={};
+      upcoming.forEach(u=>{if(u.rangeId){if(!byRange[u.rangeId]){byRange[u.rangeId]={from:u.from,to:u.to,reason:u.reason,classes:new Set(),dates:[]};groups.push(byRange[u.rangeId]);}byRange[u.rangeId].classes.add(u.className);byRange[u.rangeId].dates.push(u.iso);}
+        else groups.push({from:u.iso,to:u.iso,reason:u.reason,classes:new Set([u.className]),dates:[u.iso]});});
+      const rows=groups.map(g=>`<div class="stuhist" style="align-items:flex-start"><span>${g.from===g.to?md(g.from):`<b>${md(g.from)} ~ ${md(g.to)}</b>`} · ${[...g.classes].map(esc).join(', ')}${g.reason?`<br><small style="color:var(--ink-soft)">${esc(g.reason)}</small>`:''}</span><b style="color:var(--verm);white-space:nowrap">휴강</b></div>`).join('');
+      skippedNotice=`<div class="stucard"><h3>📅 예정된 휴강</h3>${rows}<div class="note">휴강일은 회차가 차감되지 않고, 그만큼 마지막 수업 예정일과 이용 기한이 뒤로 밀려요.</div></div>`;
     }
   }
   let dropinSection='';
