@@ -3849,16 +3849,16 @@ function renderStudentApp(){
       const v=c.records[s.id];
       const rmemo=(c.recMemos||{})[s.id];
       let right;
-      if(pendingAbsent.indexOf(s.id)>=0)right=`<span style="display:flex;align-items:center;gap:8px"><span style="color:var(--verm);font-size:12.5px;font-weight:700">결석 알림 반영대기</span><button class="minibtn" style="color:var(--verm);padding:4px 2px;font-size:12px" data-cancel-asid="${s.id}">취소</button></span>`;
+      if(pendingAbsent.indexOf(s.id)>=0)right=`<span style="display:flex;align-items:center;gap:8px"><span style="color:var(--verm);font-size:12.5px;font-weight:700">원장님 확인 중</span><button class="minibtn" style="color:var(--verm);padding:4px 2px;font-size:12px" data-cancel-asid="${s.id}">취소</button></span>`;
       else if(v==='absent'){
-        if(pendingAbsentCancel.indexOf(s.id)>=0)right=`<span style="color:var(--blue);font-size:12.5px;font-weight:700">취소 요청 반영대기</span>`;
+        if(pendingAbsentCancel.indexOf(s.id)>=0)right=`<span style="color:var(--blue);font-size:12.5px;font-weight:700">취소 확인 중</span>`;
         else if(s.iso>t)right=`<span style="display:flex;align-items:center;gap:8px"><span class="c-a" style="font-weight:700">결석 처리됨${rmemo?` <small style="color:var(--ink-soft);font-weight:400">· ${esc(rmemo)}</small>`:''}</span><button class="minibtn" style="color:var(--verm);padding:4px 2px;font-size:12px" data-racid="${s.id}" data-racclassid="${c.id}" data-raciso="${s.iso}" data-raclabel="${esc(s.label||'')}" data-racname="${esc(c.name)}">취소 요청</button></span>`;
         else right=`<span class="c-a" style="font-weight:700">결석 처리됨${rmemo?` <small style="color:var(--ink-soft);font-weight:400">· ${esc(rmemo)}</small>`:''} <small style="color:var(--ink-soft);font-weight:400">· 당일이라 취소 불가</small></span>`;
       }
       else if(v==='makeup')right=`<span class="c-m" style="font-weight:700">${s.iso>t?'다른 날 수업 예정':'다른 날 수업 완료'}</span>`;
       else if(v==='present'||v==='late'||v==='dropin'){
         const doneLabel=v==='dropin'?'하루권 출석':v==='late'?'지각 출석':'출석 완료';
-        const planLabel=v==='dropin'?'하루권 참여 예정':'참여 예정';
+        const planLabel=v==='dropin'?'하루수업 참여 예정':'참여 예정';
         right=`<span class="c-p" style="font-weight:700">${s.iso>t?planLabel:doneLabel}</span>`;
       }
       else right=`<button class="checkbtn" style="width:auto;padding:8px 14px;margin:0;font-size:12.5px" data-cid="${c.id}" data-sid="${s.id}" data-iso="${s.iso}">결석 예정 알리기</button>`;
@@ -3918,13 +3918,13 @@ function renderStudentApp(){
     const rowsHtml=calRowsHTML(startDow,dim,d=>cellOf(d)+cycLabelHTML(cm,`${y}-${pad(m)}-${pad(d)}`));
     return `<div class="calhead"><button class="calnav" type="button" data-snav="-1"${atMin?' disabled style="opacity:.3;cursor:default"':''}>‹</button><div class="calmonth">${y}년 ${m}월</div><button class="calnav" type="button" data-snav="1">›</button></div>
       <div style="text-align:center;margin:-4px 0 8px"><button class="minibtn" type="button" id="calTodayStu" style="padding:2px 10px;font-size:11.5px">오늘</button></div>
-      ${cur<'2026-07'?'<div class="note" style="margin:-4px 0 8px;text-align:center">📋 참고용 기록이에요 (수업료·잔여회차와 연계 안 됨)</div>':''}
+      ${cur<'2026-07'?'<div class="note" style="margin:-4px 0 8px;text-align:center">📋 앱 사용 전 기록이라 참고용이에요</div>':''}
       <table class="calTable cyc"><tr>${wd.map(w=>`<th>${w}</th>`).join('')}</tr>${rowsHtml}</table>
       <div class="note" style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap">
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--jade);vertical-align:middle"></span> 출석</span>
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--verm);vertical-align:middle"></span> 결석</span>
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--blue);vertical-align:middle"></span> 다른 날 수업</span>
-      <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--purple);vertical-align:middle"></span> 하루권</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--purple);vertical-align:middle"></span> 하루수업</span>
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--verm-tint);border:1px solid var(--verm);vertical-align:middle"></span> 휴강</span>
         ${CYC_LEGEND}
       </div>`;
@@ -3937,13 +3937,13 @@ function renderStudentApp(){
     const graceNotice=(stuData.remain<=0&&graceOk&&!(realEntitlement>0||stuData.remain>0))?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin-bottom:8px">⏳ 결제하신 회차를 모두 쓰셨어요. 다른 날 수업을 1회까지 미리 예약하실 수 있고, 오시는 날 결제해 주시면 돼요. 참여하신 만큼 새 결제 회차에서 차감돼요.</div>`:'';
     const pendingRows=pendingMakeup.map(sid=>{
       const u=(stuData.allUpcoming||[]).find(x=>x.sessionId===sid);if(!u)return '';
-      return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span style="display:flex;align-items:center;gap:8px"><span style="color:var(--blue);font-size:12.5px;font-weight:700">예약 반영대기</span><button class="minibtn" style="color:var(--verm);padding:4px 2px;font-size:12px" data-cancel-msid="${u.sessionId}">취소</button></span></div>`;
+      return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span style="display:flex;align-items:center;gap:8px"><span style="color:var(--blue);font-size:12.5px;font-weight:700">원장님 확인 중</span><button class="minibtn" style="color:var(--verm);padding:4px 2px;font-size:12px" data-cancel-msid="${u.sessionId}">취소</button></span></div>`;
     }).join('');
     const isGraceOnly=realEntitlement<=0&&stuData.remain<=0;
     const hd=isGraceOnly?'수업 미리 참여하기':(pendingMakeup.length>0?`다른 날 수업 예약 (예약중 ${pendingMakeup.length}회)`:'다른 날 수업 예약');
     let pendingNote='';
-    if(pendingMakeupCancel.length>0)pendingNote='<div class="note">취소 신청하신 만큼 바로 다른 날짜로 예약하실 수 있어요. 원장님이 확인하시면 정식 반영돼요.</div>';
-    else if(pendingAbsent.length>0&&pendingMakeup.length===0)pendingNote='<div class="note">결석 알림을 드린 만큼 바로 예약하실 수 있어요. 원장님이 확인하시면 정식 반영돼요.</div>';
+    if(pendingMakeupCancel.length>0)pendingNote='<div class="note">취소 신청하신 만큼 바로 다른 날짜로 예약하실 수 있어요. 원장님이 확인하면 확정돼요.</div>';
+    else if(pendingAbsent.length>0&&pendingMakeup.length===0)pendingNote='<div class="note">결석 알림을 드린 만큼 바로 예약하실 수 있어요. 원장님이 확인하면 확정돼요.</div>';
     const actionBtn=quotaLeft>0?`<button class="checkbtn" id="openMakeupPickerBtn">${isGraceOnly?'📅 참여 날짜 고르기':'📅 다른 날짜 고르기'}</button>`:(pendingRows?'':'<div class="note">지금은 다른 날로 예약할 수 있는 회차가 없어요.</div>');
     makeupSection=`<div class="stucard"><h3>${hd}</h3>${graceNotice}${pendingRows}${actionBtn}${pendingNote}</div>`;
   }
@@ -3953,7 +3953,7 @@ function renderStudentApp(){
     const pendingCancel=stuData._pendingMakeupCancel||[];
     const rows=myMakeups.map(u=>{
       const cancelling=pendingCancel.indexOf(u.sessionId)>=0;
-      if(cancelling)return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span style="color:var(--verm);font-size:12.5px;font-weight:700">취소 반영대기</span></div>`;
+      if(cancelling)return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span style="color:var(--verm);font-size:12.5px;font-weight:700">취소 확인 중</span></div>`;
       if(u.iso>t)return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><button class="minibtn" style="color:var(--verm)" data-mcxid="${u.classId}" data-msxid="${u.sessionId}" data-mxiso="${u.iso}" data-mxlabel="${esc(u.label||'')}" data-mxcname="${esc(u.className)}">예약 취소</button></div>`;
       return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span class="c-m" style="font-weight:700">다른 날 수업 · 당일이라 변경 불가</span></div>`;
     }).join('');
@@ -3965,7 +3965,7 @@ function renderStudentApp(){
     const pendingDropinCancel=stuData._pendingDropinCancel||[];
     const rows2=myDropins.map(u=>{
       const cancelling=pendingDropinCancel.indexOf(u.sessionId)>=0;
-      if(cancelling)return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span style="color:var(--verm);font-size:12.5px;font-weight:700">취소 반영대기</span></div>`;
+      if(cancelling)return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span style="color:var(--verm);font-size:12.5px;font-weight:700">취소 확인 중</span></div>`;
       if(u.iso>t)return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><button class="minibtn" style="color:var(--verm)" data-dxcid="${u.classId}" data-dxsid="${u.sessionId}" data-dxiso="${u.iso}" data-dxlabel="${esc(u.label||'')}" data-dxcname="${esc(u.className)}">예약 취소</button></div>`;
       return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span class="c-m" style="font-weight:700">하루수업 · 당일이라 변경 불가</span></div>`;
     }).join('');
@@ -4036,7 +4036,7 @@ function renderStudentApp(){
     dropinSection=`<div class="stucard" style="background:var(--purple-tint);border-color:var(--purple)">
       <h3 style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;color:var(--purple)" id="dropinToggle">${stuData.status==='paused'?'💜 ':''}하루수업 신청 <span style="font-size:13px;color:var(--purple)">${dropinOpen?'▲ 접기':'▼ 펼치기'}</span></h3>
       ${packBar}
-      ${dropinOpen?`${regularRows}${researchRows}<div class="note">신청하시면 원장님 확인 후 정식 반영돼요.${stuData.dropinPack?' 선결제 회차가 있으면 자동으로 먼저 차감돼요.':' 수업 오시는 날 회비를 결제해주세요.'}</div>`:''}
+      ${dropinOpen?`${regularRows}${researchRows}<div class="note">신청하시면 원장님이 확인 후 확정해 드려요.${stuData.dropinPack?' 선결제 회차가 있으면 자동으로 먼저 차감돼요.':' 수업 오시는 날 수강료를 결제해 주세요.'}</div>`:''}
     </div>`;
   }
   const isPaused=stuData.status==='paused';
@@ -4080,7 +4080,7 @@ function renderStudentApp(){
           :(soon?'<div style="margin-top:4px;color:var(--ochre);font-weight:700">⏳ 이용 기한이 가까워졌어요. 남은 회차를 기한 안에 써주세요.</div>':'');
         return `<div class="note" style="margin:-6px 0 10px;padding:9px 11px;border-radius:9px;border:1px solid ${warm?'var(--ochre)':'var(--line)'};background:${warm?'var(--ochre-tint)':'var(--card)'};font-size:13.5px">${h}${msg}</div>`;})()}
       <div class="note" style="margin:-4px 2px 10px;color:var(--ink-soft)">${totalLeft>0?'이용 기한은 마지막 수업 예정일 + 4주예요. 못 오신 날의 회차는 그대로 남으니, 기한 안에 편한 날 오셔서 쓰시면 돼요.':'다음 수업 오시는 날 결제해 주시면 돼요. 결제하시면 그날부터 새 회차와 이용 기한이 다시 시작돼요. (이용 기한은 마지막 수업 예정일 + 4주예요.)'}</div>
-      ${borrowed>0?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;margin:-2px 0 12px;font-weight:700">⚠ 남은 회차보다 ${borrowed}회 먼저 예약하셨어요.</div>`:''}
+      ${borrowed>0?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;margin:-2px 0 12px;font-weight:700">⚠ 남은 회차보다 ${borrowed}회 더 예약하셨어요. 오시는 날 결제해 주세요.</div>`:''}
       ${stuData.delayedUsage?`<div class="note" style="color:var(--ochre)">⏰ 정상 수업 종료일은 지났습니다. 남은 회차 수강 중입니다.</div>`:''}</div>
     <div class="stucard"><h3>다가오는 수업</h3>${upcomingRows||'<div class="note">이번주는 예정된 수업이 없어요.</div>'}
       ${upcomingRowsMore?`<div class="note" id="upcomingMoreToggle" style="text-align:center;margin:8px 0 0;cursor:pointer;color:var(--ink-soft);border-top:1px solid var(--line);padding-top:8px">${upcomingMoreOpen?'▲ 접기':'▼ 다음주 이후 더보기'}</div>${upcomingMoreOpen?upcomingRowsMore:''}`:''}
@@ -4096,7 +4096,7 @@ function renderStudentApp(){
       ${(()=>{
         const rd=(stuData.payments||[]).map(p=>p.date).filter(Boolean).sort()[0];
         const hasOldHistory=(rd&&rd<'2026-07-01')||Object.keys(stuData.archiveMarks||{}).length>0;
-        return hasOldHistory?'<div class="note" style="margin-top:6px">📌 결제·출석 기록은 전체 이력이 다 보여요. 다만 <b>잔여 회차는 가장 최근 결제하신 회차권 기준으로만</b> 계산돼요 (예전 결제 건은 이미 사용 완료된 걸로 기록되어 있어, 잔여 계산에는 포함되지 않아요).</div>':'';
+        return hasOldHistory?'<div class="note" style="margin-top:6px">📌 예전 기록도 모두 보여요. 남은 회차는 <b>가장 최근 결제</b>를 기준으로 계산돼요.</div>':'';
       })()}</details></div>
     ${stuData.studioRules?`<div class="stucard"><h3>📜 화실 이용 안내</h3><div style="font-size:13.5px;line-height:1.7;white-space:pre-wrap">${esc(stuData.studioRules)}</div></div>`:''}
   </div>`;
@@ -4203,7 +4203,7 @@ async function reportAbsence(classId,sessionId,iso){
     const pendingMakeup=stuData._pendingMakeup||[];
     const quotaLeft=Math.max(0,approvedMakeup+stuData._pendingAbsent.length-pendingMakeup.length);
     if(quotaLeft>0){toast('결석 예정으로 알렸어요. 남은 회차는 다른 날 쓰실 수 있어요.');openMakeupPicker(sessionId);}
-    else toast('결석 예정으로 알렸어요. 원장님이 확인하면 정식 반영돼요.');
+    else toast('결석 예정으로 알렸어요. 원장님이 확인하면 확정돼요.');
   }catch(e){console.error(e);toast('전송 실패 — 인터넷 연결을 확인해주세요.');}
 }
 function openMakeupPicker(excludeSessionId){
@@ -4229,19 +4229,19 @@ function openMakeupPicker(excludeSessionId){
   if(isGraceOnly){
     dueBadge=`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">⏳ 결제하신 회차를 모두 쓰셔서, 다음 결제분으로 미리 참여하시는 거예요. 오시는 날 결제해 주세요.</div>`;
   }else if(stuData.makeupDue&&!stuData.makeupDueExtended){
-    if(stuData.makeupDueExpired&&stuData.status!=='paused')dueBadge=`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">⚠ 이용기한(${stuData.makeupDue})이 지나 남은 회차가 소멸됐어요.</div>`;
-    else if(stuData.makeupDueSoon&&!stuData.makeupDueExpired)dueBadge=`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">⚠ 이용기한이 곧 끝나요 (${stuData.makeupDue}까지)</div>`;
+    if(stuData.makeupDueExpired&&stuData.status!=='paused')dueBadge=`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">⚠ 이용 기한(${stuData.makeupDue})이 지나 남은 회차가 소멸됐어요.</div>`;
+    else if(stuData.makeupDueSoon&&!stuData.makeupDueExpired)dueBadge=`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">⚠ 이용 기한이 곧 끝나요 (${stuData.makeupDue}까지)</div>`;
     else if(!stuData.makeupDueExpired)dueBadge='';
   }else if(stuData.makeupDue&&stuData.makeupDueExtended){
     dueBadge=`<div class="note" style="background:var(--jade-tint);color:var(--jade-deep);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">💚 ${stuData.makeupDue}까지 이용 가능해요.</div>`;
   }
   oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button>
     <h3>${isGraceOnly?'참여하실 날짜를 골라주세요':'오실 날짜를 골라주세요'}</h3>
-    <div class="subt">${isGraceOnly?'편하신 날짜를 누르면 그 자리에서 바로 신청되고 다음 결제에서 정산됩니다.':'편하신 날짜를 누르면 그 자리에서 바로 예약이 신청돼요.'}</div>
+    <div class="subt">${isGraceOnly?'편하신 날짜를 누르면 바로 신청돼요. 오시는 날 결제해 주세요.':'편하신 날짜를 누르면 그 자리에서 바로 예약이 신청돼요.'}</div>
     ${dueBadge}
     ${hoursNote?`<div class="note" style="background:var(--blue-tint,#eaf2fb);color:var(--ink);padding:9px 11px;border-radius:9px;margin:0 0 10px;line-height:1.6">⏱ ${hoursNote}</div>`:''}
     <div class="note" style="margin:-4px 2px 10px;color:var(--ink-soft)">지금 예약하실 수 있는 날짜만 보여드려요.${beyondWindow?' 원하시는 날짜가 안 보이면, 며칠 후 다시 열어서 확인해주세요.':''}</div>
-    <div style="max-height:52vh;overflow:auto">${rows||(beyondWindow?'<div class="note">이번 일주일 안에는 예약 가능한 날짜가 없어요. 며칠 후 다시 확인해주세요.</div>':cutoff?`<div class="note">이용기한(${cutoff}) 안에 예약 가능한 수업이 없어요. 원장님께 문의해주세요.</div>`:'<div class="note">지금은 예약 가능한 수업이 없어요. 나중에 다시 골라주세요.</div>')}</div>
+    <div style="max-height:52vh;overflow:auto">${rows||(beyondWindow?'<div class="note">이번 일주일 안에는 예약 가능한 날짜가 없어요. 며칠 후 다시 확인해주세요.</div>':cutoff?`<div class="note">이용 기한(${cutoff}) 안에 예약 가능한 수업이 없어요. 원장님께 문의해주세요.</div>`:'<div class="note">지금은 예약 가능한 수업이 없어요. 나중에 다시 골라주세요.</div>')}</div>
     <div class="actions" style="margin-top:14px"><button class="btn-ghost" id="mpLater" style="flex:1">나중에 할게요</button></div>
   </div></div>`;
   oroot().querySelector('#mpLater').onclick=closeOverlay;
@@ -4254,7 +4254,7 @@ async function bookMakeup(classId,sessionId,iso,label,className){
     await db.collection('makeupRequests').add({uid:auth.currentUser.uid,studentId:stuData.studentId,studentName:stuData.name,toClassId:classId,toSessionId:sessionId,iso,label,className,createdAt:Date.now()});
     if(!stuData._pendingMakeup)stuData._pendingMakeup=[];
     stuData._pendingMakeup.push(sessionId);renderStudentApp();
-    toast('수업 예약을 신청했어요. 원장님이 확인하면 정식 반영돼요.');
+    toast('수업 예약을 신청했어요. 원장님이 확인하면 확정돼요.');
   }catch(e){console.error(e);toast('전송 실패 — 인터넷 연결을 확인해주세요.');}
 }
 async function cancelMakeup(sessionId){
@@ -4289,7 +4289,7 @@ async function bookDropin(classId,sessionId,iso,label,className,rate){
     await db.collection('dropinRequests').add({uid:auth.currentUser.uid,studentId:stuData.studentId,studentName:stuData.name,classId,sessionId,iso,label,className,amount,createdAt:Date.now()});
     if(!stuData._pendingDropin)stuData._pendingDropin=[];
     stuData._pendingDropin.push({sessionId,rate:amount});renderStudentApp();
-    toast('하루수업을 예약했어요. 원장님이 확인하면 정식 반영돼요.');
+    toast('하루수업을 예약했어요. 원장님이 확인하면 확정돼요.');
   }catch(e){console.error(e);toast('전송 실패 — 인터넷 연결을 확인해주세요.');}
 }
 async function cancelDropin(sessionId){
@@ -4323,7 +4323,7 @@ async function requestMakeupCancel(classId,sessionId,iso,label,className){
     await db.collection('makeupCancelRequests').add({uid:auth.currentUser.uid,studentId:stuData.studentId,studentName:stuData.name,classId,sessionId,iso,label,className,createdAt:Date.now()});
     if(!stuData._pendingMakeupCancel)stuData._pendingMakeupCancel=[];
     stuData._pendingMakeupCancel.push(sessionId);renderStudentApp();
-    toast('수업 예약 취소를 신청했어요. 원장님이 확인하면 정식 반영돼요.');
+    toast('수업 예약 취소를 신청했어요. 원장님이 확인하면 확정돼요.');
   }catch(e){console.error(e);toast('전송 실패 — 인터넷 연결을 확인해주세요.');}
 }
 async function requestDropinCancel(classId,sessionId,iso,label,className){
@@ -4331,7 +4331,7 @@ async function requestDropinCancel(classId,sessionId,iso,label,className){
     await db.collection('dropinCancelRequests').add({uid:auth.currentUser.uid,studentId:stuData.studentId,studentName:stuData.name,classId,sessionId,iso,label,className,createdAt:Date.now()});
     if(!stuData._pendingDropinCancel)stuData._pendingDropinCancel=[];
     stuData._pendingDropinCancel.push(sessionId);renderStudentApp();
-    toast('하루수업 취소를 신청했어요. 원장님이 확인하면 정식 반영돼요.');
+    toast('하루수업 취소를 신청했어요. 원장님이 확인하면 확정돼요.');
   }catch(e){console.error(e);toast('전송 실패 — 인터넷 연결을 확인해주세요.');}
 }
 async function requestAbsenceCancel(classId,sessionId,iso,label,className){
@@ -4339,7 +4339,7 @@ async function requestAbsenceCancel(classId,sessionId,iso,label,className){
     await db.collection('absentCancelRequests').add({uid:auth.currentUser.uid,studentId:stuData.studentId,studentName:stuData.name,classId,sessionId,iso,label,className,createdAt:Date.now()});
     if(!stuData._pendingAbsentCancel)stuData._pendingAbsentCancel=[];
     stuData._pendingAbsentCancel.push(sessionId);renderStudentApp();
-    toast('결석 취소를 신청했어요. 원장님이 확인하면 정식 반영돼요.');
+    toast('결석 취소를 신청했어요. 원장님이 확인하면 확정돼요.');
   }catch(e){console.error(e);toast('전송 실패 — 인터넷 연결을 확인해주세요.');}
 }
 async function cancelAbsenceReport(sessionId){
