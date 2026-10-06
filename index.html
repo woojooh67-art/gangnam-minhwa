@@ -647,7 +647,7 @@ async function regenerateStudentViews(){
       const guestClassIds=data.classes.filter(c=>Object.keys(c.records||{}).some(k=>k.endsWith(':'+st.id))).map(c=>c.id);
       const allClassIds=[...new Set([...(st.classIds||[]),...guestClassIds])];
       const classes=allClassIds.map(cid=>{const c=classById(cid);if(!c)return null;
-        return {id:c.id,name:c.name,sched:c.sched,sessions:(c.sessions||[]).slice().sort((a,b)=>a.iso<b.iso?-1:1),
+        return {id:c.id,name:c.name,sched:c.sched,type:c.type||'정규',sessions:(c.sessions||[]).slice().sort((a,b)=>a.iso<b.iso?-1:1),
           official:(st.classIds||[]).indexOf(cid)>=0,
           upcomingSkipped:(c.skippedDates||[]).filter(iso=>iso>=t).sort(),
           skippedDates:(c.skippedDates||[]).slice(),
@@ -4187,7 +4187,13 @@ function openMakeupPicker(excludeSessionId){
   const windowEnd=addDays(t,STU_WINDOW_DAYS);
   const effectiveCutoff=cutoff?(cutoff<windowEnd?cutoff:windowEnd):windowEnd;
   const beyondWindow=cutoff&&cutoff>windowEnd;
-  const slots=(stuData.allUpcoming||[]).filter(u=>u.iso>=t&&u.iso<=effectiveCutoff&&u.sessionId!==excludeSessionId&&pendingMakeup.indexOf(u.sessionId)<0&&(u.avail===undefined||u.avail>0)).slice(0,20);
+  /* 내가 원래 다니는 반의 수업, 이미 기록(결석 예정 등)이 있는 수업은 다른 날 수업 목록에서 빼요 */
+  const myOfficial=new Set((stuData.classes||[]).filter(c=>c.official!==false).map(c=>c.id));
+  const hasMyRecord=new Set();(stuData.classes||[]).forEach(c=>Object.keys(c.records||{}).forEach(sid=>hasMyRecord.add(sid)));
+  const slots=(stuData.allUpcoming||[]).filter(u=>u.iso>=t&&u.iso<=effectiveCutoff&&u.sessionId!==excludeSessionId&&!myOfficial.has(u.classId)&&!hasMyRecord.has(u.sessionId)&&pendingMakeup.indexOf(u.sessionId)<0&&(u.avail===undefined||u.avail>0)).slice(0,20);
+  const myTypes=(stuData.classes||[]).filter(c=>c.official!==false).map(c=>c.type);
+  const hoursNote=myTypes.includes('연구')?'연구반 학생은 다른 날 수업을 <b>정규 타임(3시간)</b>까지 들으실 수 있어요. (연구소 사정으로 휴강한 수업 보충은 6시간)'
+    :(myTypes.length&&myTypes.every(x=>x==='직장인'))?'2시간 클래스 학생은 다른 날 수업도 <b>2시간</b>까지 들으실 수 있어요.':'';
   const rows=slots.map((u,i)=>`<div class="srow" style="margin-bottom:8px;cursor:pointer" data-mcid="${u.classId}" data-msid="${u.sessionId}" data-miso="${u.iso}" data-mlabel="${esc(u.label||'')}" data-mcname="${esc(u.className)}">
       <div><div class="nm" style="font-size:15px">${esc(u.className)}${u.afternoonOnly?' <small style="color:var(--blue);font-weight:400">(2~5시)</small>':''}</div><div class="sub" style="margin:2px 0 0">${mkDateLabel(u)}${u.avail!==undefined?' · 잔여 '+u.avail+'석':''}</div></div>
       <span class="pill" style="background:var(--jade-tint);color:var(--jade-deep)">${i===0?'가장 빠름':'선택'}</span>
@@ -4206,6 +4212,7 @@ function openMakeupPicker(excludeSessionId){
     <h3>${isGraceOnly?'참여하실 날짜를 골라주세요':'오실 날짜를 골라주세요'}</h3>
     <div class="subt">${isGraceOnly?'편하신 날짜를 누르면 그 자리에서 바로 신청되고 다음 결제에서 정산됩니다.':'편하신 날짜를 누르면 그 자리에서 바로 예약이 신청돼요.'}</div>
     ${dueBadge}
+    ${hoursNote?`<div class="note" style="background:var(--blue-tint,#eaf2fb);color:var(--ink);padding:9px 11px;border-radius:9px;margin:0 0 10px;line-height:1.6">⏱ ${hoursNote}</div>`:''}
     <div class="note" style="margin:-4px 2px 10px;color:var(--ink-soft)">지금 예약하실 수 있는 날짜만 보여드려요.${beyondWindow?' 원하시는 날짜가 안 보이면, 며칠 후 다시 열어서 확인해주세요.':''}</div>
     <div style="max-height:52vh;overflow:auto">${rows||(beyondWindow?'<div class="note">이번 일주일 안에는 예약 가능한 날짜가 없어요. 며칠 후 다시 확인해주세요.</div>':cutoff?`<div class="note">이용기한(${cutoff}) 안에 예약 가능한 수업이 없어요. 원장님께 문의해주세요.</div>`:'<div class="note">지금은 예약 가능한 수업이 없어요. 나중에 다시 골라주세요.</div>')}</div>
     <div class="actions" style="margin-top:14px"><button class="btn-ghost" id="mpLater" style="flex:1">나중에 할게요</button></div>
