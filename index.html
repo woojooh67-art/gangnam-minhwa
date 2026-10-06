@@ -3258,7 +3258,7 @@ function ruleTokenValues(){
     if(!fs.length)return 0;const counts={};fs.forEach(f=>counts[f]=(counts[f]||0)+1);
     return +Object.keys(counts).reduce((a,b)=>counts[a]>counts[b]?a:b);};
   return {
-    정규요금:won(modeFee('정규')),연구요금:won(modeFee('연구')),
+    정규요금:won(modeFee('정규')),연구요금:won(modeFee('연구')),직장인요금:won(modeFee('직장인')||150000),하루직장인:won(data.rates.dailyWorker||45000),
     하루수업:won(data.rates.daily||60000),하루연구:won(data.rates.dailyResearch||90000),
     할인12:(data.rates.d3||10)+'%',할인24:(data.rates.d6||15)+'%',
     쿠폰가격:won(data.rates.dropin8Price||440000),쿠폰회차:'8',쿠폰기한:(data.rates.dropin8Days||90)+'일'
