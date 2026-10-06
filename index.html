@@ -278,6 +278,7 @@
     </section>
 
     <section id="view-roster" class="hidden">
+      <button id="newStuBtn" style="width:100%;margin:0 0 12px;padding:13px;border-radius:12px;border:1.5px solid var(--jade);background:var(--jade-tint);color:var(--jade-deep);font-weight:700;font-size:15px">＋ 신규 학생 등록</button>
       <div class="filters" id="stuModeToggle" style="margin-bottom:10px"></div>
       <div id="rosterModeBox">
         <div class="filters" id="rosterScope"></div>
@@ -2924,6 +2925,69 @@ function formRulesEditSheet(type,back){
     pushLog('admin',`(원장님) ${nm} 수강신청서 문구를 수정했어요.`,todayISO());save();toast('저장했어요.');back?back():closeOverlay();};
 }
 
+
+/* ---------- ＋ 신규 학생 등록 (한 화면에서 이름·전화번호·반 → 저장 → 결제·안내·신청서) ---------- */
+function newStudentSheet(pre){
+  pre=pre||{};
+  const cls=data.classes.filter(c=>!c.isTempContainer&&!c.archived).slice().sort((a,b)=>classSortKey(a)-classSortKey(b));
+  const sel=new Set(pre.classIds||[]);
+  oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>＋ 신규 학생 등록</h3>
+    <div class="subt">세 가지만 입력하면 돼요. 저장하면 로그인 코드가 자동으로 만들어지고, 이어서 결제·안내 문구·수강신청서로 바로 넘어갈 수 있어요.</div>
+    <div class="fgroup"><label>① 이름 <span style="color:var(--verm)">*</span></label><input id="nsName" class="selin" value="${esc(pre.name||'')}" placeholder="예: 홍길동" autocomplete="off"></div>
+    <div class="fgroup"><label>② 전화번호 <small style="color:var(--ink-soft)">(뒷자리 4개가 로그인 코드가 돼요)</small></label><input id="nsPhone" class="selin" inputmode="tel" value="${esc(pre.phone||'')}" placeholder="010-1234-5678" autocomplete="off"></div>
+    <div class="fgroup"><label>③ 수강 반 <span style="color:var(--verm)">*</span> <small style="color:var(--ink-soft)">(일주일에 두 번 오면 두 반 모두 고르세요)</small></label>
+      <div class="filters" style="margin-top:6px">${cls.map(c=>`<button type="button" class="fchip ${sel.has(c.id)?'on':''}" data-nscls="${c.id}">${esc(c.name)}${c.sched?` <small style="font-weight:400">${esc(c.sched.replace(/^\S+\s*/,''))}</small>`:''}</button>`).join('')}</div></div>
+    <div class="note" id="nsDup" style="display:none;background:var(--ochre-tint);color:var(--ochre);padding:8px 10px;border-radius:8px;font-weight:600"></div>
+    <div class="actions" style="margin-top:12px"><button class="btn-ghost" id="nsNo">취소</button><button class="btn-primary" id="nsOk">등록하기</button></div>
+    <div class="note" style="margin-top:10px;text-align:center">여러 명을 한꺼번에 넣으실 땐 아래 "명단" 화면의 입력칸을 쓰셔도 돼요.</div>
+  </div></div>`;
+  const q=x=>oroot().querySelector(x);
+  oroot().querySelectorAll('[data-nscls]').forEach(b=>b.onclick=()=>{const id=b.dataset.nscls;if(sel.has(id))sel.delete(id);else sel.add(id);b.classList.toggle('on');});
+  const dupCheck=()=>{const n=q('#nsName').value.trim();const d=n&&data.students.find(x=>x.name===n);const box=q('#nsDup');
+    if(d){box.style.display='block';box.innerHTML=`같은 이름의 학생이 이미 있어요 (${d.status==='ended'?'종료':d.status==='paused'?'휴강중':'수강중'}). 다시 오신 분이면 새로 만들지 말고 <a href="#" id="nsOpenOld" style="color:var(--jade-deep);font-weight:700">기존 학생 정보 열기</a>`;
+      const a=q('#nsOpenOld');if(a)a.onclick=e=>{e.preventDefault();studentSheet(d);};}
+    else box.style.display='none';};
+  q('#nsName').oninput=dupCheck;dupCheck();
+  q('#nsNo').onclick=closeOverlay;
+  q('#nsOk').onclick=async()=>{
+    const name=q('#nsName').value.trim(),phone=q('#nsPhone').value.trim();
+    if(!name){toast('이름을 입력해 주세요.');q('#nsName').focus();return;}
+    if(!sel.size){toast('수강 반을 하나 이상 골라주세요.');return;}
+    const btn=q('#nsOk');btn.disabled=true;btn.textContent='등록 중...';
+    const st={id:uid(),name,rate:0,status:'active',classIds:[...sel],payments:[],extend:0,memo:phone,code:'',uid:''};
+    const suggested=extractPhoneLast4(phone);
+    const code=(suggested&&!data.students.some(x=>x.code===suggested))?suggested:genStudentCode();
+    let codeOk=true;
+    try{const suid=await createStudentLogin(code);st.code=code;st.uid=suid;}catch(e){console.error(e);codeOk=false;}
+    data.students.push(st);data.activeClass=[...sel][0];
+    pushLog('admin',`(원장님) 신규 학생 ${esc(name)}님을 등록했어요.`,todayISO());
+    save();render();
+    newStudentDoneSheet(st,codeOk);
+  };
+  setTimeout(()=>{const n=q('#nsName');if(n&&!n.value)n.focus();},60);
+}
+function newStudentDoneSheet(st,codeOk){
+  oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>✅ ${esc(st.name)}님 등록 완료</h3>
+    <div style="text-align:center;margin:8px 0 14px;padding:14px;border-radius:12px;background:var(--jade-tint)">
+      <div class="note" style="margin:0">학생 로그인 코드</div>
+      <div style="font-size:30px;font-weight:800;letter-spacing:.15em;color:var(--jade-deep)">${st.code?esc(st.code):'—'}</div>
+      ${codeOk?'':'<div class="note" style="color:var(--verm);margin:4px 0 0">로그인 코드 만들기에 실패했어요. 학생 정보에서 다시 발급해 주세요.</div>'}
+      <div class="note" style="margin:4px 0 0">${(st.classIds||[]).map(classById).filter(Boolean).map(c=>esc(c.name)).join(', ')}</div>
+    </div>
+    <div class="subt" style="text-align:center">이어서 할 일을 고르세요</div>
+    <div class="actions" style="flex-direction:column;gap:8px">
+      <button class="btn-primary" id="ndPay" style="width:100%">💳 첫 결제 입력하기</button>
+      <button class="btn-ghost" id="ndMsg" style="width:100%">📩 앱 안내 문구 보내기 (주소·코드 포함)</button>
+      <button class="btn-ghost" id="ndForm" style="width:100%">📄 수강신청서 인쇄 (이름·연락처 자동 입력)</button>
+      <button class="btn-ghost" id="ndClose" style="width:100%">나중에 할게요</button>
+    </div></div></div>`;
+  const q=x=>oroot().querySelector(x);
+  q('#ndPay').onclick=()=>studentSheet(st);
+  q('#ndMsg').onclick=()=>msgSheet(st,true);
+  q('#ndForm').onclick=()=>enrollFormSheet(st);
+  q('#ndClose').onclick=closeOverlay;
+}
+
 function msgSheet(st,withGuide){
   if(withGuide===undefined)withGuide=!st.uid; // 아직 앱에 로그인한 적 없는 학생은 사용법을 기본으로 포함
   const md=x=>{const q=(x||'').split('-');return q.length===3?`${+q[1]}월 ${+q[2]}일`:x;};
@@ -3457,6 +3521,7 @@ document.getElementById('checkAllToggle').onclick=()=>{checkMode='all';render();
 document.getElementById('addClass').onclick=addClass;
 document.getElementById('editClass').onclick=editClass;
 document.getElementById('addStudent').onclick=addStudent;
+document.getElementById('newStuBtn').onclick=()=>newStudentSheet();
 document.getElementById('nameInput').addEventListener('keydown',e=>{if(e.key==='Enter')addStudent();});
 document.getElementById('phoneInput').addEventListener('keydown',e=>{if(e.key==='Enter')addStudent();});
 document.getElementById('editSess').onclick=()=>{const s=curSession();if(s)sessionSheet(s);};
