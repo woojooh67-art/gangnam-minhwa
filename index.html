@@ -3927,9 +3927,10 @@ function renderStudentApp(){
   }
   const payRows=(stuData.payments||[]).slice().sort((a,b)=>a.date<b.date?1:-1).slice(0,6).map(p=>`<div class="stuhist"><span>${p.date} · ${p.plan==='dropin8'?'하루수업 8회 선결제':`${p.plan||p.sessions||''}회권`}</span><b>${won(p.amount)}</b></div>`).join('')||'<div class="note">결제 내역이 없어요.</div>';
   let makeupSection='';
-  const graceOk=stuData.paceEnd&&t<=addDays(stuData.paceEnd,7);
+  /* 회차를 다 쓴 수강생도 다른 날 수업을 1회까지 미리 예약하고, 오는 날 결제할 수 있게 (휴강·종료 제외) */
+  const graceOk=stuData.status!=='paused'&&stuData.status!=='ended';
   if(quotaTotal>0&&(realEntitlement>0||stuData.remain>0||(stuData.remain<=0&&graceOk))){
-    const graceNotice=(stuData.remain<=0&&graceOk&&!(realEntitlement>0||stuData.remain>0))?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin-bottom:8px">⏳ 결제하신 회차를 다 쓰셨지만, ${addDays(stuData.paceEnd,7)}까지는 재결제 전에도 참여 가능해요. 다음 결제하시면 이번에 참여하신 만큼 회차에서 자동으로 차감돼요.</div>`:'';
+    const graceNotice=(stuData.remain<=0&&graceOk&&!(realEntitlement>0||stuData.remain>0))?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin-bottom:8px">⏳ 결제하신 회차를 모두 쓰셨어요. 다른 날 수업을 1회까지 미리 예약하실 수 있고, 오시는 날 결제해 주시면 돼요. 참여하신 만큼 새 결제 회차에서 차감돼요.</div>`:'';
     const pendingRows=pendingMakeup.map(sid=>{
       const u=(stuData.allUpcoming||[]).find(x=>x.sessionId===sid);if(!u)return '';
       return `<div class="stuhist"><span>${esc(u.className)} · ${mkDateLabel(u)}</span><span style="display:flex;align-items:center;gap:8px"><span style="color:var(--blue);font-size:12.5px;font-weight:700">예약 반영대기</span><button class="minibtn" style="color:var(--verm);padding:4px 2px;font-size:12px" data-cancel-msid="${u.sessionId}">취소</button></span></div>`;
@@ -4183,7 +4184,7 @@ function openMakeupPicker(excludeSessionId){
   const t=todayISO();const pendingMakeup=stuData._pendingMakeup||[];
   const realEntitlementNow=(stuData.makeupLeft||0)+(stuData._pendingAbsent||[]).length+(stuData._pendingMakeupCancel||[]).length;
   const isGraceOnly=realEntitlementNow<=0&&stuData.remain<=0;
-  const cutoff=isGraceOnly?(stuData.paceEnd?addDays(stuData.paceEnd,7):null):(stuData.makeupDue||null);
+  const cutoff=isGraceOnly?null:(stuData.makeupDue||null);
   const windowEnd=addDays(t,STU_WINDOW_DAYS);
   const effectiveCutoff=cutoff?(cutoff<windowEnd?cutoff:windowEnd):windowEnd;
   const beyondWindow=cutoff&&cutoff>windowEnd;
@@ -4200,7 +4201,7 @@ function openMakeupPicker(excludeSessionId){
     </div>`).join('');
   let dueBadge='';
   if(isGraceOnly){
-    if(stuData.paceEnd)dueBadge=`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">⏳ 남은 회차가 아니라, 재결제 전 수업에 미리 참여하시는 거예요. ${addDays(stuData.paceEnd,7)}까지 가능해요.</div>`;
+    dueBadge=`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">⏳ 결제하신 회차를 모두 쓰셔서, 다음 결제분으로 미리 참여하시는 거예요. 오시는 날 결제해 주세요.</div>`;
   }else if(stuData.makeupDue&&!stuData.makeupDueExtended){
     if(stuData.makeupDueExpired&&stuData.status!=='paused')dueBadge=`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">⚠ 이용기한(${stuData.makeupDue})이 지나 남은 회차가 소멸됐어요.</div>`;
     else if(stuData.makeupDueSoon&&!stuData.makeupDueExpired)dueBadge=`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">⚠ 이용기한이 곧 끝나요 (${stuData.makeupDue}까지)</div>`;
