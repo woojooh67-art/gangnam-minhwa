@@ -3028,7 +3028,7 @@ function msgSheet(st,withGuide){
   t+=`· 반: ${clsNames(st)}\n`;
   t+=(total<0)?`· ${-total}회 미리 수강하셨어요 (다음 결제 시 차감)\n`:`· 남은 회차: ${total}회\n`;
   if(lp)t+=`· 결제일: ${md(lp.date)} (${lp.sessions}회)\n`;
-  if(lastCls)t+=`· 마지막 수업 예정일: ${md(lastCls)}\n`;
+  if(lastCls)t+=`· ${(total<=0&&lastCls<=todayISO())?'마지막 수업일':'마지막 수업 예정일'}: ${md(lastCls)}\n`;
   if(due&&total>0)t+=`· 이용 기한: ${md(due)}까지 (마지막 수업 예정일 + 4주)\n`;
   if(st.status==='paused')t+=xp?`\n휴강 보존 기간(${md(holdEndOf(st))})이 지나 남은 ${xp}회가 소멸됐어요. 다시 수강하시려면 재결제 부탁드려요.\n`:`\n현재 휴강 중이에요. 남은 회차는 ${md(holdEndOf(st))}까지 보존되며, 복귀하시면 이어서 쓰실 수 있어요.\n`;
   else if(xp)t+=`\n이용 기한(${md(due)})이 지나 남은 ${xp}회가 소멸됐어요. 다시 수강하시려면 재결제 부탁드려요.\n`;
@@ -4065,7 +4065,7 @@ function renderStudentApp(){
         const row=(k,v,strong)=>`<div style="display:flex;justify-content:space-between;gap:10px;padding:3px 0"><span style="color:var(--ink-soft)">${k}</span><span style="${strong?'font-weight:700;color:var(--ink)':''}">${v}</span></div>`;
         let h='';
         if(stuData.lastPaymentDate)h+=row('결제일',md(stuData.lastPaymentDate)+(lp&&lp.sessions?` (${lp.sessions}회)`:''));
-        if(stuData.lastClassBase)h+=row('마지막 수업 예정일',md(stuData.lastClassBase));
+        if(stuData.lastClassBase)h+=row((totalLeft<=0&&stuData.lastClassBase<=todayISO())?'마지막 수업일':'마지막 수업 예정일',md(stuData.lastClassBase));
         if(stuData.makeupDue&&totalLeft>0)h+=row('이용 기한',md(stuData.makeupDue)+'까지',true);
         if(!h)return '';
         const soon=totalLeft>0&&stuData.makeupDueSoon&&!stuData.makeupDueExpired;
