@@ -580,9 +580,13 @@ async function mergeAllStudentActivity(showToast){
   let loginEventsProcessed=false;
   await step('loginEvents',async()=>{
     const q7=await db.collection('loginEvents').get();
-    const latestByStudent={};
+    const latestByStudent={},latestStuDevice={};
     q7.forEach(doc=>{const d=doc.data();if(!d.studentId)return;
-      if(!latestByStudent[d.studentId]||d.ts>latestByStudent[d.studentId].ts)latestByStudent[d.studentId]=d;});
+      if(!latestByStudent[d.studentId]||d.ts>latestByStudent[d.studentId].ts)latestByStudent[d.studentId]=d;
+      if(!d.isAdminDevice&&(!latestStuDevice[d.studentId]||d.ts>latestStuDevice[d.studentId]))latestStuDevice[d.studentId]=d.ts;});
+    /* 학생 본인 기기로 들어온 마지막 시각은 따로 보관 (원장님 테스트 로그인에 덮이지 않게) */
+    Object.keys(latestStuDevice).forEach(sid=>{const st=studentById(sid);if(!st)return;
+      if(!st.lastStudentLogin||latestStuDevice[sid]>st.lastStudentLogin){st.lastStudentLogin=latestStuDevice[sid];loginEventsProcessed=true;}});
     Object.keys(latestByStudent).forEach(sid=>{const st=studentById(sid);if(!st)return;
       const d=latestByStudent[sid];
       if(!st.lastLogin||d.ts>st.lastLogin.ts){st.lastLogin={ts:d.ts,isAdminDevice:!!d.isAdminDevice,deviceLabel:d.adminDeviceLabel||''};loginEventsProcessed=true;}
@@ -1436,6 +1440,10 @@ function liveRemain(st){const r=remainSessions(st);return expiredLeftover(st)>0?
 function inGraceAdmin(st){if(st.status==='paused'||st.status==='ended'||st.makeupDueOverride)return false;const total=liveRemain(st)+effectiveMakeupLeft(st);if(total<=0)return false;const lc=activeLastClassOverride(st)||packageLastClassDate(st),d=makeupDue(st),t=todayISO();return !!(lc&&d&&t>lc&&t<=d);}
 function isDueSoonAdmin(st){if(st.status==='paused'||st.status==='ended')return false;const total=remainSessions(st)+effectiveMakeupLeft(st);if(total<=0)return false;const d=makeupDue(st);if(!d)return false;const t=todayISO();return d>=t&&d<=addDays(t,14);}
 function isDelayedUsage(st){if(st.regDateOverride)return false;const p=lastPayment(st);if(!p)return false;if(remainSessions(st)<=0)return false;const end=expectedPaceEnd(st);return end&&todayISO()>end;}
+function stuLoginTs(st){return st.lastStudentLogin||((st.lastLogin&&!st.lastLogin.isAdminDevice)?st.lastLogin.ts:null);}
+function stuLoginTag(st){const ts=stuLoginTs(st);if(!ts)return '📵 앱 미접속';
+  const d=new Date(typeof ts==='number'?ts:(ts.seconds?ts.seconds*1000:ts));const iso=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+  return `📱 ${d.getMonth()+1}/${d.getDate()} 접속`+(iso.slice(0,4)!==todayISO().slice(0,4)?` (${iso.slice(0,4)})`:'');}
 function statusOf(st){if(st.status==='ended')return 'ended';if(st.status==='paused')return 'paused';const r=liveRemain(st);if(r<=0)return 'out';if(r<=2)return 'low';return 'ok';}
 
 /* ---------- render ---------- */
@@ -1978,8 +1986,8 @@ function renderFee(){const c=curClass(),board=document.getElementById('feeBoard'
   sf.querySelectorAll('.fchip').forEach(b=>b.onclick=()=>{feeScope=b.dataset.fs;renderFee();});
   const all=feeScope==='all'?data.students.slice():studentsInClass(c.id);
   const fl=document.getElementById('feeFilters');
-  const opts=[['active','수강생'],['makeup','결석분 남음'],['all','전체'],['paused','휴강중'],['ended','종료']];
-  const cntOf=k=>all.filter(st=>k==='active'?(st.status!=='ended'&&st.status!=='paused'):k==='all'?st.status!=='ended':k==='makeup'?(st.status!=='ended'&&makeupLeft(st)>0):k==='paused'?st.status==='paused':st.status==='ended').length;
+  const opts=[['active','수강생'],['makeup','결석분 남음'],['all','전체'],['paused','휴강중'],['ended','종료'],['nologin','📵 앱 미접속']];
+  const cntOf=k=>all.filter(st=>k==='active'?(st.status!=='ended'&&st.status!=='paused'):k==='all'?st.status!=='ended':k==='makeup'?(st.status!=='ended'&&makeupLeft(st)>0):k==='paused'?st.status==='paused':k==='nologin'?(st.status!=='ended'&&!stuLoginTs(st)):st.status==='ended').length;
   fl.innerHTML=opts.map(o=>`<button class="fchip ${feeFilter===o[0]?'on':''}" data-f="${o[0]}">${o[1]} <b>${cntOf(o[0])}</b>명</button>`).join('');
   fl.querySelectorAll('.fchip').forEach(b=>b.onclick=()=>{feeFilter=b.dataset.f;renderFee();});
   if(!all.length){board.innerHTML='';list.innerHTML=feeScope==='all'?'<div class="empty"><b>등록된 학생이 없어요.</b></div>':'<div class="empty"><b>이 반에 학생이 없어요.</b><br>[명단] 탭에서 추가하세요.</div>';return;}
@@ -1996,6 +2004,7 @@ function renderFee(){const c=curClass(),board=document.getElementById('feeBoard'
     if(feeFilter==='active')return st.status!=='ended'&&st.status!=='paused';
     if(feeFilter==='all')return st.status!=='ended';
     if(feeFilter==='makeup')return st.status!=='ended'&&makeupLeft(st)>0;
+    if(feeFilter==='nologin')return st.status!=='ended'&&!stuLoginTs(st);
     if(feeFilter==='paidmonth')return (st.payments||[]).some(p=>(p.date||'').slice(0,7)===mk);
     return statusOf(st)===feeFilter;}).sort((a,b)=>{
       if(feeFilter==='paused'){
@@ -2014,6 +2023,7 @@ function renderFee(){const c=curClass(),board=document.getElementById('feeBoard'
       :(xp?`⌛ 이용 기한(${shortDate(makeupDue(st))}) 지나 ${xp}회 소멸 · 재결제 필요`:r<0?`${-r}회 미리 사용 · 다음 결제 시 차감`:`잔여 ${r}회`);
     if(ml>0){const d=makeupDue(st);sub+=` · 보강 ${ml}회`+(d?(dueExpired(st)?' (기한지남)':' ~'+shortDate(d)):'');}
     if((st.classIds||[]).length>1)sub+=' · 겸반';
+    if(st.status!=='ended')sub+=' · '+stuLoginTag(st);
     if(feeFilter==='paidmonth'){
       const pays=(st.payments||[]).filter(p=>(p.date||'').slice(0,7)===mk);
       const total=pays.reduce((a,p)=>a+p.amount,0);
