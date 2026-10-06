@@ -749,8 +749,13 @@ function archiveClass(c){
   if(data.activeClass===c.id){const nxt=data.classes.find(x=>!x.isTempContainer&&!x.archived);if(nxt)data.activeClass=nxt.id;}
 }
 function isActiveStudent(x){return x.status!=='paused'&&x.status!=='ended';}
-function classWeekday(c){if(!c.sched||c.archived)return null;const ch=c.sched.trim()[0];
-  const map={'일':0,'월':1,'화':2,'수':3,'목':4,'금':5,'토':6};return map[ch]!==undefined?map[ch]:null;}
+function classWeekday(c){if(!c||c.archived)return null;
+  const map={'일':0,'월':1,'화':2,'수':3,'목':4,'금':5,'토':6};
+  const sc=(c.sched||'').trim();
+  if(sc&&map[sc[0]]!==undefined)return map[sc[0]];             // "수 10:30~13:30"
+  let m=sc.match(/([월화수목금토일])요일?/);if(m)return map[m[1]];   // "매주 수요일 …"
+  m=(c.name||'').match(/^([월화수목금토일])요/);if(m&&sc)return map[m[1]]; // 시간만 적힌 경우 반 이름("수요 오후반")에서
+  return null;}
 /* ---------- 시간표(요일×시간대 그리드) ---------- */
 function classRowSlots(c){
   if(/오전/.test(c.name))return [0];
@@ -952,7 +957,7 @@ function holidaySheet(){
       <div class="fgroup"><label>시작일</label><input type="date" id="hFrom" class="selin" value="${t}"></div>
       <div class="fgroup"><label>종료일</label><input type="date" id="hTo" class="selin" value="${t}"></div>
       ${mode==='class'?`<div class="fgroup"><label>대상 반 <button class="minibtn" id="hAllChk" style="margin-left:6px;padding:2px 8px;font-size:11.5px">전체 선택/해제</button></label>
-        ${data.classes.filter(c=>!c.isTempContainer&&!c.archived).map(c=>`<label class="chk"><input type="checkbox" data-hcid="${c.id}" checked> ${esc(c.name)} <small style="color:var(--ink-soft)">(${esc(c.sched||'')})</small></label>`).join('')}</div>`
+        ${data.classes.filter(c=>!c.isTempContainer&&!c.archived).slice().sort((a,b)=>classSortKey(a)-classSortKey(b)).map(c=>`<label class="chk"><input type="checkbox" data-hcid="${c.id}" checked> ${esc(c.name)} <small style="color:var(--ink-soft)">(${esc(c.sched||'')})</small></label>`).join('')}</div>`
       :`<div class="fgroup"><label>휴무 사유 (선택)</label><input id="hLabel" class="selin" placeholder="예: 명절 연휴, 개인 사정"></div>`}
       <div class="actions"><button class="btn-ghost" id="hNo">취소</button><button class="btn-primary" id="hList">📋 등록된 휴강일</button><button class="btn-danger" id="hOk">휴강 처리</button></div>
       <button class="btn-ghost" id="hAuto" style="width:100%;margin-top:10px;border-color:var(--verm);color:var(--verm);font-weight:700">🇰🇷 공휴일 한 번에 등록 (앞으로 1년)</button>
@@ -1439,10 +1444,14 @@ function renderStuMode(){
   if(fBox)fBox.classList.toggle('hidden',stuMode!=='fee');
 }
 function classSortKey(c){
-  const dow=classWeekday(c);
-  const dayPart=(dow===null)?8:(dow===0?7:dow);
+  /* 요일(월→일) → 시간(오전→오후→저녁) 순. 요일 없는 반은 그 뒤, 하루수업 관련 반은 맨 끝 */
+  let dow=classWeekday(c);
+  if(dow===null){const m=(c.name||'').match(/^([월화수목금토일])요/);if(m)dow={'일':0,'월':1,'화':2,'수':3,'목':4,'금':5,'토':6}[m[1]];}
+  const isDropin=/하루|쿠폰|원데이/.test(c.name||'')||c.type==='하루';
+  const dayPart=isDropin?9:(dow===null||dow===undefined)?8:(dow===0?7:dow);
   const mt=(c.sched||'').match(/(\d{1,2}):(\d{2})/);
-  const timePart=mt?(+mt[1])*60+(+mt[2]):0;
+  let timePart=mt?(+mt[1])*60+(+mt[2]):0;
+  if(!mt){const n=c.name||'';timePart=/오전/.test(n)?600:/오후/.test(n)?840:/저녁|밤/.test(n)?1140:720;}
   return dayPart*10000+timePart;
 }
 function renderClasses(){const sel=document.getElementById('classSel');sel.innerHTML='';
@@ -3084,7 +3093,7 @@ function editStudent(st){
       <option value="ended"${st.status==='ended'?' selected':''}>종료 (그만둠 · 기록은 보존)</option></select></div>
     <div class="fgroup"><label>특이사항 메모 <small style="color:var(--ink-soft)">(연락처와 별개, 자유롭게)</small></label><input id="esNotes" class="selin" value="${esc(st.notes||'')}" placeholder="예: 2/6 12회차 선결제 이후 휴강, 4/10 재등록"></div>
     <div class="fgroup"><label>수강 반 (여러 반 겸용 가능)</label>
-      ${data.classes.filter(c=>!c.isTempContainer&&(!c.archived||(st.classIds||[]).indexOf(c.id)>=0)).map(c=>`<label class="chk"><input type="checkbox" data-cid="${c.id}" ${(st.classIds||[]).indexOf(c.id)>=0?'checked':''}> ${esc(c.name)}</label>`).join('')}</div>
+      ${data.classes.filter(c=>!c.isTempContainer&&(!c.archived||(st.classIds||[]).indexOf(c.id)>=0)).slice().sort((a,b)=>classSortKey(a)-classSortKey(b)).map(c=>`<label class="chk"><input type="checkbox" data-cid="${c.id}" ${(st.classIds||[]).indexOf(c.id)>=0?'checked':''}> ${esc(c.name)}</label>`).join('')}</div>
     <button class="minibtn" id="esAdvToggle" type="button" style="width:100%;margin:4px 0 12px;color:var(--ink-soft)">⚙ 고급 설정 — 이용 기한·회차·반 이동 예외 처리 ${hasAdvValues?'(설정된 값 있음) ':''}▾</button>
     <div id="esAdvBox" class="hidden">
       <div class="fgroup"><button class="minibtn" id="esMoveClass" style="color:var(--blue)">🔀 반 이동 (예전 반 기록 정리하러 가기)</button></div>
