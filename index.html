@@ -508,7 +508,7 @@ async function mergeAllStudentActivity(showToast){
         const stName=(studentById(d.studentId)||{}).name||'학생';
         const msg=status==='absent'?`${stName}님이 ${shortDate(d.iso)} 결석 예정을 알렸어요 (${c.name})`
                            :`${stName}님이 ${shortDate(d.iso)} 출석을 체크했어요 (${c.name})`;
-        pushLog(status==='absent'?'absent':'selfcheck',msg,d.iso);msgs.push(msg);
+        pushLog(status==='absent'?'absent':'selfcheck',msg,d.iso,status==='absent'?{cid:c.id,sid:d.sessionId,stid:d.studentId}:null);msgs.push(msg);
         total++;}});
     if(!q1.empty){const b1=db.batch();q1.forEach(doc=>b1.delete(doc.ref));await b1.commit();}
   });
@@ -1166,10 +1166,12 @@ function autoCreateUpcomingSessions(){
   return made;
 }
 function studentById(id){return data.students.find(s=>s.id===id);}
-function pushLog(type,text,relIso){
+function pushLog(type,text,relIso,ref){
   if(!data.activityLog)data.activityLog=[];
   const isAdm=type==='admin'||/^\(원장님\)/.test(text||'');
-  data.activityLog.unshift({id:uid(),type,text,ts:Date.now(),seen:isAdm,relIso:relIso||null,adm:isAdm||undefined});
+  const ent={id:uid(),type,text,ts:Date.now(),seen:isAdm,relIso:relIso||null,adm:isAdm||undefined};
+  if(ref)ent.ref=ref;
+  data.activityLog.unshift(ent);
   /* 학생 알림 60건 · 원장님 작업 기록 40건을 따로 보관 (작업 기록이 학생 알림을 밀어내지 않게) */
   let ns=0,na=0;data.activityLog=data.activityLog.filter(e=>isAdminLog(e)?(++na<=40):(++ns<=60));
 }
@@ -1187,6 +1189,20 @@ function logStatusChange(st,c,prevMark,newMark,iso){
   pushLog(prevMark==='makeup'?'makeup':'admin',`(원장님) ${esc(st.name)}님의 ${shortDate(iso)} '${prevLabel}'을(를) '${newLabel}'(으)로 바꿨어요${c?' ('+esc(c.name)+')':''}`,iso);
 }
 function logIsExpired(e){return !!(e.relIso&&e.relIso<todayISO());}
+/* 학생이 보낸 '결석 예정' 알림 → 달력에 아직 남아 있는 그 결석 기록 찾기 (알림 지울 때 같이 지우려고) */
+function absentRecordForLog(e){
+  if(!e||e.type!=='absent'||!/결석 예정을 알렸어요/.test(e.text||''))return null;
+  if(e.ref){const c=classById(e.ref.cid),st=studentById(e.ref.stid);
+    if(c&&st){const k=e.ref.sid+':'+st.id;const sess=(c.sessions||[]).find(x=>x.id===e.ref.sid);
+      return c.records[k]==='absent'?{c,st,k,iso:(sess&&sess.iso)||e.relIso}:null;}}
+  /* 예전 알림(연결 정보 없음): 이름·반 이름·날짜로 찾기 */
+  const m=(e.text||'').match(/^(.+?)님이 .*\(([^()]+)\)\s*$/);if(!m||!e.relIso)return null;
+  const sts=data.students.filter(x=>x.name===m[1]);const cs=data.classes.filter(x=>x.name===m[2]);
+  if(sts.length!==1||cs.length!==1)return null;
+  const st=sts[0],c=cs[0];
+  const sess=(c.sessions||[]).find(x=>x.iso===e.relIso&&c.records[x.id+':'+st.id]==='absent');
+  return sess?{c,st,k:sess.id+':'+st.id,iso:sess.iso}:null;
+}
 function unseenLogCount(){return (data.activityLog||[]).filter(e=>!e.seen&&!isAdminLog(e)&&!logIsExpired(e)).length;}
 function markLogSeen(){const n=(data.activityLog||[]).filter(e=>!e.seen).length;(data.activityLog||[]).forEach(e=>e.seen=true);save();render();if(n)toast(n+'건 확인했어요. 아래 \'확인한 알림\'에서 다시 볼 수 있어요.');}
 function updateReportBadge(){const b=document.getElementById('reportBadge');if(!b)return;
@@ -2287,8 +2303,22 @@ function renderActivityLog(){
   const olderToggle=document.getElementById('logOlderToggle');
   if(olderToggle)olderToggle.onclick=()=>{logOlderOpen=!logOlderOpen;renderActivityLog();};
   logBox.querySelectorAll('[data-logdel]').forEach(el=>el.onclick=()=>{
-    data.activityLog=(data.activityLog||[]).filter(x=>x.id!==el.dataset.logdel);
-    save();renderActivityLog();updateReportBadge();
+    const id=el.dataset.logdel;
+    const ent=(data.activityLog||[]).find(x=>x.id===id);
+    const removeLog=()=>{data.activityLog=(data.activityLog||[]).filter(x=>x.id!==id);};
+    const rec=absentRecordForLog(ent);
+    if(!rec){removeLog();save();renderActivityLog();updateReportBadge();return;}
+    oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>결석 알림 지우기</h3>
+      <div style="font-size:14px;line-height:1.6;margin:6px 0 18px">${esc(rec.st.name)}님의 <b>${shortDate(rec.iso)} 결석</b> 기록이 달력과 개별카드에 아직 남아 있어요.<br>알림과 함께 결석 기록도 지울까요? <small style="color:var(--ink-soft)">(${esc(rec.c.name)})</small></div>
+      <div class="actions" style="flex-direction:column;gap:8px">
+        <button class="btn-danger" id="ldBoth" style="width:100%">결석 기록도 같이 지우기</button>
+        <button class="btn-ghost" id="ldLog" style="width:100%">알림만 지우기 (결석은 그대로)</button>
+        <button class="btn-ghost" id="ldNo" style="width:100%">취소</button></div></div></div>`;
+    oroot().querySelector('#ldNo').onclick=closeOverlay;
+    oroot().querySelector('#ldLog').onclick=()=>{closeOverlay();removeLog();save();renderActivityLog();updateReportBadge();toast('알림만 지웠어요.');};
+    oroot().querySelector('#ldBoth').onclick=()=>{closeOverlay();
+      if(rec.c.records[rec.k]==='absent'){logAdminClear(rec.st,rec.c,'absent',rec.iso);delete rec.c.records[rec.k];if(rec.c.recMemos)delete rec.c.recMemos[rec.k];}
+      removeLog();save();render();toast('알림과 결석 기록을 같이 지웠어요.');};
   });
   const clearAll=document.getElementById('logClearAll');
   if(clearAll)clearAll.onclick=()=>confirmSheet('확인한 알림 기록을 모두 지울까요? (아직 확인 안 한 새 알림은 남아요)',()=>{
