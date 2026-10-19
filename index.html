@@ -270,7 +270,7 @@
         <div class="rowlist" id="checkList"></div>
       </div>
       <div class="barbtns" style="margin:14px 0 10px"><button id="holidayBtn" style="border-color:var(--verm);color:var(--verm)">📅 휴강·휴무일 관리</button></div>
-      <div class="barbtns" style="margin-bottom:10px"><button id="announceBtn">📢 공지사항 (학생 앱 팝업)</button></div>
+      <div class="barbtns" style="margin-bottom:10px"><button id="announceBtn">📢 공지사항 (학생 앱 팝업) · 지난 공지 기록</button></div>
       <div class="barbtns" style="margin-bottom:10px"><button id="checkinQrBtn" style="border-color:var(--jade);color:var(--jade-deep)">📷 체크인 QR코드 (화실 입구용)</button></div>
       <div class="sechead" style="margin-top:18px">🗓 화실 시간표</div>
       <div id="ttAlways"></div>
@@ -678,7 +678,7 @@ async function regenerateStudentViews(){
         dropin:!!(st.dropin||st.dropinOnce),dailyRate:data.rates.daily||60000,dailyRateResearch:data.rates.dailyResearch||90000,
         dropinPack:(st.dropinPack&&!isDropinPackExpired(st))?{total:st.dropinPack.total,used:st.dropinPack.used,expiry:st.dropinPack.expiry}:null,dropin8Days:data.rates.dropin8Days||90,
         payments:(st.payments||[]).slice().sort((a,b)=>a.date<b.date?1:-1).map(p=>({date:p.date,amount:p.amount,sessions:p.sessions,plan:p.plan})),
-        makeupDue:makeupDue(st),lastClassBase:(st.makeupDueOverride?'':(activeLastClassOverride(st)||packageLastClassDate(st)||'')),studioRules:applyRuleTokens(data.studioRules||''),announcement:data.announcement||null,
+        makeupDue:makeupDue(st),lastClassBase:(st.makeupDueOverride?'':(activeLastClassOverride(st)||packageLastClassDate(st)||'')),studioRules:applyRuleTokens(data.studioRules||''),announcement:(announcementActive(data.announcement)?data.announcement:null),
         lastPaymentDate:(lastPayment(st)||{}).date||null,
         lastAttendDate:(marksOf(st).filter(m=>m.mark==='present'||m.mark==='late').sort((a,b)=>a.iso<b.iso?1:-1)[0]||{}).iso||null,
         timetableGrid,allSkipped,allUpcomingSkipped,archiveMarks:st.archiveMarks||{},cycleMap:cycleMapOf(st),updatedAt:Date.now()
@@ -710,6 +710,10 @@ function migrate(d){
   d.classes.forEach(c=>{if(!c.recMemos)c.recMemos={};});
   if(!Array.isArray(d.studioNotes))d.studioNotes=[];
   if(!d.announcement)d.announcement=null;
+  if(!Array.isArray(d.announcementHistory))d.announcementHistory=[];
+  if(d.announcement&&d.announcement.id&&!d.announcementHistory.some(h=>h.id===d.announcement.id)){
+    d.announcementHistory.push({id:d.announcement.id,text:d.announcement.text,createdAt:d.announcement.createdAt||Date.now(),until:d.announcement.until||''});
+  }
   if(!d.rates)d.rates={d3:10,d6:15};
   if(!d.capacity)d.capacity=7;
   if(!d.income)d.income=[];
@@ -887,22 +891,80 @@ function diagnosticSheet(){
     const st=studentById(el.dataset.diagid);if(st)studentSheet(st);
   });
 }
+function announcementActive(a){
+  if(!a||!a.text)return false;
+  if(a.until&&todayISO()>a.until)return false;
+  return true;
+}
 function announcementSheet(){
+  if(!Array.isArray(data.announcementHistory))data.announcementHistory=[];
+  function fmtD(iso){if(!iso)return '';const p=iso.split('-');return (+p[1])+'/'+(+p[2]);}
+  function fmtTs(ts){if(!ts)return '';const d=new Date(ts);return (d.getMonth()+1)+'/'+d.getDate();}
+  function endHistory(id,reason){
+    const h=data.announcementHistory.find(x=>x.id===id);
+    if(h&&!h.endedAt){h.endedAt=Date.now();h.endReason=reason;}
+  }
   function draw(){
     const a=data.announcement;
+    const active=announcementActive(a);
+    const expired=a&&!active;
+    const hist=data.announcementHistory.slice().sort((x,y)=>(y.createdAt||0)-(x.createdAt||0));
+    const histRow=(h,i)=>{
+      const range=fmtTs(h.createdAt)+' ~ '+(h.until?fmtD(h.until):(h.endedAt?fmtTs(h.endedAt):'계속'));
+      const live=a&&a.id===h.id&&active;
+      return `<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--card)">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:4px">
+          <span style="font-size:12.5px;color:var(--ink-soft);font-weight:700">${esc(range)}${live?' · <span style="color:var(--verm)">지금 떠 있음</span>':''}</span>
+          <button class="btn-ghost" data-anreuse="${i}" style="padding:4px 10px;font-size:12px">불러오기</button>
+        </div>
+        <div style="white-space:pre-wrap;font-size:13px;line-height:1.6">${esc(h.text)}</div>
+      </div>`;
+    };
     oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>📢 공지사항</h3>
-      <div class="subt">여기 적어두시면, 학생이 앱에 로그인할 때 팝업 창으로 한 번 떠요. 확인하면 다시 안 떠요 (새 공지를 다시 저장하시면 모든 학생한테 또 한 번씩 떠요).</div>
-      <div class="fgroup"><label>공지 내용 <small style="color:var(--ink-soft)">(비워두고 저장하면 공지가 꺼져요)</small></label><textarea class="msg" id="anTa" style="min-height:140px" placeholder="예: 8/15(토)은 광복절로 휴강입니다. 다음주 정상 수업합니다.">${esc(a?a.text:'')}</textarea></div>
-      ${a?`<div class="note" style="margin:-6px 3px 10px">현재 켜져 있는 공지예요. 학생마다 확인했는지 여부는 각자 앱에서 관리돼요.</div>`:''}
+      <div class="subt">여기 적어두시면, 학생이 앱에 로그인할 때 팝업 창으로 떠요. 학생이 "확인했어요"를 누르면 그 학생한테는 다시 안 떠요.</div>
+      ${expired?`<div class="note" style="margin:0 3px 10px;color:var(--verm)">⏰ 이 공지는 ${fmtD(a.until)}까지였어요. 기한이 지나서 지금은 학생에게 안 보여요.</div>`:''}
+      <div class="fgroup"><label>공지 내용 <small style="color:var(--ink-soft)">(비워두고 저장하면 공지가 꺼져요)</small></label><textarea class="msg" id="anTa" style="min-height:140px" placeholder="예: 8/15(토)은 광복절로 휴강입니다. 다음주 정상 수업합니다.">${esc(a&&!expired?a.text:'')}</textarea></div>
+      <div class="fgroup"><label>언제까지 띄울까요? <small style="color:var(--ink-soft);font-weight:400">(그날까지 보이고, 다음 날부터 저절로 안 떠요 · 비워두면 직접 끌 때까지 계속)</small></label>
+        <input type="date" id="anUntil" class="selin" value="${a&&!expired&&a.until?a.until:''}">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+          <button class="btn-ghost" data-anplus="3" style="padding:4px 10px;font-size:12px">3일</button>
+          <button class="btn-ghost" data-anplus="7" style="padding:4px 10px;font-size:12px">1주</button>
+          <button class="btn-ghost" data-anplus="14" style="padding:4px 10px;font-size:12px">2주</button>
+          <button class="btn-ghost" data-anplus="0" style="padding:4px 10px;font-size:12px">기한 없음</button>
+        </div></div>
+      ${a&&active?`<label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:0 3px 12px"><input type="checkbox" id="anRepop"> 이미 확인한 학생들한테도 다시 한 번 띄우기</label>`:''}
       <div class="actions"><button class="btn-ghost" id="anNo">취소</button><button class="btn-primary" id="anOk">저장</button></div>
+      ${hist.length?`<details style="margin-top:16px"><summary style="cursor:pointer;color:var(--ink-soft);font-weight:700">🗂 지난 공지 기록 (${hist.length})</summary><div style="margin-top:8px">${hist.map(histRow).join('')}</div></details>`:''}
       </div></div>`;
     const q=s=>oroot().querySelector(s);
     q('#anNo').onclick=closeOverlay;
+    oroot().querySelectorAll('[data-anplus]').forEach(b=>b.onclick=()=>{
+      const n=+b.dataset.anplus;q('#anUntil').value=n?addDays(todayISO(),n):'';
+    });
+    oroot().querySelectorAll('[data-anreuse]').forEach(b=>b.onclick=()=>{
+      const h=hist[+b.dataset.anreuse];if(!h)return;
+      q('#anTa').value=h.text;q('#anTa').focus();toast('예전 공지를 불러왔어요. 날짜를 정하고 저장하세요.');
+    });
     q('#anOk').onclick=()=>{
       const text=q('#anTa').value.trim();
-      if(!text){data.announcement=null;save();render();closeOverlay();toast('공지를 껐어요.');return;}
-      data.announcement={id:uid(),text,createdAt:Date.now()};
-      save();render();closeOverlay();toast('공지를 저장했어요. 학생 앱에 팝업으로 떠요.');
+      const until=q('#anUntil').value||'';
+      if(until&&until<todayISO()){toast('⚠ 지난 날짜예요. 오늘 이후 날짜를 골라주세요.');return;}
+      if(!text){
+        if(a)endHistory(a.id,expired?'기한 지남':'직접 끔');
+        data.announcement=null;save();render();closeOverlay();toast(a&&active?'공지를 껐어요. 지난 공지 기록에는 남아 있어요.':'저장했어요.');return;
+      }
+      const repop=q('#anRepop')&&q('#anRepop').checked;
+      if(a&&active&&a.text===text&&!repop){
+        a.until=until;
+        const h=data.announcementHistory.find(x=>x.id===a.id);if(h)h.until=until;
+        save();render();closeOverlay();toast(until?`${fmtD(until)}까지 보이도록 바꿨어요.`:'기한 없이 계속 보이도록 바꿨어요.');return;
+      }
+      if(a)endHistory(a.id,expired?'기한 지남':'새 공지로 바뀜');
+      const na={id:uid(),text,createdAt:Date.now(),until};
+      data.announcement=na;
+      data.announcementHistory.push({id:na.id,text,createdAt:na.createdAt,until});
+      if(data.announcementHistory.length>100)data.announcementHistory=data.announcementHistory.slice(-100);
+      save();render();closeOverlay();toast(until?`공지를 저장했어요. ${fmtD(until)}까지 학생 앱에 떠요.`:'공지를 저장했어요. 학생 앱에 팝업으로 떠요.');
     };
   }
   draw();
@@ -4488,6 +4550,7 @@ async function enterStudent(u){
 function maybeShowAnnouncement(){
   if(!stuData||!stuData.announcement)return;
   const a=stuData.announcement;
+  if(a.until&&todayISO()>a.until)return;
   let seenIds=[];
   try{seenIds=JSON.parse(localStorage.getItem('gmh_seen_announcements')||'[]');}catch(e){seenIds=[];}
   if(seenIds.indexOf(a.id)>=0)return;
