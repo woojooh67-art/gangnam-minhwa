@@ -790,7 +790,7 @@ function buildTimetableGrid(){
     const dow=classWeekday(c);if(dow===null)return;
     const dIdx=dayLabels.findIndex(dl=>dowOf(dl)===dow);if(dIdx<0)return;
     const rows=classRowSlots(c);
-    blocks.push({day:dIdx,rowStart:Math.min(...rows),rowSpan:rows.length,label:(c.type||'정규')+'반',type:c.type||'정규',sched:c.sched||'',extra:false,classId:c.id});
+    blocks.push({day:dIdx,rowStart:Math.min(...rows),rowSpan:rows.length,label:c.type==='직장인'?'취미반':(c.type||'정규')+'반',type:c.type||'정규',sched:c.sched||'',extra:false,classId:c.id});
   });
   (data.timetableExtras||[]).forEach(ex=>{
     const dIdx=dayLabels.findIndex(dl=>dowOf(dl)===ex.day);if(dIdx<0)return;
@@ -800,8 +800,8 @@ function buildTimetableGrid(){
   return {rowLabels,dayLabels,blocks};
 }
 function timetableGridHTML(tt,editable,big){
-  const cellBg=item=>item.extra?'var(--ochre-tint)':(item.type==='연구'?'var(--verm-tint)':'var(--jade-tint)');
-  const cellFg=item=>item.extra?'var(--ochre)':(item.type==='연구'?'var(--verm)':'var(--jade-deep)');
+  const cellBg=item=>item.extra?'var(--ochre-tint)':(item.type==='연구'?'var(--verm-tint)':item.type==='직장인'?'var(--blue-tint,#eaf2fb)':'var(--jade-tint)');
+  const cellFg=item=>item.extra?'var(--ochre)':(item.type==='연구'?'var(--verm)':item.type==='직장인'?'var(--blue)':'var(--jade-deep)');
   const baseFs=big?13.5:12,hdFs=big?14:12.5,rlFs=big?13:11.5,colW=big?76:62;
   let html=`<div style="overflow-x:auto" id="ttGridScroll"><table style="border-collapse:collapse;width:100%;min-width:540px;font-size:${baseFs}px">`;
   html+='<tr><th style="width:44px"></th>'+tt.dayLabels.map((d,i)=>`<th data-day="${i}" style="padding:5px 3px;font-weight:700;color:var(--ink-soft);font-size:${hdFs}px">${d}</th>`).join('')+'</tr>';
@@ -3547,7 +3547,7 @@ function classPickerHTML(v){
   const opts=sel=>'<option value="">--</option>'+cpTimes().map(t=>`<option ${t===sel?'selected':''}>${t}</option>`).join('');
   const wrap='class="filters" style="margin-top:6px;flex-wrap:wrap;overflow:visible;white-space:normal;gap:6px"';
   return `<div class="fgroup"><label>요일</label><div ${wrap}>${CP_DAYS.map(d=>chip('day',d,d,v.day===d)).join('')}</div></div>
-    <div class="fgroup"><label>구분</label><div ${wrap}>${chip('type','정규','정규 (3시간)',v.type!=='연구'&&v.type!=='직장인')}${chip('type','연구','연구 (6시간)',v.type==='연구')}${chip('type','직장인','2시간 클래스',v.type==='직장인')}</div></div>
+    <div class="fgroup"><label>구분</label><div ${wrap}>${chip('type','정규','정규 (3시간)',v.type!=='연구'&&v.type!=='직장인')}${chip('type','연구','연구 (6시간)',v.type==='연구')}${chip('type','직장인','취미반 (2시간)',v.type==='직장인')}</div></div>
     <div class="fgroup"><label>시간대 <small style="color:var(--ink-soft)">(반 이름에 쓰여요 · 같은 요일에 반이 하나면 안 골라도 돼요)</small></label><div ${wrap}>${chip('slot','','없음',!v.slot)}${chip('slot','오전','오전',v.slot==='오전')}${chip('slot','오후','오후',v.slot==='오후')}${chip('slot','저녁','저녁',v.slot==='저녁')}</div></div>
     <div class="fgroup"><label>수업 시간 <small style="color:var(--ink-soft)">(시작을 고르면 끝나는 시간이 자동으로 채워져요)</small></label>
       <div style="display:flex;gap:8px;align-items:center;margin-top:6px"><select id="cpStart" class="selin" style="margin:0;flex:1">${opts(v.start)}</select><span>~</span><select id="cpEnd" class="selin" style="margin:0;flex:1">${opts(v.end)}</select></div></div>
@@ -3555,7 +3555,7 @@ function classPickerHTML(v){
 }
 function bindClassPicker(v,onType){
   const R=oroot();const nameEl=R.querySelector('#cpName');let manual=!!v.nameManual;
-  const autoName=()=>{if(!v.day)return '';return v.type==='연구'?`${v.day}요 연구반`:v.type==='직장인'?`${v.day}요 ${v.slot||'저녁'}반`:(v.slot?`${v.day}요 ${v.slot}반`:`${v.day}요 정규반`);};
+  const autoName=()=>{if(!v.day)return '';return v.type==='연구'?`${v.day}요 연구반`:v.type==='직장인'?`${v.day}요 취미반`:(v.slot?`${v.day}요 ${v.slot}반`:`${v.day}요 정규반`);};
   const refresh=()=>{if(!manual){const n=autoName();if(n)nameEl.value=n;}};
   R.querySelectorAll('[data-cp]').forEach(b=>b.onclick=()=>{const g=b.dataset.cp;v[g]=b.dataset.v;
     R.querySelectorAll(`[data-cp="${g}"]`).forEach(x=>x.classList.toggle('on',x===b));
@@ -3602,9 +3602,10 @@ function editClass(){const c=curClass();const v=Object.assign(cpParse(c),{name:c
   const q=s=>oroot().querySelector(s);q('#ecNo').onclick=closeOverlay;
   const readCp=bindClassPicker(v,t=>{if(!c.fee||['정규','연구','직장인'].some(x=>typeFee(x)===+q('#ecFee').value))q('#ecFee').value=CP_FEE[t]||200000;});
   q('#ecOk').onclick=()=>{const r=readCp();if(!r.day){toast('요일을 골라주세요.');return;}
+    const feeVal=parseInt(q('#ecFee').value); /* 확인 창이 뜨면 이 화면이 닫히므로 미리 읽어둬요 */
     const before=cpParse(c);const changedCore=before.day!==r.day||(c.type||'정규')!==r.type;
     const stuN=data.students.filter(x=>x.status!=='ended'&&(x.classIds||[]).indexOf(c.id)>=0).length;
-    const apply=()=>{const oldName=c.name;c.name=r.name||c.name;c.type=r.type;c.sched=r.sched;c.fee=parseInt(q('#ecFee').value)||c.fee;
+    const apply=()=>{const oldName=c.name;c.name=r.name||c.name;c.type=r.type;c.sched=r.sched;c.fee=feeVal||c.fee;
       /* 요일이 바뀌면, 아직 기록이 없는 앞으로의 빈 수업 회차 중 새 요일과 안 맞는 것은 정리 */
       const t=todayISO(),dw=classWeekday(c);
       c.sessions=c.sessions.filter(se=>se.temp||se.iso<=t||Object.keys(c.records).some(k=>k.indexOf(se.id+':')===0)||dw===null||new Date(se.iso+'T00:00:00').getDay()===dw);
