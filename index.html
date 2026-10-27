@@ -3324,6 +3324,7 @@ function editStudent(st){
     </div>
     <div class="fgroup"><label>이름</label><input id="esName" class="selin" value="${esc(st.name)}"></div>
     <div class="fgroup"><label>전화번호 <small style="color:var(--ink-soft)">(로그인 코드 추천에 쓰여요)</small></label><input id="esMemo" class="selin" value="${esc(st.memo||'010-')}" placeholder="예: 010-1234-5678"></div>
+    <div class="fgroup"><label class="chk" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="esDropin" ${st.dropin?'checked':''}> <span>하루수업 신청 허용 <small style="color:var(--ink-soft)">(휴강·종료 학생은 자동으로 보여요. 수강 중인 학생에게도 열어줄 때만 체크)</small></span></label></div>
     <div class="fgroup"><label>특별 월요금(4회 기준, 원) · 비우면 반 기본요금</label><input id="esRate" type="number" class="selin" value="${st.rate||''}" placeholder="예: 200000"></div>
     ${(data.newPrice&&data.newPrice.from&&todayISO()<data.newPrice.from)?`<div class="fgroup"><label class="chk" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="esNewPrice" ${st.newPrice?'checked':''}> <span>새 수업료 미리 적용 (신규 회원) · ${shortDate(data.newPrice.from)} 전에도 새 가격으로 보여요</span></label></div>`:''}
     <div class="fgroup"><label>상태</label><select id="esStat" class="selin">
@@ -3406,6 +3407,7 @@ function editStudent(st){
   if(q('#esMoveClass'))q('#esMoveClass').onclick=()=>classMoveSheet(st);
   q('#esOk').onclick=()=>{const nm=q('#esName').value.trim();if(nm)st.name=nm;
     const rt=parseInt(q('#esRate').value);st.rate=(rt&&rt>0)?rt:0;
+    {const dp=q('#esDropin');if(dp){if(dp.checked)st.dropin=true;else{delete st.dropin;delete st.dropinOnce;}}}
     {const np=q('#esNewPrice');if(np){if(np.checked)st.newPrice=true;else delete st.newPrice;}}
     const off=v=>(v==='paused'||v==='ended');const wasPaused=off(st.status),nowPaused=off(q('#esStat').value);
     const newCycleStart=q('#esCycleStart').value||'';
@@ -4254,7 +4256,10 @@ function renderStudentApp(){
     }
   }
   let dropinSection='';
-  {
+  /* 하루수업 신청은 휴강·종료 학생, 정규 요일이 없는 학생, 원장님이 따로 허용한 학생에게만 보여요.
+     수강 중인 학생은 '다른 날 수업 예약'으로 회차를 써요. 이미 신청한 하루수업이 있으면 계속 보여요 */
+  const dropinAllowed=stuData.status==='paused'||stuData.status==='ended'||stuData.hasRealClass===false||!!stuData.dropin||(stuData._pendingDropin||[]).length>0||!!stuData.dropinPack;
+  if(dropinAllowed){
     const pendingDropin=stuData._pendingDropin||[];
     const slots=(stuData.allUpcoming||[]).filter(u=>u.iso>=t&&u.iso<=addDays(t,STU_WINDOW_DAYS));
     const rateFor=u=>(u.classType==='연구'&&!u.afternoonOnly)?(stuData.dailyRateResearch||90000):u.classType==='직장인'?(stuData.dailyRateWorker||45000):(stuData.dailyRate||60000);
