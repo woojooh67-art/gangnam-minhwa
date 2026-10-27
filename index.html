@@ -294,7 +294,7 @@
         <div class="filters" id="feeFilters"></div>
         <input class="search" id="feeSearch" placeholder="이름 검색" autocomplete="off">
         <div class="rowlist" id="feeList"></div>
-        <div class="barbtns" style="margin-top:12px"><button id="feeSettings">⚙ 요금·할인 설정</button></div>
+        <div class="barbtns" style="margin-top:12px"><button id="feeSettings">⚙ 수업료 설정</button></div>
       </div>
     </section>
 
@@ -3464,12 +3464,17 @@ function classMoveSheet(st){
 }
 
 /* ---------- settings / class ---------- */
-function openSettings(){oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>요금 · 할인 설정</h3>
-  <div class="subt">월요금은 4회 기준입니다. 인상하면 이후 결제부터 적용됩니다.</div>
-  ${data.classes.filter(c=>!c.isTempContainer&&c.sched).map(c=>`<div class="setrow"><div class="l">${esc(c.name)}<small>${c.type} · ${esc(c.sched||'')}</small></div><input type="number" data-fee="${c.id}" value="${c.fee}"></div>`).join('')}
-  <div class="setrow"><div class="l">하루 수업료<small>정규반 1회 참여</small></div><input type="number" id="setDaily" value="${data.rates.daily||60000}"></div>
-  <div class="setrow"><div class="l">연구반 하루 수업료<small>연구반 1회 참여(하루)</small></div><input type="number" id="setDailyResearch" value="${data.rates.dailyResearch||90000}"></div>
-  <div class="setrow"><div class="l">2시간 클래스 하루 수업료<small>저녁 2시간 반 1회 참여</small></div><input type="number" id="setDailyWorker" value="${data.rates.dailyWorker||45000}"></div>
+function openSettings(){oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>수업료 설정</h3>
+  <div class="subt">⚠ 여기서 바꾸면 <b>학생 앱의 안내·하루수업 신청 가격에 바로 보여요.</b> 학생들에게 알린 뒤에 바꿔주세요. 월 수강료는 바꾼 뒤 하는 결제부터 적용되고, 이미 결제한 회차는 그대로예요.</div>
+  <div class="note" style="margin:10px 3px 4px;font-weight:700">월 수강료 (4회)</div>
+  <div class="setrow"><div class="l">정규반<small>3시간 · 같은 종류 반 모두 같은 금액</small></div><input type="number" id="setFeeReg" value="${typeFee('정규')}"></div>
+  <div class="setrow"><div class="l">연구반<small>6시간</small></div><input type="number" id="setFeeRes" value="${typeFee('연구')}"></div>
+  <div class="setrow"><div class="l">취미반<small>2시간 클래스</small></div><input type="number" id="setFeeHob" value="${typeFee('직장인')}"></div>
+  <div class="note" style="margin:12px 3px 4px;font-weight:700">하루 수업료 (1회)</div>
+  <div class="setrow"><div class="l">정규반 하루<small>3시간</small></div><input type="number" id="setDaily" value="${data.rates.daily||60000}"></div>
+  <div class="setrow"><div class="l">연구반 하루<small>6시간 (점심 포함)</small></div><input type="number" id="setDailyResearch" value="${data.rates.dailyResearch||90000}"></div>
+  <div class="setrow"><div class="l">취미반 하루<small>2시간</small></div><input type="number" id="setDailyWorker" value="${data.rates.dailyWorker||45000}"></div>
+  <div class="note" style="margin:12px 3px 4px;font-weight:700">장기 결제 할인 · 기타</div>
   <div class="setrow"><div class="l">12회(3개월) 할인<small>%</small></div><input type="number" id="setD3" value="${data.rates.d3}"></div>
   <div class="setrow"><div class="l">24회(6개월) 할인<small>%</small></div><input type="number" id="setD6" value="${data.rates.d6}"></div>
   <div class="setrow"><div class="l">타임당 정원<small>다른 날 수업 예약 가능 인원 기준</small></div><input type="number" id="setCap" value="${capacityOf()}"></div>
@@ -3477,7 +3482,11 @@ function openSettings(){oroot().innerHTML=`<div class="overlay"><div class="shee
   <div class="setrow" style="display:none"><div class="l">쿠폰 사용 기한<small>결제일로부터 일수</small></div><input type="number" id="setDropin8Days" value="${data.rates.dropin8Days||90}"></div>
   <div class="actions" style="margin-top:15px"><button class="btn-ghost" id="sNo">취소</button><button class="btn-primary" id="sOk">저장</button></div></div></div>`;
   oroot().querySelector('#sNo').onclick=closeOverlay;
-  oroot().querySelector('#sOk').onclick=()=>{oroot().querySelectorAll('input[data-fee]').forEach(inp=>{const c=classById(inp.dataset.fee);if(c)c.fee=Math.max(0,parseInt(inp.value)||0);});
+  oroot().querySelector('#sOk').onclick=()=>{
+    [['정규','#setFeeReg'],['연구','#setFeeRes'],['직장인','#setFeeHob']].forEach(([ty,id])=>{const el=oroot().querySelector(id);if(!el)return;
+      const v=Math.max(0,parseInt(el.value)||0);if(!v||v===typeFee(ty))return;
+      data.classes.forEach(c=>{if(c.type===ty&&!c.isTempContainer&&c.fee>0)c.fee=v;});
+      pushLog('admin',`(원장님) ${ty==='직장인'?'취미반':ty+'반'} 월 수강료를 ${won(v)}으로 바꿨어요.`,todayISO());});
     data.rates.daily=Math.max(0,parseInt(oroot().querySelector('#setDaily').value)||60000);
     data.rates.dailyResearch=Math.max(0,parseInt(oroot().querySelector('#setDailyResearch').value)||90000);
     {const w=oroot().querySelector('#setDailyWorker');if(w)data.rates.dailyWorker=Math.max(0,parseInt(w.value)||45000);}
@@ -3518,7 +3527,12 @@ function rulesSheet(){
 /* ---------- 반 만들기·수정: 요일·구분·시간을 골라서 입력 ---------- */
 const CP_DAYS=['월','화','수','목','금','토','일'];
 const CP_HOURS={'정규':3,'연구':6,'직장인':2};
-const CP_FEE={'정규':200000,'연구':250000,'직장인':150000};
+const CP_FEE_DEFAULT={'정규':200000,'연구':250000,'직장인':150000};
+/* 반 종류별 월 수강료(4회): 정규반·연구반·취미반(2시간) 세 가지. 같은 종류 반들 중 가장 많이 쓰는 금액 */
+function typeFee(type){const fs=data.classes.filter(c=>c.type===type&&!c.isTempContainer&&c.fee>0).map(c=>c.fee);
+  if(!fs.length)return CP_FEE_DEFAULT[type]||200000;const cnt={};fs.forEach(f=>cnt[f]=(cnt[f]||0)+1);
+  return +Object.keys(cnt).reduce((a,b)=>cnt[a]>=cnt[b]?a:b);}
+const CP_FEE=new Proxy({},{get:(t,k)=>typeFee(k)});
 const cpDur=t=>CP_HOURS[t]||3;
 function cpTimes(){const a=[];for(let h=8;h<=22;h++){a.push(pad(h)+':00');if(h<22)a.push(pad(h)+':30');}return a;}
 function cpAddH(t,h){const [H,M]=t.split(':').map(Number);let m=H*60+M+h*60;m=Math.min(m,22*60);return pad(Math.floor(m/60))+':'+pad(m%60);}
@@ -3586,7 +3600,7 @@ function editClass(){const c=curClass();const v=Object.assign(cpParse(c),{name:c
       save();closeOverlay();render();toast('반을 보관했어요. 기록은 그대로 남아 있어요.');},'보관하기');
   };
   const q=s=>oroot().querySelector(s);q('#ecNo').onclick=closeOverlay;
-  const readCp=bindClassPicker(v,t=>{if(!c.fee||[200000,250000,150000].includes(+q('#ecFee').value))q('#ecFee').value=CP_FEE[t]||200000;});
+  const readCp=bindClassPicker(v,t=>{if(!c.fee||['정규','연구','직장인'].some(x=>typeFee(x)===+q('#ecFee').value))q('#ecFee').value=CP_FEE[t]||200000;});
   q('#ecOk').onclick=()=>{const r=readCp();if(!r.day){toast('요일을 골라주세요.');return;}
     const before=cpParse(c);const changedCore=before.day!==r.day||(c.type||'정규')!==r.type;
     const stuN=data.students.filter(x=>x.status!=='ended'&&(x.classIds||[]).indexOf(c.id)>=0).length;
