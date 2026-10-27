@@ -1335,7 +1335,15 @@ function marksSincePayment(st){
   return all.filter(m=>m.iso>=payEffDate(p));
 }
 /* 이번 결제분 출석·결석·보강: 오늘까지 실제로 지난 날만 세요 (잔여 회차와 같은 기준). 앞으로 잡힌 날은 '예정'으로 따로 */
-function usedSincePayment(st){const t=todayISO();return marksSincePayment(st).filter(m=>m.iso<=t&&isAttendMark(m.mark)).length;}
+function usedSincePayment(st){const t=todayISO();
+  /* 달력의 1/4, 2/4… 번호와 같은 기준으로 세요 (결제일 전에 먼저 들은 회차, 잔여 보정도 반영) */
+  const lp=lastPayment(st);
+  try{const cm=cycleMapOf(st);
+    if(lp&&cm.lastPayId===lp.id){let mx=0,over=0;
+      Object.keys(cm.days).forEach(iso=>{if(iso>t)return;cm.days[iso].forEach(e=>{if(e.cur&&e.n>mx)mx=e.n;if(e.o)over++;});});
+      return mx+over;}
+  }catch(e){}
+  return marksSincePayment(st).filter(m=>m.iso<=t&&isAttendMark(m.mark)).length;}
 function absentSincePayment(st){const t=todayISO();return marksSincePayment(st).filter(m=>m.iso<=t&&m.mark==='absent').length;}
 function makeupUsedSincePayment(st){const t=todayISO();return marksSincePayment(st).filter(m=>m.iso<=t&&m.mark==='makeup').length;}
 function plannedSincePayment(st){const t=todayISO();return marksSincePayment(st).filter(m=>m.iso>t&&(m.mark==='present'||m.mark==='late'||m.mark==='makeup')).length;}
@@ -1423,7 +1431,7 @@ function cycleMapOf(st){
     const pos=k-adj;let e;
     if(pos<0)e={c:1};
     else if(pos>=tot)e={o:1};
-    else{let j=pays.length-1;while(j>0&&cum[j]>pos)j--;e={n:pos-cum[j]+1,t:pays[j].sessions,i:j};}
+    else{let j=pays.length-1;while(j>0&&cum[j]>pos)j--;e={n:pos-cum[j]+1,t:pays[j].sessions,i:j};if(j===pays.length-1)e.cur=1;}
     (days[m.iso]=days[m.iso]||[]).push(e);
   });
   /* 리셋 기준일 이전의 지난 결제분들도 각자 결제 기간 안에서 1/N, 2/N… 번호를 붙여 보여줘요 (잔여 계산과는 무관, 기록 표시용) */
@@ -1440,7 +1448,7 @@ function cycleMapOf(st){
     });
   }
   const payDays={};(st.payments||[]).forEach(p=>{if(p.date)payDays[p.date]=1;});
-  return {days,pays:payDays};
+  return {days,pays:payDays,lastPayId:pays.length?pays[pays.length-1].id:null};
 }
 function cycLabelHTML(cm,iso){
   if(!cm||iso<'2026-07-01')return '<div class="cyclbl"></div>';
