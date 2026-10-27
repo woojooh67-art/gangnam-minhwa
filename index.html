@@ -3190,6 +3190,8 @@ function newStudentDoneSheet(st,codeOk){
 
 /* ---------- 👀 학생 화면 미리보기 (원장님 화면에서, 로그인·명단 추가 없이 보기 전용) ---------- */
 let STU_PREVIEW=false;
+/* 원장님의 '학생 화면 미리보기'에서는 어떤 버튼을 눌러도 실제로 보내지지 않게 막아요 */
+function stuPreviewBlocked(){if(STU_PREVIEW){toast('미리보기라서 실제로는 아무것도 보내지 않았어요.');return true;}return false;}
 async function previewStudentView(st){
   if(!st.uid){toast('이 학생은 아직 로그인 코드가 없어 학생 화면이 없어요.');return;}
   closeOverlay();toast('학생 화면을 불러오는 중...');
@@ -3207,12 +3209,16 @@ async function previewStudentView(st){
   document.getElementById('studentApp').classList.remove('hidden');
   renderStudentApp();
   const app=document.getElementById('studentApp');
-  app.querySelectorAll('button,input,select,textarea').forEach(el=>{if(!el.classList.contains('calnav'))el.disabled=true;});
+  const lockPreview=()=>app.querySelectorAll('button,input,select,textarea').forEach(el=>{if(el.classList.contains('calnav')||el.id==='calTodayStu')return;el.disabled=true;el.style.cursor='not-allowed';});
+  lockPreview();
+  if(window.__stuPrevObs)window.__stuPrevObs.disconnect();
+  window.__stuPrevObs=new MutationObserver(()=>{if(STU_PREVIEW)lockPreview();});
+  window.__stuPrevObs.observe(app,{childList:true,subtree:true});
   const ic=document.getElementById('installCard');if(ic)ic.remove();
   let bar=document.getElementById('previewBar');if(!bar){bar=document.createElement('div');bar.id='previewBar';document.body.appendChild(bar);}
   bar.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:9999;background:var(--jade-deep,#2e6b57);color:#fff;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));display:flex;align-items:center;gap:10px;font-size:14px;box-shadow:0 -2px 10px rgba(0,0,0,.15)';
-  bar.innerHTML=`<div style="flex:1">👀 <b>${esc(st.name)}</b>님 학생 화면 미리보기<br><small style="opacity:.85">보기 전용이라 버튼은 눌러도 동작하지 않아요</small></div><button id="previewBack" style="border:none;border-radius:999px;padding:9px 16px;font-weight:700;background:#fff;color:var(--jade-deep,#2e6b57);font-family:inherit">원장님 화면으로</button>`;
-  document.getElementById('previewBack').onclick=()=>{STU_PREVIEW=false;stuData=null;bar.remove();
+  bar.innerHTML=`<div style="flex:1">👀 <b>${esc(st.name)}</b>님 학생 화면 미리보기<br><small style="opacity:.85">보기 전용이에요 · 어떤 버튼을 눌러도 학생에게 보내지지 않아요</small></div><button id="previewBack" style="border:none;border-radius:999px;padding:9px 16px;font-weight:700;background:#fff;color:var(--jade-deep,#2e6b57);font-family:inherit">원장님 화면으로</button>`;
+  document.getElementById('previewBack').onclick=()=>{STU_PREVIEW=false;stuData=null;bar.remove();if(window.__stuPrevObs){window.__stuPrevObs.disconnect();window.__stuPrevObs=null;}
     document.getElementById('studentApp').classList.add('hidden');document.getElementById('adminApp').classList.remove('hidden');render();studentSheet(st);};
   window.scrollTo(0,0);
 }
@@ -4348,7 +4354,7 @@ function renderStudentApp(){
       const q=x=>oroot().querySelector(x);
       oroot().querySelectorAll('[data-rn]').forEach(b=>b.onclick=()=>{oroot().querySelectorAll('[data-rn]').forEach(x=>x.classList.toggle('on',x===b));q('#reNote').value=b.dataset.rn;});
       q('#reNo').onclick=closeOverlay;
-      q('#reOk').onclick=async()=>{const ok=q('#reOk');ok.disabled=true;ok.textContent='전송 중...';
+      q('#reOk').onclick=async()=>{if(stuPreviewBlocked())return;const ok=q('#reOk');ok.disabled=true;ok.textContent='전송 중...';
         try{await db.collection('checkinRequests').add({kind:'reenroll',note:q('#reNote').value.trim(),uid:auth.currentUser.uid,studentId:stuData.studentId,studentName:stuData.name,ts:Date.now(),createdAt:Date.now()});
           try{localStorage.setItem('gmh_reenroll_'+stuData.studentId,todayISO());}catch(e){}
           closeOverlay();markSent(todayISO());toast('재등록 신청을 보냈어요.');}
@@ -4366,6 +4372,7 @@ function renderStudentApp(){
       const n=document.getElementById('stuCheckinNote');if(n)n.textContent='오늘 이미 체크인하셨어요. 원장님이 확인하시면 출석 처리돼요.';
     }
     stuCheckinBtn.onclick=async()=>{
+      if(stuPreviewBlocked())return;
       stuCheckinBtn.disabled=true;stuCheckinBtn.textContent='⏳ 전송 중...';
       try{
         await db.collection('checkinRequests').add({uid:auth.currentUser.uid,studentId:stuData.studentId,studentName:stuData.name,ts:Date.now(),createdAt:Date.now()});
@@ -4404,7 +4411,7 @@ function confirmSheet2(){oroot().innerHTML=`<div class="overlay"><div class="she
   <div class="actions"><button class="btn-ghost" id="slNo">취소</button><button class="btn-primary" id="slYes">로그아웃</button></div></div></div>`;
   oroot().querySelector('#slNo').onclick=closeOverlay;
   oroot().querySelector('#slYes').onclick=()=>{closeOverlay();auth.signOut();};}
-async function reportAbsence(classId,sessionId,iso){
+async function reportAbsence(classId,sessionId,iso){if(stuPreviewBlocked())return;
   try{
     await db.collection('selfChecks').add({uid:auth.currentUser.uid,studentId:stuData.studentId,classId,sessionId,iso,status:'absent',createdAt:Date.now()});
     if(!stuData._pendingAbsent)stuData._pendingAbsent=[];
@@ -4459,7 +4466,7 @@ function openMakeupPicker(excludeSessionId){
     row.onclick=()=>{closeOverlay();bookMakeup(row.dataset.mcid,row.dataset.msid,row.dataset.miso,row.dataset.mlabel,row.dataset.mcname);};
   });
 }
-async function bookMakeup(classId,sessionId,iso,label,className){
+async function bookMakeup(classId,sessionId,iso,label,className){if(stuPreviewBlocked())return;
   try{
     await db.collection('makeupRequests').add({uid:auth.currentUser.uid,studentId:stuData.studentId,studentName:stuData.name,toClassId:classId,toSessionId:sessionId,iso,label,className,createdAt:Date.now()});
     if(!stuData._pendingMakeup)stuData._pendingMakeup=[];
@@ -4467,7 +4474,7 @@ async function bookMakeup(classId,sessionId,iso,label,className){
     toast('수업 예약을 신청했어요. 원장님이 확인하면 확정돼요.');
   }catch(e){console.error(e);toast('전송 실패 — 인터넷 연결을 확인해주세요.');}
 }
-async function cancelMakeup(sessionId){
+async function cancelMakeup(sessionId){if(stuPreviewBlocked())return;
   try{
     const q=await db.collection('makeupRequests').where('uid','==',auth.currentUser.uid).where('toSessionId','==',sessionId).get();
     if(!q.empty){
@@ -4493,7 +4500,7 @@ async function cancelMakeup(sessionId){
     }
   }catch(e){console.error(e);toast('취소 실패 — 다시 시도해주세요.');}
 }
-async function bookDropin(classId,sessionId,iso,label,className,rate){
+async function bookDropin(classId,sessionId,iso,label,className,rate){if(stuPreviewBlocked())return;
   try{
     const amount=parseInt(rate)||stuData.dailyRate||60000;
     await db.collection('dropinRequests').add({uid:auth.currentUser.uid,studentId:stuData.studentId,studentName:stuData.name,classId,sessionId,iso,label,className,amount,createdAt:Date.now()});
@@ -4502,7 +4509,7 @@ async function bookDropin(classId,sessionId,iso,label,className,rate){
     toast('하루수업을 예약했어요. 원장님이 확인하면 확정돼요.');
   }catch(e){console.error(e);toast('전송 실패 — 인터넷 연결을 확인해주세요.');}
 }
-async function cancelDropin(sessionId){
+async function cancelDropin(sessionId){if(stuPreviewBlocked())return;
   try{
     const q=await db.collection('dropinRequests').where('uid','==',auth.currentUser.uid).where('sessionId','==',sessionId).get();
     if(!q.empty){
@@ -4528,7 +4535,7 @@ async function cancelDropin(sessionId){
     }
   }catch(e){console.error(e);toast('취소 실패 — 다시 시도해주세요.');}
 }
-async function requestMakeupCancel(classId,sessionId,iso,label,className){
+async function requestMakeupCancel(classId,sessionId,iso,label,className){if(stuPreviewBlocked())return;
   try{
     await db.collection('makeupCancelRequests').add({uid:auth.currentUser.uid,studentId:stuData.studentId,studentName:stuData.name,classId,sessionId,iso,label,className,createdAt:Date.now()});
     if(!stuData._pendingMakeupCancel)stuData._pendingMakeupCancel=[];
@@ -4536,7 +4543,7 @@ async function requestMakeupCancel(classId,sessionId,iso,label,className){
     toast('수업 예약 취소를 신청했어요. 원장님이 확인하면 확정돼요.');
   }catch(e){console.error(e);toast('전송 실패 — 인터넷 연결을 확인해주세요.');}
 }
-async function requestDropinCancel(classId,sessionId,iso,label,className){
+async function requestDropinCancel(classId,sessionId,iso,label,className){if(stuPreviewBlocked())return;
   try{
     await db.collection('dropinCancelRequests').add({uid:auth.currentUser.uid,studentId:stuData.studentId,studentName:stuData.name,classId,sessionId,iso,label,className,createdAt:Date.now()});
     if(!stuData._pendingDropinCancel)stuData._pendingDropinCancel=[];
@@ -4544,7 +4551,7 @@ async function requestDropinCancel(classId,sessionId,iso,label,className){
     toast('하루수업 취소를 신청했어요. 원장님이 확인하면 확정돼요.');
   }catch(e){console.error(e);toast('전송 실패 — 인터넷 연결을 확인해주세요.');}
 }
-async function requestAbsenceCancel(classId,sessionId,iso,label,className){
+async function requestAbsenceCancel(classId,sessionId,iso,label,className){if(stuPreviewBlocked())return;
   try{
     await db.collection('absentCancelRequests').add({uid:auth.currentUser.uid,studentId:stuData.studentId,studentName:stuData.name,classId,sessionId,iso,label,className,createdAt:Date.now()});
     if(!stuData._pendingAbsentCancel)stuData._pendingAbsentCancel=[];
