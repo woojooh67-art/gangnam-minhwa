@@ -343,7 +343,7 @@
 
 <script>
 const KEY='ggmh_v22';
-const STATUSES=['present','absent','dropin']; /* 보강 없음: 다른 날 온 것도 출석 ('makeup' 기록은 '다른 날 수업'으로 남아 출석과 똑같이 계산) */
+const STATUSES=['present','absent']; /* 보강 없음: 다른 날 온 것도 출석 ('makeup' 기록은 '다른 날 수업'으로 남아 출석과 똑같이 계산) */
 const LABEL={present:'출석',late:'지각',absent:'결석',makeup:'다른 날 출석',dropin:'하루권 출석',none:'재결제 필요'};
 const CLS={present:'st-present',late:'st-late',absent:'st-absent',makeup:'st-makeup',dropin:'st-dropin',none:'st-none'};
 let mem=null,data=null,tab='check',activeSess={},feeFilter='active',feeQuery='',feeScope='all',rosterScope='all',rosterQuery='',repMonth=null,repScope='month',checkCalYM={},checkMode='all',dropinOpen=false,stuMode='fee',logOlderOpen=false,logAdminOpen=false,upcomingMoreOpen=false;
@@ -2118,7 +2118,7 @@ function renderCheck(){
       }
     });
   }
-  tally.innerHTML=`<span class="p">출석 <b>${cnt.present}</b></span><span class="a">결석 <b>${cnt.absent}</b></span>${cnt.makeup?`<span class="m">다른 날 출석 <b>${cnt.makeup}</b></span>`:''}${cnt.dropin?`<span style="color:var(--purple);font-weight:700">하루권 <b>${cnt.dropin}</b></span>`:''}<span style="color:var(--ink-soft)">· 오른쪽 상태 표시를 탭하면 출석/결석/하루권 순으로 넘어가요 · <span style="border:1.5px dashed var(--ink-soft);border-radius:4px;padding:0 3px">점선</span>: 아직 안 눌러서 저장 안 됨</span>`;}
+  tally.innerHTML=`<span class="p">출석 <b>${cnt.present}</b></span><span class="a">결석 <b>${cnt.absent}</b></span>${cnt.makeup?`<span class="m">다른 날 출석 <b>${cnt.makeup}</b></span>`:''}${cnt.dropin?`<span style="color:var(--purple);font-weight:700">하루권 <b>${cnt.dropin}</b></span>`:''}<span style="color:var(--ink-soft)">· 오른쪽 상태 표시를 탭하면 출석 ↔ 결석으로 바뀌어요 · <span style="border:1.5px dashed var(--ink-soft);border-radius:4px;padding:0 3px">점선</span>: 아직 안 눌러서 저장 안 됨</span>`;}
 
 function renderFee(){const c=curClass(),board=document.getElementById('feeBoard'),list=document.getElementById('feeList');
   const sumHead=document.getElementById('feeSummaryHead');
