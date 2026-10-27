@@ -1612,17 +1612,22 @@ function renderClasses(){const sel=document.getElementById('classSel');sel.inner
   }
   const sortedClasses=data.classes.filter(x=>!x.isTempContainer).slice().sort((a,b)=>((a.archived?1:0)-(b.archived?1:0))||(classSortKey(a)-classSortKey(b)));
   const clsLbl=c=>c.archived?'📦 '+c.name+' (보관)':c.name;
-  sortedClasses.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=clsLbl(c);if(!(tab==='check'&&(checkMode==='all'||checkMode==='paused'))&&c.id===data.activeClass)o.selected=true;sel.appendChild(o);});
+  /* 보관한 반은 목록 맨 아래 '보관된 반' 묶음에만 (출석·현황 목록에서는 숨김, 지금 보고 있는 반이면 보여줌) */
+  const liveClasses=sortedClasses.filter(c=>!c.archived||c.id===data.activeClass);
+  const archClasses=sortedClasses.filter(c=>c.archived);
+  const addOpt=(parent,c)=>{const o=document.createElement('option');o.value=c.id;o.textContent=clsLbl(c);if(!(tab==='check'&&(checkMode==='all'||checkMode==='paused'))&&c.id===data.activeClass)o.selected=true;parent.appendChild(o);};
+  sortedClasses.filter(c=>!c.archived).forEach(c=>addOpt(sel,c));
+  if(archClasses.length){const og=document.createElement('optgroup');og.label='📦 보관된 반';archClasses.forEach(c=>addOpt(og,c));sel.appendChild(og);}
   const repSel=document.getElementById('repClassSel');
   if(repSel){repSel.innerHTML='';
-    sortedClasses.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=clsLbl(c);if(c.id===data.activeClass)o.selected=true;repSel.appendChild(o);});
+    liveClasses.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=clsLbl(c);if(c.id===data.activeClass)o.selected=true;repSel.appendChild(o);});
   }
   const checkSel=document.getElementById('checkClassSel');
   if(checkSel){checkSel.innerHTML='';
     const allOpt2=document.createElement('option');allOpt2.value='__all__';allOpt2.textContent='반 선택';
     if(checkMode==='all')allOpt2.selected=true;
     checkSel.appendChild(allOpt2);
-    sortedClasses.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=clsLbl(c);if(checkMode!=='all'&&checkMode!=='paused'&&c.id===data.activeClass)o.selected=true;checkSel.appendChild(o);});
+    liveClasses.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=clsLbl(c);if(checkMode!=='all'&&checkMode!=='paused'&&c.id===data.activeClass)o.selected=true;checkSel.appendChild(o);});
     const tcSel=data.classes.find(x=>x.isTempContainer);
     if(tcSel&&(tcSel.sessions||[]).length){const o=document.createElement('option');o.value=tcSel.id;o.textContent='🆕 임시수업';if(checkMode!=='all'&&checkMode!=='paused'&&tcSel.id===data.activeClass)o.selected=true;checkSel.appendChild(o);}
   }
