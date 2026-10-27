@@ -1341,7 +1341,7 @@ function usedSincePayment(st){const t=todayISO();
   try{const cm=cycleMapOf(st);
     if(lp&&cm.lastPayId===lp.id){let mx=0,over=0;
       Object.keys(cm.days).forEach(iso=>{if(iso>t)return;cm.days[iso].forEach(e=>{if(e.cur&&e.n>mx)mx=e.n;if(e.o)over++;});});
-      return mx+over;}
+      return mx;} /* 넘친 회차는 '미리 사용'(잔여 마이너스)으로만 보여줘요 */
   }catch(e){}
   return marksSincePayment(st).filter(m=>m.iso<=t&&isAttendMark(m.mark)).length;}
 function absentSincePayment(st){const t=todayISO();return marksSincePayment(st).filter(m=>m.iso<=t&&m.mark==='absent').length;}
@@ -2751,7 +2751,7 @@ function studentSheet(st){const fee=feeFor(st);
       ${st.notes?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:8px 11px;border-radius:9px;margin:6px 0 2px;font-weight:600">📌 ${esc(st.notes)}</div>`:''}
       <div class="kpi">
         <div><div class="v ${remainSessions(st)<=0?'c-a':''}">${remainSessions(st)}</div><div class="t">${remainSessions(st)<0?'미리 사용':'잔여 회차'}</div></div>
-        <div><div class="v c-p">${usedSincePayment(st)}</div><div class="t">출석<br><small style="font-weight:400">(이번 결제분)</small>${plannedSincePayment(st)>0?`<br><small style="color:var(--ink-soft);font-weight:400">+ 예정 ${plannedSincePayment(st)}회</small>`:''}</div></div>
+        <div><div class="v c-p">${usedSincePayment(st)}</div><div class="t">출석<br><small style="font-weight:400">(이번 결제분${(lastPayment(st)&&lastPayment(st).sessions>0&&usedSincePayment(st)>=lastPayment(st).sessions)?' · 모두 사용':''})</small>${plannedSincePayment(st)>0?`<br><small style="color:var(--ink-soft);font-weight:400">+ 예정 ${plannedSincePayment(st)}회</small>`:''}</div></div>
         <div><div class="v c-a">${absentSincePayment(st)}</div><div class="t">결석<br><small style="font-weight:400">(차감 없음)</small></div></div>
         <div><div class="v" style="font-size:15px;${due&&dueExpired(st)?'color:var(--verm)':''}">${due?shortDate(due):'-'}</div><div class="t">이용 기한${due&&dueExpired(st)?'<br><small style="color:var(--verm);font-weight:600">지남</small>':''}</div></div>
       </div>
@@ -2815,7 +2815,7 @@ function studentSheet(st){const fee=feeFor(st);
     oroot().querySelectorAll('.plan').forEach(pl=>pl.onclick=()=>{selKey=pl.dataset.s;const o=opts.find(x=>x[0]===selKey);if(o){sess=o[3];amt=o[4];}draw();});
     const rmNow=remainSessions(st);
     if(rmNow<0){const hint=oroot().querySelector('#pHint');
-      if(hint)hint.innerHTML='· 현재 <b style="color:var(--verm)">'+(-rmNow)+'회를 미리 사용</b>한 상태입니다. 새로 결제하시면 <b>미리 들은 '+(-rmNow)+'회가 새 결제분에서 먼저 빠져요</b> (저장할 때 한 번 더 물어봐요).<br>'+hint.innerHTML;}
+      if(hint)hint.innerHTML='· 현재 <b style="color:var(--verm)">'+(-rmNow)+'회를 미리 사용</b>한 상태입니다. 새로 결제하시면 <b>미리 들은 '+(-rmNow)+'회가 새 결제분에서 자동으로 먼저 빠져요</b>.<br>'+hint.innerHTML;}
     oroot().querySelectorAll('.stp').forEach(b=>b.onclick=()=>{const i=oroot().querySelector('#pSess');
       let v=parseInt(i.value);if(!Number.isFinite(v))v=0;v=Math.max(0,v+(+b.dataset.d));i.value=v;});
     oroot().querySelectorAll('.stpA').forEach(b=>b.onclick=()=>{const i=oroot().querySelector('#pAmt');
@@ -2869,20 +2869,11 @@ function studentSheet(st){const fee=feeFor(st);
         };
         const lrBefore=liveRemain(st);const leftTotal=lrBefore>=0?lrBefore+(expiredLeftover(st)?0:mkLive):0;
         if(lrBefore<0){
-          /* 결제 전에 미리 들은 회차가 있으면: 새로 산 회차에서 그만큼 먼저 빠지게 (기본). 달력에선 미리 들은 날이 새 결제분 1회차로 표시돼요 */
-          const pre=-lrBefore;const cov0=oroot().querySelector('#pConfirmOv');if(cov0)cov0.remove();
-          oroot().insertAdjacentHTML('beforeend',`<div class="overlay" id="pPreOv"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>결제 전에 미리 들은 수업이 있어요</h3>
-            <div style="font-size:14.5px;line-height:1.9;background:var(--ochre-tint);border:1px solid var(--ochre);border-radius:10px;padding:12px 14px;margin:6px 0 12px">${esc(st.name)}님은 결제 전에 <b>${pre}회</b>를 미리 들으셨어요.</div>
-            <div class="note" style="margin:0 2px 14px;line-height:1.7"><b>새 결제에서 빼기 (추천)</b>: 미리 들은 ${pre}회가 새 ${S}회의 1회차${pre>1?'부터':''}로 들어가요. 남는 회차는 ${Math.max(0,S-pre)}회예요.<br><b>없던 걸로 하고 새로 시작</b>: 미리 들은 ${pre}회는 빼지 않고, ${shortDate(effFrom)}부터 새 ${S}회를 세요.</div>
-            <div class="actions" style="flex-direction:column;gap:8px">
-              <button class="btn-primary" id="ppCarry" style="width:100%">새 결제에서 ${pre}회 빼기 (추천)</button>
-              <button class="btn-ghost" id="ppFresh" style="width:100%">없던 걸로 하고 새로 시작</button>
-              <button class="btn-ghost" id="ppNo" style="width:100%">취소</button>
-            </div></div></div>`);
-          const pq=x=>oroot().querySelector(x);
-          pq('#ppCarry').onclick=()=>{pq('#pPreOv').remove();pushLog('admin',`(원장님) ${esc(st.name)}님이 결제 전에 미리 들은 ${pre}회를 ${D} 결제분에서 뺐어요.`,D);commitPay(false);};
-          pq('#ppFresh').onclick=()=>{pq('#pPreOv').remove();commitPay(true);};
-          pq('#ppNo').onclick=()=>pq('#pPreOv').remove();
+          /* 결제 전에 미리 들은 회차는 묻지 않고 새 결제분에서 먼저 빼요 (달력에선 미리 들은 날이 새 결제분 1회차로 표시) */
+          const pre=-lrBefore;
+          pushLog('admin',`(원장님) ${esc(st.name)}님이 결제 전에 미리 들은 ${pre}회를 ${D} 결제분에서 뺐어요.`,D);
+          commitPay(false);
+          toast(`미리 들은 ${pre}회를 빼고, ${Math.max(0,S-pre)}회 남았어요.`);
           return;
         }
         if(leftTotal<=0){commitPay(true);return;}
