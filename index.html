@@ -2708,14 +2708,23 @@ function bindStuAdminCal(st,fullRedraw){
   });
   box.querySelectorAll('[data-mnew]').forEach(el=>el.onclick=()=>{
     const iso=el.dataset.mnew;
-    const myClasses=(st.classIds||[]).map(cid=>classById(cid)).filter(Boolean);
+    const dowIso=new Date(iso+'T00:00:00').getDay();
+    /* 그 요일에 수업이 있는 반만 고를 수 있게. 정규 요일이 아닌 날은 출석 화면처럼 '임시수업'에 기록해요 (기록이 한 곳에 모이도록) */
+    const myClasses=(st.classIds||[]).map(cid=>classById(cid)).filter(cc=>cc&&(classWeekday(cc)===dowIso||cc.sessions.some(x=>x.iso===iso&&!x.temp)));
     function makePresent(cc){
       let s=cc.sessions.find(x=>x.iso===iso);
       if(!s){s={id:uid(),label:shortDate(iso),iso};cc.sessions.push(s);}
       cc.records[s.id+':'+st.id]='present';
       save();renderFee();renderReport();fullRedraw();toast('출석으로 기록했어요.');
     }
-    if(!myClasses.length){toast('이 학생은 소속된 반이 없어요. "정보 수정"에서 반을 먼저 추가해주세요.');return;}
+    function makeTempPresent(){
+      const tc=getTempClass();
+      let s=tc.sessions.find(x=>x.iso===iso);
+      if(!s){s={id:uid(),label:shortDate(iso)+' 임시',iso,temp:true};tc.sessions.push(s);}
+      tc.records[s.id+':'+st.id]='present';
+      save();renderFee();renderReport();fullRedraw();toast(`${shortDate(iso)} 임시수업에 출석으로 기록했어요.`);
+    }
+    if(!myClasses.length){makeTempPresent();return;}
     if(myClasses.length===1){makePresent(myClasses[0]);return;}
     oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>${shortDate(iso)} · 어느 반 출석이에요?</h3>
       ${myClasses.map(cc=>`<div class="srow" style="margin-bottom:8px;cursor:pointer" data-pc="${cc.id}"><span class="nm">${esc(cc.name)}</span><span class="pill" style="background:var(--jade-tint);color:var(--jade-deep)">출석</span></div>`).join('')}
