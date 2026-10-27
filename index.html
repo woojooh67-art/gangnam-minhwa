@@ -1024,7 +1024,7 @@ function holidaySheet(){
   let mode='class';
   function draw(){
     oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>📅 휴강 · 휴무일 관리</h3>
-      <div class="subt">기간과 쉬는 반을 고르세요. 화실 전체를 쉬실 땐 반을 모두 체크하면 돼요. 이미 있는 출석·보강 기록은 지워지지 않아요.</div>
+      <div class="subt">기간과 쉬는 반을 고르세요. 화실 전체를 쉬실 땐 반을 모두 체크하면 돼요. 이미 있는 출석 기록은 지워지지 않아요.</div>
       <div class="fgroup"><label>시작일</label><input type="date" id="hFrom" class="selin" value="${t}"></div>
       <div class="fgroup"><label>종료일</label><input type="date" id="hTo" class="selin" value="${t}"></div>
       ${mode==='class'?`<div class="fgroup"><label>대상 반 <button class="minibtn" id="hAllChk" style="margin-left:6px;padding:2px 8px;font-size:11.5px">전체 선택/해제</button></label>
@@ -1099,9 +1099,9 @@ function publicHolidayBulkSheet(){
   }
   if(!items.length){toast('앞으로 1년 동안 수업 요일과 겹치는 공휴일이 없거나, 이미 모두 휴강으로 등록돼 있어요.');return;}
   oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>🇰🇷 공휴일 한 번에 등록</h3>
-    <div class="subt">앞으로 1년 동안의 공휴일 중 <b>수업 요일과 겹치는 날</b>만 모았어요. 모두 체크돼 있으니, <b>수업을 하실 날만 체크를 빼고</b> 등록하세요. 등록한 날은 해당 반만 휴강 처리돼서 회차가 차감되지 않아요. 이미 있는 출석·보강 기록은 지워지지 않고, 휴강일에도 온 학생은 따로 체크할 수 있어요.</div>
+    <div class="subt">앞으로 1년 동안의 공휴일 중 <b>수업 요일과 겹치는 날</b>만 모았어요. 모두 체크돼 있으니, <b>수업을 하실 날만 체크를 빼고</b> 등록하세요. 등록한 날은 해당 반만 휴강 처리돼서 회차가 차감되지 않아요. 이미 있는 출석 기록은 지워지지 않고, 휴강일에도 온 학생은 따로 체크할 수 있어요.</div>
     <div style="max-height:52vh;overflow:auto">
-      ${items.map((it,i)=>`<label class="chk" style="align-items:flex-start"><input type="checkbox" data-phi="${i}" checked> <span>${shortDate(it.iso)}(${DOW[it.dow]}) <b>${esc(it.label)}</b><br><small style="color:var(--ink-soft)">${it.cls.map(c=>esc(c.name)).join(', ')}${it.recN?` · <span style="color:var(--verm)">보강 예약 ${it.recN}건 있음 (예약은 그대로 남아요)</span>`:''}</small></span></label>`).join('')}
+      ${items.map((it,i)=>`<label class="chk" style="align-items:flex-start"><input type="checkbox" data-phi="${i}" checked> <span>${shortDate(it.iso)}(${DOW[it.dow]}) <b>${esc(it.label)}</b><br><small style="color:var(--ink-soft)">${it.cls.map(c=>esc(c.name)).join(', ')}${it.recN?` · <span style="color:var(--verm)">다른 날 수업 예약 ${it.recN}건 있음 (예약은 그대로 남아요)</span>`:''}</small></span></label>`).join('')}
     </div>
     <div class="actions" style="margin-top:12px"><button class="btn-ghost" id="phNo">돌아가기</button><button class="btn-danger" id="phOk">체크한 날 휴강 등록</button></div>
   </div></div>`;
@@ -3547,7 +3547,7 @@ function applyRuleTokens(text,st){
 function rulesSheet(){
   const tokenHint=Object.entries(ruleTokenValues()).map(([k,v])=>`{${k}}→${v}`).join(' · ');
   oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>📜 화실 이용 규칙</h3>
-  <div class="subt">여기 적어두시면 학생 앱 맨 아래에 그대로 보여요. 보강 정책, 준비물, 결제 방법, 유의사항 등 자유롭게 적으세요.</div>
+  <div class="subt">여기 적어두시면 학생 앱 맨 아래에 그대로 보여요. 결석·이용 기한 규정, 준비물, 결제 방법, 유의사항 등 자유롭게 적으세요.</div>
   <div class="note" style="background:var(--jade-tint);color:var(--jade-deep);padding:9px 11px;border-radius:9px;margin:-4px 0 10px">💡 가격을 직접 숫자로 쓰지 마시고 아래 <b>중괄호 토큰</b>을 쓰시면, 나중에 [요금·할인 설정]에서 가격을 바꾸실 때마다 여기 문구도 자동으로 같이 바뀌어요 (따로 수정 안 하셔도 돼요). <b>이 편집 화면엔 {토큰}이 글자 그대로 보이는 게 정상이에요</b> — 실제 숫자는 아래 미리보기와 학생 화면에서만 채워져요.<br><br>${tokenHint}</div>
   <textarea class="msg" id="rulesTa" style="min-height:220px" placeholder="예: · 정규반: 월 {정규요금} · 연구반: 월 {연구요금}&#10;· 하루수업: 1회 {하루수업} (연구반 {하루연구})&#10;· 장기 선결제 할인: 12회 {할인12} / 24회 {할인24}">${esc(data.studioRules||'')}</textarea>
   <div class="fgroup"><label>👀 학생 화면 미리보기</label><div id="rulesPreview" style="font-size:13.5px;line-height:1.7;white-space:pre-wrap;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px">${esc(applyRuleTokens(data.studioRules||''))}</div></div>
@@ -3723,7 +3723,7 @@ function dl(name,body,type){try{const b=new Blob([body],{type:type||'text/plain;
 function exportCsv(){const c=curClass(),studs=studentsInClass(c.id);
   if(!studs.length||!c.sessions.length){toast('내보낼 출석 기록이 없어요.');return;}
   const ss=c.sessions.slice().sort((a,b)=>a.iso<b.iso?-1:1);
-  const head=['번호','이름',...ss.map(s=>s.label+'('+shortDate(s.iso)+')'),'출석','결석','보강','잔여회차'];
+  const head=['번호','이름',...ss.map(s=>s.label+'('+shortDate(s.iso)+')'),'출석','결석','다른 날 출석','잔여회차'];
   const lines=[head.join(',')];
   studs.forEach((st,i)=>{let p=0,a=0,m=0;const cells=[i+1,'"'+st.name.replace(/"/g,'""')+'"'];
     ss.forEach(s=>{const v=c.records[s.id+':'+st.id];if(!v)cells.push('');else{
