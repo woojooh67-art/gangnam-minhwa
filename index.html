@@ -2901,11 +2901,14 @@ function studentSheet(st){const fee=feeFor(st);
         <div class="subt">${p.date} · ${p.plan==='dropin8'?'하루수업 8회 선결제':(p.sessions+'회')} · ${won(p.amount)}</div>
         ${p.plan==='dropin8'?'':`<div class="fgroup"><label>계산에 넣을 회차 수 <small style="font-weight:400;color:var(--ink-soft)">(${planOf(st,p)}회권)</small></label><input id="pSessIn" type="number" min="0" max="99" step="1" class="selin" value="${p.sessions||0}" style="width:110px"><div class="note" style="margin-top:4px">· 보통은 권종 그대로(예: 24회권 → 24) 두시면 돼요.<br>· 앱이 세기 시작하기 전에 이미 쓴 횟수가 있으면, 그만큼 뺀 남은 횟수를 넣어주세요.</div></div>`}
         <div class="fgroup"><label>메모</label><input id="pMemoIn" class="selin" value="${esc(p.memo||'')}" placeholder="예: 카드 결제, 현금 영수증 요청 등"></div>
-        <div class="fgroup"><label class="chk" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="pMemoEarly" ${p.effectiveFrom?'checked':''}> <span>이 결제일에 수업 마치고 미리 결제한 것 (그날 회차는 예전 걸로, 새 회차는 다음날부터 적용)</span></label></div>
+        ${p.plan==='dropin8'?'':`<div class="fgroup"><label>이 결제분 1회차 날짜 <small style="font-weight:400;color:var(--ink-soft)">(이 날부터 새 회차로 세요)</small></label><input id="pEffIn" type="date" class="selin" value="${payEffDate(p)}" style="width:170px">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><button type="button" class="btn-ghost" data-effq="${p.date}" style="padding:4px 10px;font-size:12px">결제일 그대로</button><button type="button" class="btn-ghost" data-effq="${addDays(p.date,1)}" style="padding:4px 10px;font-size:12px">결제일 다음날 (수업 마치고 결제)</button></div>
+          <div class="note" style="margin-top:4px">· 결제를 늦게 하셨으면, 실제로 새 회차가 시작된 날을 넣어주세요. (예: 10/26 결제, 10/16부터 새 회차)</div></div>`}
         <div class="actions"><button class="btn-ghost" id="pMemoNo">취소</button><button class="btn-primary" id="pMemoOk">저장</button></div>
         </div></div>`);
       const closeThis=()=>{const ov=document.getElementById('pMemoOv');if(ov)ov.remove();};
       document.getElementById('pMemoNo').onclick=closeThis;
+      document.querySelectorAll('#pMemoOv [data-effq]').forEach(bt=>bt.onclick=()=>{document.getElementById('pEffIn').value=bt.dataset.effq;});
       document.getElementById('pMemoOk').onclick=()=>{
         const v=document.getElementById('pMemoIn').value.trim();
         p.memo=v||'';
@@ -2915,9 +2918,18 @@ function studentSheet(st){const fee=feeFor(st);
           if(isNaN(n)||n<0||n>99){toast('회차는 0~99 사이 숫자로 넣어주세요.');return;}
           if(n!==p.sessions){if(!p.plan)p.plan=planOf(st,p);p.sessions=n;}
         }
-        const early=document.getElementById('pMemoEarly').checked;
-        p.effectiveFrom=early?addDays(p.date,1):undefined;
-        if(st.cycleStart===p.date&&early)st.cycleStart=p.effectiveFrom;
+        const effIn=document.getElementById('pEffIn');
+        if(effIn){
+          const nv=effIn.value||p.date;
+          if(!/^\d{4}-\d{2}-\d{2}$/.test(nv)){toast('날짜를 다시 골라주세요.');return;}
+          const oldEff=payEffDate(p);
+          if(nv!==oldEff){
+            p.effectiveFrom=(nv===p.date)?undefined:nv;
+            /* 회차 리셋 기준일이 이 결제분 시작일이었으면 같이 옮겨요 (그래야 새 1회차부터 다시 세요) */
+            if(st.cycleStart===oldEff)st.cycleStart=nv;
+            pushLog('admin',`(원장님) ${esc(st.name)}님 ${p.date} 결제분의 1회차 날짜를 ${shortDate(oldEff)} → ${shortDate(nv)}로 바꿨어요.`,nv);
+          }
+        }
         save();closeThis();draw();renderFee();toast('저장했어요.');
       };
     });
