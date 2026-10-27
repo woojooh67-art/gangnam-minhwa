@@ -675,7 +675,7 @@ async function regenerateStudentViews(){
         makeupDueExpired:expired,makeupDueSoon:(daysLeft!==null&&daysLeft<=7),delayedUsage:false,paceEnd:expectedPaceEnd(st),
         remainProjected:projectedRepayDate(st),
         makeupDueExtended:!!st.makeupDueOverride,
-        dropin:!!(st.dropin||st.dropinOnce),dailyRate:data.rates.daily||60000,dailyRateResearch:data.rates.dailyResearch||90000,
+        dropin:!!(st.dropin||st.dropinOnce),dailyRate:data.rates.daily||60000,dailyRateResearch:data.rates.dailyResearch||90000,dailyRateWorker:data.rates.dailyWorker||45000,
         dropinPack:(st.dropinPack&&!isDropinPackExpired(st))?{total:st.dropinPack.total,used:st.dropinPack.used,expiry:st.dropinPack.expiry}:null,dropin8Days:data.rates.dropin8Days||90,
         payments:(st.payments||[]).slice().sort((a,b)=>a.date<b.date?1:-1).map(p=>({date:p.date,amount:p.amount,sessions:p.sessions,plan:p.plan})),
         makeupDue:makeupDue(st),lastClassBase:(st.makeupDueOverride?'':(activeLastClassOverride(st)||packageLastClassDate(st)||'')),studioRules:applyRuleTokens(data.studioRules||''),announcement:(announcementActive(data.announcement)?data.announcement:null),
@@ -2727,10 +2727,12 @@ function bindStuAdminCal(st,fullRedraw){
 function studentSheet(st){const fee=feeFor(st);
   const isResearchSt=(st.classIds||[]).some(cid=>{const c=classById(cid);return c&&c.type==='연구';});
   const hasRealClassSt=(st.classIds||[]).some(cid=>{const c=classById(cid);return c&&classWeekday(c)!==null;});
+  const isWorkerSt=(st.classIds||[]).some(cid=>{const c=classById(cid);return c&&c.type==='직장인';});
   const mismatchOf=key=>{
     if(!hasRealClassSt)return (st.dropinPack&&!isDropinPackExpired(st))?key!=='dropin8':false;
     if(key==='1')return isResearchSt;
     if(key==='1r')return !isResearchSt;
+    if(key==='1w')return !isWorkerSt;
     return false;
   };
   let sess=4,amt=planAmount(fee,4),selKey=(!hasRealClassSt?((st.dropinPack&&!isDropinPackExpired(st))?'dropin8':'1'):'4'),delId=null;
@@ -2738,7 +2740,7 @@ function studentSheet(st){const fee=feeFor(st);
   if(selKey==='dropin8'){sess=0;amt=data.rates.dropin8Price||440000;}
   function draw(){
     const prevSheet=oroot().querySelector('.sheet');const savedScroll=prevSheet?prevSheet.scrollTop:0;
-    const opts=[['4','4회','정가',4,planAmount(fee,4)],['12','12회',data.rates.d3+'%↓',12,planAmount(fee,12)],['24','24회',data.rates.d6+'%↓',24,planAmount(fee,24)],['1','하루(정규)','1회',1,data.rates.daily||60000],['1r','하루(연구)','1회',1,data.rates.dailyResearch||90000],['dropin8','하루수업 8회 선결제',(data.rates.dropin8Days||90)+'일 이내 자유 이용',0,data.rates.dropin8Price||440000]].filter(o=>o[0]!=='dropin8'||(st.dropinPack&&!isDropinPackExpired(st)));
+    const opts=[['4','4회','정가',4,planAmount(fee,4)],['12','12회',data.rates.d3+'%↓',12,planAmount(fee,12)],['24','24회',data.rates.d6+'%↓',24,planAmount(fee,24)],['1','하루(정규)','1회',1,data.rates.daily||60000],['1r','하루(연구)','1회',1,data.rates.dailyResearch||90000],['1w','하루(2시간)','1회',1,data.rates.dailyWorker||45000],['dropin8','하루수업 8회 선결제',(data.rates.dropin8Days||90)+'일 이내 자유 이용',0,data.rates.dropin8Price||440000]].filter(o=>o[0]!=='dropin8'||(st.dropinPack&&!isDropinPackExpired(st)));
     const hist=(st.payments||[]).slice().sort((a,b)=>a.date<b.date?1:-1);
     const marks=marksOf(st).slice(0,10);
     const paceEndSt=expectedPaceEnd(st);
@@ -3467,6 +3469,7 @@ function openSettings(){oroot().innerHTML=`<div class="overlay"><div class="shee
   ${data.classes.filter(c=>!c.isTempContainer&&c.sched).map(c=>`<div class="setrow"><div class="l">${esc(c.name)}<small>${c.type} · ${esc(c.sched||'')}</small></div><input type="number" data-fee="${c.id}" value="${c.fee}"></div>`).join('')}
   <div class="setrow"><div class="l">하루 수업료<small>정규반 1회 참여</small></div><input type="number" id="setDaily" value="${data.rates.daily||60000}"></div>
   <div class="setrow"><div class="l">연구반 하루 수업료<small>연구반 1회 참여(하루)</small></div><input type="number" id="setDailyResearch" value="${data.rates.dailyResearch||90000}"></div>
+  <div class="setrow"><div class="l">2시간 클래스 하루 수업료<small>저녁 2시간 반 1회 참여</small></div><input type="number" id="setDailyWorker" value="${data.rates.dailyWorker||45000}"></div>
   <div class="setrow"><div class="l">12회(3개월) 할인<small>%</small></div><input type="number" id="setD3" value="${data.rates.d3}"></div>
   <div class="setrow"><div class="l">24회(6개월) 할인<small>%</small></div><input type="number" id="setD6" value="${data.rates.d6}"></div>
   <div class="setrow"><div class="l">타임당 정원<small>다른 날 수업 예약 가능 인원 기준</small></div><input type="number" id="setCap" value="${capacityOf()}"></div>
@@ -3477,6 +3480,7 @@ function openSettings(){oroot().innerHTML=`<div class="overlay"><div class="shee
   oroot().querySelector('#sOk').onclick=()=>{oroot().querySelectorAll('input[data-fee]').forEach(inp=>{const c=classById(inp.dataset.fee);if(c)c.fee=Math.max(0,parseInt(inp.value)||0);});
     data.rates.daily=Math.max(0,parseInt(oroot().querySelector('#setDaily').value)||60000);
     data.rates.dailyResearch=Math.max(0,parseInt(oroot().querySelector('#setDailyResearch').value)||90000);
+    {const w=oroot().querySelector('#setDailyWorker');if(w)data.rates.dailyWorker=Math.max(0,parseInt(w.value)||45000);}
     data.rates.d3=Math.max(0,parseInt(oroot().querySelector('#setD3').value)||0);
     data.rates.d6=Math.max(0,parseInt(oroot().querySelector('#setD6').value)||0);
     data.capacity=Math.max(1,parseInt(oroot().querySelector('#setCap').value)||7);
@@ -4206,7 +4210,7 @@ function renderStudentApp(){
   {
     const pendingDropin=stuData._pendingDropin||[];
     const slots=(stuData.allUpcoming||[]).filter(u=>u.iso>=t&&u.iso<=addDays(t,STU_WINDOW_DAYS));
-    const rateFor=u=>(u.classType==='연구'&&!u.afternoonOnly)?(stuData.dailyRateResearch||90000):(stuData.dailyRate||60000);
+    const rateFor=u=>(u.classType==='연구'&&!u.afternoonOnly)?(stuData.dailyRateResearch||90000):u.classType==='직장인'?(stuData.dailyRateWorker||45000):(stuData.dailyRate||60000);
     const clsLabel=u=>`${esc(u.className)}${u.afternoonOnly?' <small style="color:var(--blue);font-weight:600">(2~5시만)</small>':''}`;
     const rowFor=u=>{
       const pend=pendingDropin.find(p=>p.sessionId===u.sessionId);
