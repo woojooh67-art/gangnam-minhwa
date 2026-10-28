@@ -1577,6 +1577,13 @@ function projectedRepayDate(st){
 const HOLD_MONTHS=6; // 장기 휴강 시 남은 회차 보존 기간
 function holdEndOf(st){if(!st||!st.pausedSince)return '';const d=new Date(st.pausedSince+'T00:00:00');const day=d.getDate();d.setMonth(d.getMonth()+HOLD_MONTHS);if(d.getDate()<day)d.setDate(0);return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
 function holdExpired(st){const h=holdEndOf(st);return !!(st&&st.status==='paused'&&h&&todayISO()>h);}
+/* 휴강 보존 안내 단계: 한 달 전('m'), 일주일 전('w'). 보낸 단계는 다시 안 띄움 (보존 끝 날짜가 바뀌면 새로) */
+function holdNoticeStage(st){const h=holdEndOf(st);if(!h)return '';const t=todayISO();if(t>h)return '';return addDays(t,7)>=h?'w':'m';}
+function holdNoticeDue(st){if(!st||st.status!=='paused'||!holdSoon(st)||remainSessions(st)<=0)return false;
+  const stg=holdNoticeStage(st),n=st.holdNotice||{};if(n.end!==holdEndOf(st))return true;return !n[stg];}
+function markHoldNoticeSent(st){const stg=holdNoticeStage(st);if(!stg)return;const h=holdEndOf(st);
+  if(!st.holdNotice||st.holdNotice.end!==h)st.holdNotice={end:h};st.holdNotice[stg]=todayISO();
+  if(stg==='w')st.holdNotice.m=st.holdNotice.m||todayISO();}
 function holdSoon(st){const h=holdEndOf(st);if(!st||st.status!=='paused'||!h)return false;const t=todayISO();return t<=h&&addDays(t,31)>=h;}
 function expiredLeftover(st){
   if(st.status==='paused')return holdExpired(st)?Math.max(0,remainSessions(st))+makeupLeft(st):0;
@@ -2392,7 +2399,7 @@ function renderActivityLog(){
   const recentCut=Date.now()-7*86400000;
   const recentSeen=seen.filter(e=>e.ts>=recentCut||(e.relIso&&e.relIso>=todayISO()));
   const olderSeen=seen.filter(e=>recentSeen.indexOf(e)<0);
-  if(!allLog.length&&!adminLog.length&&!data.students.some(x=>x.status==='paused'&&holdSoon(x)&&remainSessions(x)>0)){logBox.innerHTML='<div class="note">아직 학생 활동이 없어요.</div>';return;}
+  if(!allLog.length&&!adminLog.length&&!data.students.some(holdNoticeDue)){logBox.innerHTML='<div class="note">아직 학생 활동이 없어요.</div>';return;}
   const rowHtml=e=>{
     const ago=Math.max(0,Math.round((Date.now()-e.ts)/60000));
     const when=ago<60?ago+'분 전':ago<1440?Math.round(ago/60)+'시간 전':Math.round(ago/1440)+'일 전';
@@ -2404,10 +2411,10 @@ function renderActivityLog(){
   const unseenCheckins=unseen.filter(e=>e.type==='selfcheck');
   const unseenRest=unseen.filter(e=>e.type!=='selfcheck');
   let html='';
-  const holdAlert=data.students.filter(x=>x.status==='paused'&&holdSoon(x)&&remainSessions(x)>0).sort((a,b)=>holdEndOf(a)<holdEndOf(b)?-1:1);
+  const holdAlert=data.students.filter(holdNoticeDue).sort((a,b)=>holdEndOf(a)<holdEndOf(b)?-1:1);
   if(holdAlert.length){
-    html+=`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);border-radius:9px;padding:9px 11px;margin:2px 0 8px;font-weight:700">⏳ 휴강 보존 기간이 한 달 안에 끝나요</div>`;
-    html+=holdAlert.map(x=>`<div class="hrow"><span>${esc(x.name)} · 남은 ${remainSessions(x)}회 · ${shortDate(holdEndOf(x))}까지</span><button class="minibtn" data-holdmsg="${x.id}" style="padding:3px 8px;font-size:12px">📩 안내 문구</button></div>`).join('');
+    html+=`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);border-radius:9px;padding:9px 11px;margin:2px 0 8px;font-weight:700">⏳ 휴강 보존 기간이 곧 끝나요 <small style="font-weight:400">(문구를 복사하면 '보냄'으로 표시돼 사라져요 · 일주일 전에 한 번 더 떠요)</small></div>`;
+    html+=holdAlert.map(x=>`<div class="hrow"><span>${esc(x.name)} · 남은 ${remainSessions(x)}회 · ${shortDate(holdEndOf(x))}까지${holdNoticeStage(x)==='w'?' <b>(일주일 전)</b>':''}</span><button class="minibtn" data-holdmsg="${x.id}" style="padding:3px 8px;font-size:12px">📩 안내 문구</button></div>`).join('');
   }
   if(unseenCheckins.length){
     html+=`<div class="note" style="font-weight:700;color:var(--jade-deep);margin:2px 0 4px">🙋 체크인 (${unseenCheckins.length})</div>`;
@@ -3303,7 +3310,7 @@ function msgSheet(st,withGuide){
   }
   if(st.status==='paused'&&!xp&&total>0&&holdSoon(st)){
     t=`[강남민화연구소] ${st.name} 님, 안녕하세요 :)\n\n`;
-    t+=`휴강 중에 보존해 드리고 있는 남은 회차 ${total}회가 ${md(holdEndOf(st))}까지예요.\n`;
+    t+=holdNoticeStage(st)==='w'?`다시 한번 안내드려요. 휴강 중에 보존해 드리고 있는 남은 회차 ${total}회가 ${md(holdEndOf(st))}까지예요.\n`:`휴강 중에 보존해 드리고 있는 남은 회차 ${total}회가 ${md(holdEndOf(st))}까지예요.\n`;
     t+=`그 전에 복귀하시면 남은 회차를 이어서 쓰실 수 있고, 이 날이 지나면 남은 회차는 소멸돼요.\n\n`;
     t+=`다시 오실 수 있는 요일을 알려주시면 자리를 마련해 둘게요.\n`;
     if(withGuide){t+=`\n📱 앱: ${APP_SITE_URL}\n`;if(st.code)t+=`🔑 로그인 코드: ${st.code}\n`;}
@@ -3331,7 +3338,7 @@ function msgSheet(st,withGuide){
     <div class="actions"><button class="btn-ghost" id="mNo">닫기</button><button class="btn-primary" id="mCopy">전체 복사</button></div></div></div>`;
   oroot().querySelector('#mGuide').onchange=e=>msgSheet(st,e.target.checked);
   oroot().querySelector('#mNo').onclick=()=>studentSheet(st);
-  oroot().querySelector('#mCopy').onclick=()=>{const ta=oroot().querySelector('#mTa');ta.select();ta.setSelectionRange(0,99999);
+  oroot().querySelector('#mCopy').onclick=()=>{if(holdMsg){markHoldNoticeSent(st);save();try{renderActivityLog();}catch(e){}}const ta=oroot().querySelector('#mTa');ta.select();ta.setSelectionRange(0,99999);
     let done=false;try{done=document.execCommand('copy');}catch(e){}
     if(!done&&navigator.clipboard){navigator.clipboard.writeText(ta.value).then(()=>toast('복사되었습니다.'),()=>toast('길게 눌러 복사해 주세요.'));}
     else toast(done?'복사되었습니다.':'길게 눌러 복사해 주세요.');};}
