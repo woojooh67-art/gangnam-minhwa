@@ -1578,7 +1578,7 @@ function stuLoginTs(st){return st.lastStudentLogin||((st.lastLogin&&!st.lastLogi
 function stuLoginTag(st){const ts=stuLoginTs(st);if(!ts)return '📵 앱 미접속';
   const d=new Date(typeof ts==='number'?ts:(ts.seconds?ts.seconds*1000:ts));const iso=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
   return `📱 ${d.getMonth()+1}/${d.getDate()} 접속`+(iso.slice(0,4)!==todayISO().slice(0,4)?` (${iso.slice(0,4)})`:'');}
-function statusOf(st){if(st.status==='ended')return 'ended';if(st.status==='paused')return 'paused';const r=liveRemain(st);if(r<=0)return 'out';if(r<=2)return 'low';return 'ok';}
+function statusOf(st){if(st.status==='ended')return 'ended';if(st.status==='paused')return 'paused';const r=liveRemain(st);if(r<=0)return 'out';if(r<=1)return 'low';return 'ok';} /* 곧소진 = 1회 남았을 때 */
 
 /* ---------- render ---------- */
 function render(){try{renderActivityLog();}catch(e){console.error('activityLog',e);}renderClasses();renderCheck();renderStuMode();renderFee();renderRoster();renderReport();updateReportBadge();}
@@ -2017,7 +2017,7 @@ function renderCheck(){
     const hasRec=c.records[k]!==undefined;
     const isPendingReg=isFutureSess||(!hasRec&&status==='present');
     const row=document.createElement('div');row.className='srow '+(isPendingReg?'st-none':CLS[status]);row.style.cursor='default';
-    const subCls=(rm<=0)?'color:var(--verm);font-weight:700':(rm<=2)?'color:var(--ochre);font-weight:700':'';
+    const subCls=(rm<=0)?'color:var(--verm);font-weight:700':(rm<=1)?'color:var(--ochre);font-weight:700':'';
     const pillLabel=isFutureSess?`${LABEL[status]} (예정)`:((!hasRec&&status==='present')?'출석(미확정)':LABEL[status]);
     const pillCls=isPendingReg?'pill unconfirmed':'pill';
     const codeLine=st.code?`<small style="display:block;font-weight:400;color:var(--jade-deep);font-size:11px;margin-top:2px">코드 ${esc(st.code)}</small>`:`<small style="display:block;font-weight:400;color:var(--verm);font-size:11px;margin-top:2px">코드 미발급</small>`;
@@ -3280,7 +3280,7 @@ function msgSheet(st,withGuide){
     :`\n현재 휴강 중이에요. 다시 오시고 싶을 때 언제든 말씀해 주세요. 복귀하실 때 새로 결제하시면 그날부터 다시 시작돼요.\n`);
   else if(xp)t+=`\n이용 기한(${md(due)})이 지나 남은 ${xp}회가 소멸됐어요. 다시 수강하시려면 재결제 부탁드려요.\n`;
   else if(total<=0)t+=`\n결제하신 회차를 모두 사용하셨어요. 재결제 부탁드려요.\n`;
-  else if(total<=2)t+=`\n남은 회차가 ${total}회예요. 재결제 준비 부탁드려요.\n`;
+  else if(total<=1)t+=`\n남은 회차가 ${total}회예요. 재결제 준비 부탁드려요.\n`;
   if(withGuide){
     t+=`\n📱 앱 안내\n`;
     t+=`🔗 ${APP_SITE_URL}\n`;
