@@ -255,15 +255,19 @@
     <section id="view-check">
       <div class="sechead" style="display:flex;align-items:center;justify-content:space-between">🔔 학생 알림<button class="minibtn" id="markLogSeen" style="padding:2px 6px">모두 확인</button></div>
       <div id="activityLog"></div>
-      <div class="filters" style="display:flex;align-items:center;gap:8px;margin:16px 0 10px">
+      <div style="height:14px"></div>
+      <div id="checkCalBox" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px"></div>
+      <div class="note" id="checkCalNote" style="margin:-2px 3px 10px"></div>
+      <div class="filters" style="display:flex;align-items:center;gap:8px;margin:4px 0 10px">
         <select id="checkClassSel" class="selin" style="flex:1"></select>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px">
         <button class="minibtn" id="editSess" style="border-color:var(--jade);color:var(--jade-deep);font-weight:700;visibility:hidden">✎ 회차 수정</button>
         <button class="minibtn" id="checkAllToggle" style="display:none">≡ 전체보기</button>
       </div>
-      <div id="checkCalBox" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px"></div>
-      <div class="note" id="checkCalNote" style="margin:-2px 3px 10px"></div>
+      <div class="sechead" style="margin-top:6px">🗓 화실 시간표</div>
+      <div id="ttAlways"></div>
+      <div style="height:12px"></div>
       <div id="checkDetail">
         <div class="sesshead" style="justify-content:flex-start"><span class="t" id="sessTitle">회차</span><span class="d" id="sessDate"></span></div>
         <div class="tally" id="tally"></div>
@@ -272,7 +276,7 @@
       <div class="barbtns" style="margin:14px 0 8px"><button id="announceBtn">📢 공지사항 (학생 앱 팝업) · 지난 공지 기록</button></div>
       <div class="barbtns" style="margin:0 0 8px"><button id="checkinQrBtn" style="border-color:var(--jade);color:var(--jade-deep)">📷 체크인 QR코드 (화실 입구용)</button></div>
       <div class="barbtns" style="margin:0 0 6px"><button id="holidayBtn" style="border-color:var(--verm);color:var(--verm)">📅 휴강·휴무일 관리</button></div>
-      <div class="note" style="margin:0 3px 10px">· 화실 시간표, 수업료 설정, 백업은 오른쪽 위 <b>⚙ 설정</b>에 있어요.</div>
+      <div class="note" style="margin:0 3px 10px">· 시간표 관리, 수업료 설정, 백업은 오른쪽 위 <b>⚙ 설정</b>에 있어요.</div>
     </section>
 
     <section id="view-roster" class="hidden">
@@ -314,8 +318,6 @@
       <div class="sechead">⚙ 설정</div>
       <div class="note" style="margin:0 3px 10px">가끔 쓰는 기능을 모아 두었어요. 아래 <b>출석</b>·<b>학생·수업료</b> 탭을 누르면 돌아가요.</div>
       <div class="barbtns" style="margin-bottom:10px"><button id="feeSettings">⚙ 수업료 설정</button></div>
-      <div class="sechead" style="margin-top:18px">🗓 화실 시간표</div>
-      <div id="ttAlways"></div>
       <div class="barbtns" style="margin-top:10px"><button id="ttEdit">🗓 화실 시간표 관리</button></div>
       <div class="sechead">백업 · 설정</div>
       <div class="barbtns"><button class="alt" id="backupSave">💾 백업 저장</button><button id="rulesEdit">📜 화실 이용 규칙 관리</button></div>
