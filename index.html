@@ -3386,6 +3386,11 @@ function editStudent(st){
       <option value="active"${st.status!=='paused'?' selected':''}>수강중</option>
       <option value="paused"${st.status==='paused'?' selected':''}>휴강중 (장기)</option>
       <option value="ended"${st.status==='ended'?' selected':''}>종료 (그만둠 · 기록은 보존)</option></select></div>
+    ${(()=>{const lastAtt=[...marksOf(st).filter(m=>isAttendMark(m.mark)||m.mark==='dropin').map(m=>m.iso),...Object.entries(st.archiveMarks||{}).filter(([k,v])=>v==='present'||v==='late'||v==='makeup'||v==='dropin').map(([k])=>k)].filter(x=>x<=todayISO()).sort().pop()||'';
+      const sug=lastAtt?addDays(lastAtt,7):'';
+      return `<div class="fgroup" id="esPausedBox" style="${st.status==='paused'?'':'display:none'}"><label>휴강 시작일 <small style="color:var(--ink-soft)">(이 날부터 6개월간 남은 회차 보존)</small></label><input type="date" id="esPausedSince" class="selin" value="${st.pausedSince||''}" style="width:170px">
+        ${sug?`<div style="margin-top:6px"><button type="button" class="btn-ghost" id="esPausedSug" data-v="${sug}" style="padding:4px 10px;font-size:12px">마지막 출석(${shortDate(lastAtt)}) 다음 주로: ${sug}</button></div>`:''}
+        <div class="note" id="esPausedEnd" style="margin-top:4px"></div></div>`;})()}
     <div class="fgroup"><label>특이사항 메모 <small style="color:var(--ink-soft)">(연락처와 별개, 자유롭게)</small></label><input id="esNotes" class="selin" value="${esc(st.notes||'')}" placeholder="예: 2/6 12회차 선결제 이후 휴강, 4/10 재등록"></div>
     <div class="fgroup"><label>수강 반 (여러 반 겸용 가능)</label>
       ${data.classes.filter(c=>!c.isTempContainer&&(!c.archived||(st.classIds||[]).indexOf(c.id)>=0)).slice().sort((a,b)=>classSortKey(a)-classSortKey(b)).map(c=>`<label class="chk"><input type="checkbox" data-cid="${c.id}" ${(st.classIds||[]).indexOf(c.id)>=0?'checked':''}> ${esc(c.name)}</label>`).join('')}</div>
@@ -3459,6 +3464,11 @@ function editStudent(st){
   oroot().querySelectorAll('.stpE').forEach(b=>b.onclick=()=>{const i=oroot().querySelector('#esExt');
     let v=parseInt(i.value);if(!Number.isFinite(v))v=0;v=Math.max(0,v+(+b.dataset.d));i.value=v;});
   q('#esNo').onclick=closeOverlay;
+  {const box=q('#esPausedBox'),inp=q('#esPausedSince'),endEl=q('#esPausedEnd');
+    const upd=()=>{if(!inp||!endEl)return;endEl.textContent=inp.value?`→ 보존 끝: ${holdEndOf({pausedSince:inp.value})} (그 뒤 남은 회차 소멸)`:'';};
+    if(q('#esStat')&&box)q('#esStat').addEventListener('change',e=>{box.style.display=e.target.value==='paused'?'':'none';if(e.target.value==='paused'&&inp&&!inp.value)inp.value=todayISO();upd();});
+    if(q('#esPausedSug'))q('#esPausedSug').onclick=()=>{inp.value=q('#esPausedSug').dataset.v;upd();};
+    if(inp)inp.addEventListener('change',upd);upd();}
   if(q('#esMoveClass'))q('#esMoveClass').onclick=()=>classMoveSheet(st);
   q('#esOk').onclick=()=>{const nm=q('#esName').value.trim();if(nm)st.name=nm;
     const rt=parseInt(q('#esRate').value);st.rate=(rt&&rt>0)?rt:0;
@@ -3475,6 +3485,8 @@ function editStudent(st){
     const _resumeHold=st.status==='paused'&&newStat!=='paused'&&newStat!=='ended'&&!holdExpired(st);
     const _holdLeft=_resumeHold?Math.max(0,remainSessions(st))+makeupLeft(st):0;
     if(st.status!=='paused'&&newStat==='paused')st.pausedSince=todayISO();
+    {const ps=q('#esPausedSince');if(newStat==='paused'&&ps&&/^\d{4}-\d{2}-\d{2}$/.test(ps.value)&&ps.value!==st.pausedSince&&(st.status==='paused'||ps.value!==todayISO())){
+      st.pausedSince=ps.value;pushLog('admin',`(원장님) ${esc(st.name)}님 휴강 시작일을 ${shortDate(ps.value)}로 정했어요 (${shortDate(holdEndOf(st))}까지 보존).`,todayISO());}}
     if(st.status==='paused'&&newStat!=='paused')delete st.pausedSince;
     st.status=newStat;st.extend=Math.max(0,parseInt(q('#esExt').value)||0);st.lastClassOverride=q('#esLastClass').value||'';st.makeupDueOverride=q('#esDueOverride').value||'';st.regDateOverride=q('#esRegDate').value||'';st.memo=q('#esMemo').value.trim();st.notes=q('#esNotes').value.trim();
     const prevCids=(st.classIds||[]).slice();
