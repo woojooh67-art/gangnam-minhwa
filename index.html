@@ -813,8 +813,7 @@ function timetableGridHTML(tt,editable,big){
   const fit=!editable;
   const baseFs=fit?(big?12.5:11.5):(big?13.5:12),hdFs=big?14:12.5,rlFs=fit?11:(big?13:11.5),colW=big?76:62;
   const allDays=tt.dayLabels.map((_,d)=>d);
-  let days=fit?allDays.filter(d=>(tt.blocks||[]).some(b=>b.day===d)):allDays;
-  if(!days.length)days=allDays;
+  const days=allDays; /* 월~일 고정. 보기용은 화면 폭에 맞춰 칸이 줄어들어 가로 스크롤 없음 */
   let html=fit?`<div id="ttGridScroll"><table style="border-collapse:collapse;width:100%;table-layout:fixed;font-size:${baseFs}px">`
              :`<div style="overflow-x:auto" id="ttGridScroll"><table style="border-collapse:collapse;width:100%;min-width:540px;font-size:${baseFs}px">`;
   html+=`<tr><th style="width:${fit?30:44}px"></th>`+days.map(i=>`<th data-day="${i}" style="padding:5px 2px;font-weight:700;color:var(--ink-soft);font-size:${hdFs}px">${tt.dayLabels[i]}</th>`).join('')+'</tr>';
