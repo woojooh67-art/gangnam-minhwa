@@ -3294,8 +3294,13 @@ function msgSheet(st,withGuide){
   t+=`· 반: ${clsNames(st)}\n`;
   t+=(total<0)?`· ${-total}회 미리 수강하셨어요 (다음 결제 시 차감)\n`:`· 남은 회차: ${total}회\n`;
   if(lp)t+=`· 결제일: ${md(lp.date)} (${lp.sessions}회)\n`;
-  if(lastCls)t+=`· ${(total<=0&&lastCls<=todayISO())?'마지막 수업일':'마지막 수업 예정일'}: ${md(lastCls)}\n`;
-  if(due&&total>0)t+=`· 이용 기한: ${md(due)}까지 (마지막 수업 예정일 + 4주)\n`;
+  if(st.status==='paused'){ /* 휴강 학생은 이용 기한 대신 보존 기간만 */
+    if(st.pausedSince)t+=`· 휴강 시작: ${md(st.pausedSince)}\n`;
+    if(total>0&&holdEndOf(st)&&!xp)t+=`· 남은 회차 보존: ${md(holdEndOf(st))}까지\n`;
+  }else{
+    if(lastCls)t+=`· ${(total<=0&&lastCls<=todayISO())?'마지막 수업일':'마지막 수업 예정일'}: ${md(lastCls)}\n`;
+    if(due&&total>0)t+=`· 이용 기한: ${md(due)}까지 (마지막 수업 예정일 + 4주)\n`;
+  }
   if(st.status==='paused'&&!xp&&total>0&&holdSoon(st)){
     t=`[강남민화연구소] ${st.name} 님, 안녕하세요 :)\n\n`;
     t+=`휴강 중에 보존해 드리고 있는 남은 회차 ${total}회가 ${md(holdEndOf(st))}까지예요.\n`;
