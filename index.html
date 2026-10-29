@@ -258,7 +258,7 @@
       <div style="height:14px"></div>
       <div id="checkCalBox" style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px"></div>
       <div class="note" id="checkCalNote" style="margin:-2px 3px 10px"></div>
-      <div class="filters" style="display:flex;align-items:center;gap:8px;margin:4px 0 10px">
+      <div class="filters" style="display:none">
         <select id="checkClassSel" class="selin" style="flex:1"></select>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px">
@@ -821,6 +821,7 @@ function renderTtAlways(){
     el.onclick=go;el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}};});
   lb.querySelectorAll('[data-ttst]').forEach(el=>el.onclick=()=>{const st=studentById(el.dataset.ttst);if(st)studentSheet(st);});
   const x=lb.querySelector('#ttClsClose');if(x)x.onclick=()=>{ttSelCls=null;renderTtAlways();};
+  const cb=lb.querySelector('#ttClsCal');if(cb)cb.onclick=()=>{data.activeClass=ttSelCls;checkMode='single';save();render();const cal=document.getElementById('checkCalBox');if(cal)cal.scrollIntoView({behavior:'smooth',block:'start'});};
 }
 function ttClassListHTML(c){
   if(!c)return '';
@@ -832,7 +833,7 @@ function ttClassListHTML(c){
       :r<=1?'<span class="pill" style="background:var(--ochre-tint);color:var(--ochre)">곧소진</span>':'';
     return `<div class="srow" data-ttst="${st.id}" style="cursor:pointer;margin-bottom:6px${paused?';opacity:.6':''}"><span class="nm">${esc(st.name)}</span><span class="sub">잔여 ${r}회${(st.classIds||[]).length>1?' · 겸반':''}</span>${tag}</div>`;}).join('');
   return `<div style="border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:8px;background:var(--card)">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>${esc(c.name)} 학생 (${act}명${studs.length>act?' · 휴강 '+(studs.length-act):''})</b><button class="minibtn" id="ttClsClose" style="padding:2px 8px">닫기</button></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>${esc(c.name)} 학생 (${act}명${studs.length>act?' · 휴강 '+(studs.length-act):''})</b><span style="display:flex;gap:6px"><button class="minibtn" id="ttClsCal" style="padding:2px 8px;border-color:var(--jade);color:var(--jade-deep)">📅 이 반 출석 보기</button><button class="minibtn" id="ttClsClose" style="padding:2px 8px">닫기</button></span></div>
     ${rows||'<div class="note">이 반에 등록된 학생이 없어요.</div>'}
     <div class="note" style="margin-top:4px">이름을 누르면 학생 카드가 열려요.</div></div>`;
 }
