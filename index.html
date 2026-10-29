@@ -806,75 +806,27 @@ function buildTimetableGrid(){
   });
   return {rowLabels,dayLabels,blocks};
 }
-/* 출석 페이지 시간표: 반을 누르면 그 반 학생 목록을 바로 아래에 보여줘요 (다시 누르면 닫힘) */
+/* 출석 페이지 시간표: 반을 누르면 아래 출석 명단이 그 반(오늘 또는 가장 최근 수업일)으로 바뀌어요. 다시 누르면 전체보기 */
 let ttSelCls=null;
 function renderTtAlways(){
   const ttBox=document.getElementById('ttAlways');if(!ttBox)return;
-  if(ttSelCls&&!classById(ttSelCls))ttSelCls=null;
+  ttSelCls=(checkMode==='single'&&data.activeClass&&classById(data.activeClass)&&!classById(data.activeClass).isTempContainer)?data.activeClass:null;
   ttBox.innerHTML=timetableGridHTML(buildTimetableGrid(),false);
-  let lb=document.getElementById('ttClassList');
-  if(!lb){lb=document.createElement('div');lb.id='ttClassList';ttBox.after(lb);}
-  lb.innerHTML=ttSelCls?ttClassListHTML(classById(ttSelCls)):'';
+  const old=document.getElementById('ttClassList');if(old)old.remove();
   ttBox.querySelectorAll('[data-ttcls]').forEach(el=>{
-    const go=()=>{ttSelCls=(ttSelCls===el.dataset.ttcls)?null:el.dataset.ttcls;renderTtAlways();
-      const l=document.getElementById('ttClassList');if(ttSelCls&&l)l.scrollIntoView({behavior:'smooth',block:'nearest'});};
+    const go=()=>{const cid=el.dataset.ttcls,c=classById(cid);if(!c)return;
+      if(ttSelCls===cid){checkMode='all';save();render();return;}
+      const iso=ttTargetIso(c);const [y,m]=iso.split('-').map(Number);checkCalYM[cid]={y,m};
+      const se=c.sessions.find(x=>x.iso===iso&&!x.temp);activeSess[cid]=se?se.id:'__none__';
+      data.activeClass=cid;checkMode='single';save();render();
+      const d=document.getElementById('checkDetail');if(d)d.scrollIntoView({behavior:'smooth',block:'start'});};
     el.onclick=go;el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go();}};});
-  lb.querySelectorAll('[data-ttst]').forEach(el=>el.onclick=()=>{const st=studentById(el.dataset.ttst);if(st)studentSheet(st);});
-  lb.querySelectorAll('[data-ttact]').forEach(el=>el.onclick=()=>{const st=studentById(el.dataset.st),c=classById(ttSelCls);if(st&&c)ttAction(c,el.dataset.ttact,st);});
-  const x=lb.querySelector('#ttClsClose');if(x)x.onclick=()=>{ttSelCls=null;renderTtAlways();};
-  const cb=lb.querySelector('#ttClsCal');if(cb)cb.onclick=()=>{data.activeClass=ttSelCls;checkMode='single';save();render();const cal=document.getElementById('checkCalBox');if(cal)cal.scrollIntoView({behavior:'smooth',block:'start'});};
 }
 /* 학생 목록에서 출석·결석을 찍을 날짜: 오늘이 그 반 수업일이면 오늘, 아니면 가장 최근 수업일 */
 function ttTargetIso(c){
   const wd=classWeekday(c),t=todayISO();if(wd===null)return t;
   for(let k=0;k<21;k++){const iso=addDays(t,-k);if(new Date(iso+'T00:00:00').getDay()===wd&&!isClosedDay(c,iso))return iso;}
   return t;
-}
-function ttClassListHTML(c){
-  if(!c)return '';
-  const iso=ttTargetIso(c),isToday=iso===todayISO();
-  const sess=(c.sessions||[]).find(x=>x.iso===iso&&!x.temp);
-  const studs=studentsInClass(c.id).filter(st=>st.status!=='ended').sort((a,b)=>(a.status==='paused')-(b.status==='paused')||(a.name<b.name?-1:1));
-  const act=studs.filter(st=>st.status!=='paused').length;
-  const dl=d=>{const x=new Date(d+'T00:00:00');return `${x.getMonth()+1}/${x.getDate()}(${'일월화수목금토'[x.getDay()]})`;};
-  const btn=(lab,attr,on,col,line)=>`<button type="button" ${attr} style="font:inherit;font-size:12.5px;padding:5px 11px;border-radius:999px;cursor:pointer;border:1.5px solid ${on?col:(line||'var(--line)')};background:${on?col:'var(--card)'};color:${on?'#fff':(line||'var(--ink)')};font-weight:${on?700:500}">${lab}</button>`;
-  const rows=studs.map(st=>{const paused=st.status==='paused';const r=liveRemain(st);
-    const mark=sess?c.records[sess.id+':'+st.id]:undefined;
-    const tag=paused?'<span class="pill" style="background:var(--line-soft);color:var(--ink-soft)">휴강중</span>'
-      :r<=0?'<span class="pill" style="background:var(--verm-tint);color:var(--verm)">재결제</span>'
-      :r<=1?'<span class="pill" style="background:var(--ochre-tint);color:var(--ochre)">곧소진</span>':'';
-    const acts=paused
-      ?btn('복귀','data-ttact="resume" data-st="'+st.id+'"',false,'')+btn('문구','data-ttact="msg" data-st="'+st.id+'"',false,'')
-      :btn('출석','data-ttact="present" data-st="'+st.id+'"',mark==='present'||mark==='late'||mark==='makeup','var(--jade)')
-       +btn('결석','data-ttact="absent" data-st="'+st.id+'"',mark==='absent','var(--verm)')
-       +`<span style="width:6px"></span>`
-       +btn(r<=0?'재결제':'결제','data-ttact="pay" data-st="'+st.id+'"',false,'',r<=0?'var(--verm)':'')
-       +btn('휴강','data-ttact="pause" data-st="'+st.id+'"',false,'')
-       +btn('문구','data-ttact="msg" data-st="'+st.id+'"',false,'');
-    return `<div class="srow" style="flex-direction:column;align-items:stretch;gap:6px;margin-bottom:6px${paused?';opacity:.65':''}">
-      <div style="display:flex;align-items:center;gap:8px"><span class="nm" data-ttst="${st.id}" style="cursor:pointer;text-decoration:underline dotted">${esc(st.name)}</span><span class="sub" style="flex:1">잔여 ${r}회${(st.classIds||[]).length>1?' · 겸반':''}</span>${tag}</div>
-      <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">${acts}</div></div>`;}).join('');
-  return `<div style="border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:8px;background:var(--card)">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap"><b>${esc(c.name)} 학생 (${act}명${studs.length>act?' · 휴강 '+(studs.length-act):''})</b><span style="display:flex;gap:6px"><button class="minibtn" id="ttClsCal" style="padding:2px 8px;border-color:var(--jade);color:var(--jade-deep)">📅 이 반 출석 보기</button><button class="minibtn" id="ttClsClose" style="padding:2px 8px">닫기</button></span></div>
-    <div class="note" style="margin:0 0 8px">출석·결석은 <b>${isToday?'오늘 ':'지난 수업 '}${dl(iso)}</b> 기준이에요. 다시 누르면 지워져요.</div>
-    ${rows||'<div class="note">이 반에 등록된 학생이 없어요.</div>'}
-    <div class="note" style="margin-top:4px">이름을 누르면 학생 카드가 열려요.</div></div>`;
-}
-function ttAction(c,act,st){
-  const iso=ttTargetIso(c);
-  if(act==='present'||act==='absent'){
-    let sess=(c.sessions||[]).find(x=>x.iso===iso&&!x.temp);
-    if(!sess){sess={id:uid(),label:shortDate(iso),iso};c.sessions.push(sess);}
-    const k=sess.id+':'+st.id,prev=c.records[k];
-    const same=(act==='present'&&(prev==='present'||prev==='late'||prev==='makeup'))||(act==='absent'&&prev==='absent');
-    if(same){logAdminClear(st,c,prev,iso);delete c.records[k];toast(`${st.name}님 ${shortDate(iso)} 기록을 지웠어요.`);}
-    else{if(prev)logStatusChange(st,c,prev,act,iso);c.records[k]=act;toast(`${st.name}님 ${shortDate(iso)} ${act==='present'?'출석':'결석'}으로 표시했어요.`);}
-    save();render();return;
-  }
-  if(act==='pay'||act==='resume'){act==='pay'?studentSheet(st):editStudent(st);return;}
-  if(act==='msg'){msgSheet(st,false);return;}
-  if(act==='pause'){confirmSheet(`<b>${esc(st.name)}</b>님을 <b>휴강중</b>으로 바꿀까요?<br>남은 ${Math.max(0,remainSessions(st))}회는 오늘부터 6개월간 보존돼요. 휴강 시작일은 학생 정보 수정에서 바꿀 수 있어요.`,()=>{
-    st.status='paused';st.pausedSince=todayISO();pushLog('admin',`(원장님) ${esc(st.name)}님을 휴강중으로 바꿨어요.`,todayISO());save();render();toast('휴강중으로 바꿨어요.');},'휴강으로');}
 }
 function timetableGridHTML(tt,editable,big){
   const cellBg=item=>item.extra?'var(--ochre-tint)':(item.type==='연구'?'var(--verm-tint)':item.type==='직장인'?'var(--blue-tint,#eaf2fb)':'var(--jade-tint)');
