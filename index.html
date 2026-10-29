@@ -4145,6 +4145,13 @@ async function enterAdmin(){
   data=d;
   /* 휴강 보존 6개월 규칙 도입 전부터 휴강 중이던 학생: 휴강 시작일이 없으면 오늘로 기록 (오늘부터 6개월 보존) */
   (data.students||[]).forEach(x=>{if(x.status==='paused'&&!x.pausedSince){x.pausedSince=todayISO();pushLog('admin',`(원장님) ${esc(x.name)}님 휴강 보존 기간 시작일을 오늘로 정했어요 (6개월 보존).`,todayISO());}});
+  /* 한 번만: 지금 휴강 중인 학생들의 휴강 시작일을 '마지막 출석 다음 날'로 정리 (원장님 요청, 2026-10-29) */
+  if(!isFirstTimeSetup&&!data.pausedStartFix1){
+    let n=0;(data.students||[]).forEach(x=>{if(x.status!=='paused')return;const la=lastAttendIso(x);if(!la)return;const nv=addDays(la,1);
+      if(nv!==x.pausedSince){x.pausedSince=nv;n++;pushLog('admin',`(원장님) ${esc(x.name)}님 휴강 시작일을 ${shortDate(nv)}(마지막 출석 다음 날)로 정리했어요.`,todayISO());}});
+    data.pausedStartFix1=todayISO();
+    if(n)setTimeout(()=>toast(`휴강 학생 ${n}명의 휴강 시작일을 마지막 출석 다음 날로 정리했어요.`),1500);
+  }
   const made=autoCreateUpcomingSessions();const merged=await mergeAllStudentActivity(false);await save();render();
   /* 새로고침 전에 보던 탭으로 돌아가기 */
   try{const back=sessionStorage.getItem('gmh_refresh_tab');if(back){sessionStorage.removeItem('gmh_refresh_tab');const sm=sessionStorage.getItem('gmh_refresh_stumode');sessionStorage.removeItem('gmh_refresh_stumode');if(sm)stuMode=sm;if(back!=='check')switchTab(back);else if(sm)renderStuMode();}}catch(e){}
