@@ -321,6 +321,7 @@
       <div class="barbtns" style="margin-top:10px"><button id="ttEdit">🗓 화실 시간표 관리</button></div>
       <div class="sechead">백업 · 설정</div>
       <div class="barbtns"><button class="alt" id="backupSave">💾 백업 저장</button><button id="rulesEdit">📜 화실 이용 규칙 관리</button></div>
+      <div class="barbtns"><button id="pausedFixBtn">🗓 휴강 시작일 정리</button></div>
       <div class="barbtns"><button id="diagBtn">🔍 전체 잔여 회차 진단</button><button id="formBlankBtn">📄 빈 수강신청서 인쇄</button></div>
       <div class="note">· 하루 1회 자동으로 클라우드에 백업돼요(최근 30일 보관). 앱 파일을 바꾸기 전처럼 중요한 작업 전에는 <b>💾 백업 저장</b>으로 내 컴퓨터에도 한 부 남겨두세요.</div>
       <details style="margin-top:14px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--card)">
@@ -1055,6 +1056,23 @@ function clearClosedSession(c,iso){
   if(!kept)c.sessions=c.sessions.filter(x=>x.id!==ex.id);
 }
 function holidayRangeFor(cid,iso){return (data.holidayRanges||[]).find(r=>iso>=r.from&&iso<=r.to&&(r.classIds||[]).indexOf(cid)>=0)||null;}
+function pausedStartFixSheet(){
+  const list=data.students.filter(x=>x.status==='paused').map(st=>{const la=lastAttendIso(st);const nv=la?addDays(la,1):'';
+    return {st,la,nv,cur:st.pausedSince||''};}).sort((a,b)=>a.st.name<b.st.name?-1:1);
+  const rowsHTML=list.map((r,i)=>{const same=r.nv&&r.nv===r.cur;const end=r.nv?holdEndOf({pausedSince:r.nv}):'';const rem=Math.max(0,remainSessions(r.st));
+    return `<tr><td><label class="chk" style="margin:0"><input type="checkbox" data-pfi="${i}" ${r.nv&&!same?'checked':''} ${r.nv&&!same?'':'disabled'}> ${esc(r.st.name)}</label></td>
+      <td>${r.cur?shortDate(r.cur):'-'}</td><td>${r.la?shortDate(r.la):'기록 없음'}</td><td><b>${r.nv?shortDate(r.nv):'-'}</b></td><td>${end?shortDate(end):'-'}${rem?` · <b>${rem}회</b>`:''}${end&&end<todayISO()&&rem?' <span style="color:var(--verm)">(이미 지남)</span>':''}</td></tr>`;}).join('');
+  oroot().innerHTML=`<div class="overlay"><div class="sheet" style="max-width:640px"><button class="quickx" onclick="closeOverlay()">✕</button><h3>🗓 휴강 시작일 정리</h3>
+    <div class="subt">휴강 중인 학생의 휴강 시작일을 <b>마지막으로 수업에 온 날 다음 날</b>로 맞춰요. 남은 회차는 그날부터 6개월간 보존돼요. 바꾸지 않을 학생은 체크를 빼세요.</div>
+    <div style="overflow-x:auto"><table class="sum" style="font-size:13px"><thead><tr><th>학생</th><th>지금</th><th>마지막 출석</th><th>바꿀 날짜</th><th>보존 끝 · 남은 회차</th></tr></thead><tbody>${rowsHTML||'<tr><td colspan="5">휴강 중인 학생이 없어요.</td></tr>'}</tbody></table></div>
+    <div class="note" style="margin-top:6px">· 보존 끝이 이미 지난 학생은 남은 회차가 소멸 처리돼요. 그런 학생은 체크를 빼고 따로 상의하셔도 돼요.<br>· 한 명씩 바꾸려면 학생 정보 수정의 "휴강 시작일" 칸을 쓰세요.</div>
+    <div class="actions" style="margin-top:12px"><button class="btn-ghost" id="pfNo">취소</button><button class="btn-primary" id="pfOk">체크한 학생 바꾸기</button></div></div></div>`;
+  oroot().querySelector('#pfNo').onclick=closeOverlay;
+  oroot().querySelector('#pfOk').onclick=()=>{let n=0;
+    oroot().querySelectorAll('[data-pfi]:checked').forEach(cb=>{const r=list[+cb.dataset.pfi];if(!r||!r.nv)return;r.st.pausedSince=r.nv;n++;
+      pushLog('admin',`(원장님) ${esc(r.st.name)}님 휴강 시작일을 ${shortDate(r.nv)}(마지막 출석 다음 날)로 정했어요.`,todayISO());});
+    save();closeOverlay();render();toast(n?`${n}명의 휴강 시작일을 바꿨어요.`:'바꾼 학생이 없어요.');};
+}
 function holidaySheet(){
   const t=todayISO();
   let mode='class';
@@ -1600,6 +1618,12 @@ const HOLD_MONTHS=6; // 장기 휴강 시 남은 회차 보존 기간
 function holdEndOf(st){if(!st||!st.pausedSince)return '';const d=new Date(st.pausedSince+'T00:00:00');const day=d.getDate();d.setMonth(d.getMonth()+HOLD_MONTHS);if(d.getDate()<day)d.setDate(0);return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
 function holdExpired(st){const h=holdEndOf(st);return !!(st&&st.status==='paused'&&h&&todayISO()>h);}
 /* 휴강 보존 안내 단계: 한 달 전('m'), 일주일 전('w'). 보낸 단계는 다시 안 띄움 (보존 끝 날짜가 바뀌면 새로) */
+/* 마지막으로 수업에 온 날 (앱 기록 + 앱 사용 전 참고 기록) */
+function lastAttendIso(st){
+  return [...marksOf(st).filter(m=>isAttendMark(m.mark)||m.mark==='dropin').map(m=>m.iso),
+    ...Object.entries(st.archiveMarks||{}).filter(([k,v])=>v==='present'||v==='late'||v==='makeup'||v==='dropin').map(([k])=>k)]
+    .filter(x=>x<=todayISO()).sort().pop()||'';
+}
 function holdNoticeStage(st){const h=holdEndOf(st);if(!h)return '';const t=todayISO();if(t>h)return '';return addDays(t,7)>=h?'w':'m';}
 function holdNoticeDue(st){if(!st||st.status!=='paused'||!holdSoon(st)||remainSessions(st)<=0)return false;
   const stg=holdNoticeStage(st),n=st.holdNotice||{};if(n.end!==holdEndOf(st))return true;return !n[stg];}
@@ -3435,10 +3459,10 @@ function editStudent(st){
       <option value="active"${st.status!=='paused'?' selected':''}>수강중</option>
       <option value="paused"${st.status==='paused'?' selected':''}>휴강중 (장기)</option>
       <option value="ended"${st.status==='ended'?' selected':''}>종료 (그만둠 · 기록은 보존)</option></select></div>
-    ${(()=>{const lastAtt=[...marksOf(st).filter(m=>isAttendMark(m.mark)||m.mark==='dropin').map(m=>m.iso),...Object.entries(st.archiveMarks||{}).filter(([k,v])=>v==='present'||v==='late'||v==='makeup'||v==='dropin').map(([k])=>k)].filter(x=>x<=todayISO()).sort().pop()||'';
-      const sug=lastAtt?addDays(lastAtt,7):'';
+    ${(()=>{const lastAtt=lastAttendIso(st);
+      const sug=lastAtt?addDays(lastAtt,1):'';
       return `<div class="fgroup" id="esPausedBox" style="${st.status==='paused'?'':'display:none'}"><label>휴강 시작일 <small style="color:var(--ink-soft)">(이 날부터 6개월간 남은 회차 보존)</small></label><input type="date" id="esPausedSince" class="selin" value="${st.pausedSince||''}" style="width:170px">
-        ${sug?`<div style="margin-top:6px"><button type="button" class="btn-ghost" id="esPausedSug" data-v="${sug}" style="padding:4px 10px;font-size:12px">마지막 출석(${shortDate(lastAtt)}) 다음 주로: ${sug}</button></div>`:''}
+        ${sug?`<div style="margin-top:6px"><button type="button" class="btn-ghost" id="esPausedSug" data-v="${sug}" style="padding:4px 10px;font-size:12px">마지막 출석(${shortDate(lastAtt)}) 다음 날로: ${sug}</button></div>`:''}
         <div class="note" id="esPausedEnd" style="margin-top:4px"></div></div>`;})()}
     <div class="fgroup"><label>특이사항 메모 <small style="color:var(--ink-soft)">(연락처와 별개, 자유롭게)</small></label><input id="esNotes" class="selin" value="${esc(st.notes||'')}" placeholder="예: 2/6 12회차 선결제 이후 휴강, 4/10 재등록"></div>
     <div class="fgroup"><label>수강 반 (여러 반 겸용 가능)</label>
@@ -4007,6 +4031,7 @@ document.getElementById('checkinQrBtn').onclick=()=>{
     </div></div>`;
 };
 document.getElementById('diagBtn').onclick=diagnosticSheet;
+{const pf=document.getElementById('pausedFixBtn');if(pf)pf.onclick=pausedStartFixSheet;}
 document.getElementById('codeReleaseBtn').onclick=codeReleaseSheet;
 document.getElementById('feeSearch').addEventListener('input',e=>{feeQuery=e.target.value.trim();renderFee();});
 document.getElementById('rosterSearch').addEventListener('input',e=>{rosterQuery=e.target.value.trim();renderRoster();});
