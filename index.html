@@ -2744,8 +2744,22 @@ function classifyDeposit(t,holder){
     return {name:'재료비 · '+payer,memo:pm,cat:'mat',checked:false,how:'수입 · 확인 필요',note:'금액이 커서 확인 필요'};}
   return {name:d,memo:'',cat:'class',checked:false,how:'수입 · 확인 필요'};}
 /* 카드 정산 입금액(수수료 뺀 금액)에서 원래 결제 금액·수수료를 거꾸로 계산. 맞는 수수료율이 없으면 null */
-function cardFeeOf(net){const rates=[0.004,0.0015,0.023,0.022,0.015,0.008,0.01,0.0115,0.0145,0.005,0.0065,0.0115];
-  for(const unit of [5000,1000])for(const r of rates){const g=Math.round(net/(1-r)/unit)*unit;if(g>net&&Math.abs(g*(1-r)-net)<=3)return {gross:g,fee:g-net,rate:r};}
+function cardFeeOf(net,date){
+  const fit=(g,r)=>Math.abs(g*(1-r)-net)<=3;
+  /* 1) 우대 수수료율(신용 0.4% · 체크 0.15%) 한 가지로 맞는지 */
+  for(const r of [0.004,0.0015]){const g=Math.round(net/(1-r)/5000)*5000;if(g>net&&fit(g,r))return {gross:g,fee:g-net,rate:r,who:[]};}
+  /* 2) 정산 직전 8일 안에 앱에 기록된 결제 몇 건이 합쳐진 것인지 (카드사마다 며칠치를 한 번에 넣음) */
+  if(date){const d0=new Date(date);const cand=allPayments().filter(x=>{const dd=(d0-new Date(x.p.date))/86400000;return dd>=0&&dd<=8&&x.p.amount>0;}).slice(0,12);
+    const R=[0.004,0.0015,0.023,0.015,0.022];let best=null;
+    const walk=(i,pick)=>{if(best)return;
+      if(pick.length){const tot=pick.reduce((a,z)=>a+z.x.p.amount,0);if(tot>net&&tot<net*1.03){
+        const tryR=(k,sum)=>{if(best)return;if(k===pick.length){if(Math.abs(sum-net)<=3)best={gross:tot,fee:tot-net,who:pick.map(z=>z.x.st.name+' '+z.x.p.date.slice(5).replace('-','/')+' '+won(z.x.p.amount))};return;}
+          for(const r of R){pick[k].r=r;tryR(k+1,sum+Math.round(pick[k].x.p.amount*(1-r)));}};tryR(0,0);}}
+      if(pick.length>=4)return;
+      for(let j=i;j<cand.length;j++){walk(j+1,pick.concat([{x:cand[j]}]));if(best)return;}};
+    walk(0,[]);if(best)return best;}
+  /* 3) 일반 수수료율 한 가지로 맞는지 */
+  for(const unit of [5000,1000])for(const r of [0.023,0.022,0.015]){const g=Math.round(net/(1-r)/unit)*unit;if(g>net&&fit(g,r))return {gross:g,fee:g-net,rate:r,who:[]};}
   return null;}
 function bankImportPreview(text){
   const parsed=parseBankCsv(text);
@@ -2768,15 +2782,15 @@ function bankImportPreview(text){
   const manualIn=(data.income||[]).filter(e=>!e.bankKey).map(e=>Object.assign({},e,{_used:false}));
   all.filter(t=>t.amount>0).forEach(t=>{if(have.has(t.key)){dup++;return;}
     const c=classifyDeposit(t,parsed.holder);
-    if(c.card){const f=cardFeeOf(t.amt),fk='fee|'+t.key;
+    if(c.card){const f=cardFeeOf(t.amt,t.date),fk='fee|'+t.key;
       if(f&&!have.has(fk)){const mk=t.date.slice(0,7);const g=feeByM[mk]=feeByM[mk]||{n:0,fee:0,gross:0,keys:[],last:t.date};
-        g.n++;g.fee+=f.fee;g.gross+=f.gross;g.keys.push(fk);if(t.date>g.last)g.last=t.date;}}
+        g.n++;g.fee+=f.fee;g.gross+=f.gross;g.keys.push(fk);(g.who=g.who||[]).push(...(f.who||[]));if(t.date>g.last)g.last=t.date;}}
     if(c.skip){skipped.push({t,why:c.skip});return;}
     const m=manualIn.find(e=>!e._used&&e.amount===t.amt&&dayDiff(e.date,t.date)<=7);
     if(m){m._used=true;dup++;return;}
     items.push(Object.assign({t,kind:'in'},c));});
   Object.keys(feeByM).sort().forEach(mk=>{const g=feeByM[mk];if(g.fee<=0)return;
-    items.push({t:{date:g.last,desc:'카드 정산 '+g.n+'건 (결제 '+won(g.gross)+')',amt:g.fee,key:'cardfee|'+mk+'|'+g.keys.length+'|'+g.keys[0]},kind:'out',fixedId:null,
+    items.push({t:{date:g.last,desc:'카드 정산 '+g.n+'건 (결제 '+won(g.gross)+')'+((g.who||[]).length?' · 맞춰 본 결제: '+g.who.join(', '):''),amt:g.fee,key:'cardfee|'+mk+'|'+g.keys.length+'|'+g.keys[0]},kind:'out',fixedId:null,
       name:'카드 수수료',memo:(+mk.slice(5,7))+'월 · 카드 결제 '+won(g.gross)+' 중',checked:true,how:'카드 수수료',feeKeys:g.keys});});
   const outN=all.filter(t=>t.amount<0).length,inN=all.filter(t=>t.amount>0).length;
   const skipSum={};skipped.forEach(s=>{const k=s.why;skipSum[k]=skipSum[k]||{n:0,a:0};skipSum[k].n++;skipSum[k].a+=s.t.amt;});
