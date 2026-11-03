@@ -298,7 +298,7 @@
         <div class="rowlist" id="feeList"></div>
       </div>
       <details id="statsBox" style="margin-top:16px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--card)">
-        <summary style="cursor:pointer;font-weight:700">📊 수입·지출·현황 <small style="font-weight:400;color:var(--ink-soft)">(연구소 전체 · 반 출석 현황 · 월별 수입·지출 · 수입 추이)</small></summary>
+        <summary style="cursor:pointer;font-weight:700">📊 연구소 현황 <small style="font-weight:400;color:var(--ink-soft)">(연구소 전체 · 반 출석 현황)</small></summary>
       <div class="sechead">연구소 전체</div>
       <div class="kpi" id="allKpi"></div>
       <div class="filters" style="display:flex;align-items:center;gap:8px;margin:14px 0 4px">
@@ -306,12 +306,16 @@
       </div>
       <div class="sechead" id="repTitle">반 출석 현황</div>
       <div id="reportBody"></div>
-      <div class="sechead">월별 수입·지출</div>
+      <div class="note" style="margin-top:12px">수입·지출은 아래 <b>수입·지출</b> 탭으로 옮겼어요.</div>
+      </details>
+    </section>
+
+    <section id="view-money" class="hidden">
+      <div class="sechead">💰 월별 수입·지출</div>
       <div class="monthnav" id="monthNav"></div>
       <div id="monthBody"></div>
       <div class="sechead">전체 수입 추이</div>
       <div id="revenueChart"></div>
-      </details>
     </section>
 
     <section id="view-settings" class="hidden">
@@ -344,6 +348,7 @@
   <nav class="tabs">
     <button data-tab="check" class="active"><span class="ic">✓</span>출석<span id="reportBadge" class="hidden" style="background:var(--verm);color:#fff;border-radius:999px;font-size:10px;padding:1px 6px;margin-top:-2px"></span></button>
     <button data-tab="roster"><span class="ic">☰</span>학생·수업료</button>
+    <button data-tab="money"><span class="ic">₩</span>수입·지출</button>
   </nav>
 </div>
 </div>
@@ -1734,8 +1739,8 @@ function classSortKey(c){
 }
 function renderClasses(){const sel=document.getElementById('classSel');sel.innerHTML='';
   const rowBox=document.getElementById('classRowBox'),metaBox=document.getElementById('classMeta');
-  if(rowBox)rowBox.classList.toggle('hidden',tab==='settings'||tab==='check');
-  if(metaBox)metaBox.classList.toggle('hidden',tab==='settings'||tab==='check');
+  if(rowBox)rowBox.classList.toggle('hidden',tab==='settings'||tab==='check'||tab==='money');
+  if(metaBox)metaBox.classList.toggle('hidden',tab==='settings'||tab==='check'||tab==='money');
   if(tab==='check'){
     const allOpt=document.createElement('option');allOpt.value='__all__';allOpt.textContent='반 선택';
     if(checkMode==='all')allOpt.selected=true;
@@ -4344,10 +4349,11 @@ async function pickStudentsFromBackup(id){
 }
 
 /* ---------- nav ---------- */
-function switchTab(t){if(t==='report')t='roster';tab=t;['check','roster','settings'].forEach(v=>document.getElementById('view-'+v).classList.toggle('hidden',v!==t));
+function switchTab(t){if(t==='report')t='roster';tab=t;['check','roster','money','settings'].forEach(v=>document.getElementById('view-'+v).classList.toggle('hidden',v!==t));
   {const g=document.getElementById('adminSettings');if(g)g.classList.toggle('on',t==='settings');}
   document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));
   renderClasses();
+  if(t==='money'){renderReport();window.scrollTo(0,0);}
   if(t==='roster'){renderReport();stuMode='fee';feeScope='all';rosterScope='all';feeFilter='active';renderStuMode();renderRoster();renderFee();}}
 
 document.getElementById('classSel').onchange=e=>{
