@@ -15,7 +15,7 @@ function doPost(e) {
     var me = Session.getEffectiveUser().getEmail();
     MailApp.sendEmail({
       to: me,
-      subject: '[민화연구소] ' + student + '님 ' + kind,
+      subject: '[강남민화연구소] ' + student + '님 ' + kind,
       body: student + '님 — ' + kind + '\n' + (detail ? detail + '\n' : '') + '보낸 시각: ' + sentAt +
             '\n\n앱에서 확인해 주세요: https://woojooh67-art.github.io/gangnam-minhwa/'
     });
