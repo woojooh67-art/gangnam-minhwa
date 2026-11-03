@@ -4753,7 +4753,7 @@ function renderStudentApp(){
   const approvedMakeup=stuData.makeupLeft||0;
   const totalLeft=(stuData.remain||0); /* makeupLeft는 이제 '다른 날로 옮길 수 있는 여유 회차'(잔여 안에 포함) — 더하지 않아요 */
   /* 다른 날 예약 가능 횟수 = 여유 회차(정규 일정 외에 남은 회차) + 결석 알린 만큼 + 취소 신청한 만큼. 회차를 다 쓴 경우만 1회 미리 참여 허용 */
-  const preBookAllowance=((stuData.remain||0)<=0&&approvedMakeup<=0)?1:0;
+  const preBookAllowance=0; /* '수업 미리 참여하기'는 학생 앱에서 뺐어요 (2026-11). 원장님이 결제 전 출석을 기록하면 다음 결제에서 먼저 빠짐 */
   const quotaTotal=approvedMakeup+pendingAbsent.length+pendingMakeupCancel.length+preBookAllowance;
   const quotaLeft=Math.max(0,quotaTotal-pendingMakeup.length);
   const realEntitlement=approvedMakeup+pendingAbsent.length+pendingMakeupCancel.length;
@@ -4767,6 +4767,10 @@ function renderStudentApp(){
   _lastPaidSorted.sort((a,b)=>a.iso<b.iso?-1:1);
   const remainNow=stuData.remain||0;
   const lastPaidSessionId=(remainNow>0&&remainNow<=_lastPaidSorted.length)?_lastPaidSorted[remainNow-1].id:null;
+  const needPay=(stuData.remain||0)<=0&&stuData.status!=='paused'&&stuData.status!=='ended';
+  /* 정규 반의 다음 수업일 (휴강일은 이미 빠져 있음) — 이번 주에 수업이 없을 때 안내용 */
+  const nextOfficial=[];(stuData.classes||[]).filter(c=>c.official!==false).forEach(c=>(c.sessions||[]).filter(s=>s.iso>=t&&!c.records[s.id]).forEach(s=>nextOfficial.push({c,s})));
+  nextOfficial.sort((a,b)=>a.s.iso<b.s.iso?-1:1);
   const _allUpcoming=[];
   (stuData.classes||[]).forEach(c=>{
     (c.sessions||[]).filter(s=>s.iso>=t&&(s.iso<=addDays(t,STU_WINDOW_DAYS)||c.records[s.id]!==undefined)&&(c.official!==false||c.records[s.id]!==undefined)).forEach(s=>_allUpcoming.push({c,s}));
@@ -4793,6 +4797,7 @@ function renderStudentApp(){
         const planLabel=v==='dropin'?'하루수업 참여 예정':'참여 예정';
         right=`<span class="c-p" style="font-weight:700">${s.iso>t?planLabel:doneLabel}</span>`;
       }
+      else if(needPay&&c.official!==false)right=`<span style="color:var(--ochre);font-size:12.5px;font-weight:700">결제 후 참여</span>`;
       else right=`<button class="checkbtn" style="width:auto;padding:8px 14px;margin:0;font-size:12.5px" data-cid="${c.id}" data-sid="${s.id}" data-iso="${s.iso}">결석 예정 알리기</button>`;
       const rowHtml=`<div class="stuhist"><span>${esc(c.name)} · ${mkDateLabel(s)}${isLastPaid?' <b style="color:var(--verm)">· 마지막 수업일</b>':''}</span>${right}</div>`;
       if(s.iso<weekCutoff)upcomingRows+=rowHtml;else upcomingRowsMore+=rowHtml;
@@ -5024,7 +5029,17 @@ function renderStudentApp(){
       <div class="note" style="margin:-4px 2px 10px;color:var(--ink-soft)">${totalLeft>0?'이용 기한은 마지막 수업 예정일 + 4주예요. 못 오신 날의 회차는 그대로 남으니, 기한 안에 편한 날 오셔서 쓰시면 돼요.':'다음 수업 오시는 날 결제해 주시면 돼요. 결제하시면 그날부터 새 회차와 이용 기한이 다시 시작돼요. (이용 기한은 마지막 수업 예정일 + 4주예요.)'}</div>
       ${borrowed>0?`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;margin:-2px 0 12px;font-weight:700">⚠ 남은 회차보다 ${borrowed}회 더 예약하셨어요. 오시는 날 결제해 주세요.</div>`:''}
       ${stuData.delayedUsage?`<div class="note" style="color:var(--ochre)">⏰ 정상 수업 종료일은 지났습니다. 남은 회차 수강 중입니다.</div>`:''}</div>
-    <div class="stucard"><h3>다가오는 수업</h3>${upcomingRows||'<div class="note">이번주는 예정된 수업이 없어요.</div>'}
+    <div class="stucard"><h3>다가오는 수업</h3>${(()=>{
+        const wd=iso=>'일월화수목금토'[new Date(iso+'T00:00:00').getDay()];
+        const lab=iso=>(+iso.slice(5,7))+'월 '+(+iso.slice(8,10))+'일('+wd(iso)+')';
+        const n0=nextOfficial[0];
+        let h='';
+        if(needPay)h+=`<div class="note" style="background:var(--ochre-tint);color:var(--ink);padding:10px 12px;border-radius:9px;margin:0 0 10px;line-height:1.6">💳 결제하신 회차를 모두 쓰셨어요.${n0?` <b>${lab(n0.s.iso)} 수업</b>부터 계속 들으시려면`:' 수업을 계속 들으시려면'} 수업료를 결제해 주세요.</div>`;
+        if(upcomingRows)return h+upcomingRows;
+        if(!n0)return h+'<div class="note">이번주는 예정된 수업이 없어요.</div>';
+        const rows=nextOfficial.slice(0,needPay?2:1).map(({c,s})=>`<div class="stuhist"><span>${esc(c.name)} · ${mkDateLabel(s)}</span>${needPay?'<span style="color:var(--ochre);font-size:12.5px;font-weight:700">결제 후 참여</span>':''}</div>`).join('');
+        return h+`<div class="note" style="margin-bottom:6px">이번 주는 수업이 없어요. 다음 수업은 <b>${lab(n0.s.iso)}</b>이에요.</div>`+rows;
+      })()}
       ${upcomingRowsMore?`<div class="note" id="upcomingMoreToggle" style="text-align:center;margin:8px 0 0;cursor:pointer;color:var(--ink-soft);border-top:1px solid var(--line);padding-top:8px">${upcomingMoreOpen?'▲ 접기':'▼ 다음주 이후 더보기'}</div>${upcomingMoreOpen?upcomingRowsMore:''}`:''}
       <div class="note">결석하실 것 같으면 미리 눌러서 알려주세요. 참석 예정이면 아무것도 안 누르셔도 돼요.</div></div>`}
     ${isPaused?'':makeupSection}
