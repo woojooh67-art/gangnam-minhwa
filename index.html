@@ -3143,7 +3143,10 @@ function stuAdminCalHTML(st){
   const archMap=st.archiveMarks||{};
   const isos=Object.keys(markMap).sort();
   if(!adminStuCalYM[st.id]){
-    const base=isos.length?isos[isos.length-1]:todayISO();
+    /* 수강 중인 학생은 이번 달, 휴강·종료 학생은 마지막 기록이 있는 달 */
+    const off=st.status==='paused'||st.status==='ended';
+    const pastIsos=isos.filter(x=>x<=todayISO());
+    const base=off?(pastIsos.length?pastIsos[pastIsos.length-1]:todayISO()):todayISO();
     let [y,m]=base.split('-').map(Number);
     if(y<2026||(y===2026&&m<7)){y=2026;m=7;}
     adminStuCalYM[st.id]={y,m};
@@ -3306,7 +3309,10 @@ function bindStuAdminCal(st,fullRedraw){
   });
 }
 /* ---------- student detail ---------- */
-function studentSheet(st){const fee=feeFor(st);
+function studentSheet(st){
+  /* 카드를 새로 열 때만 달력을 이번 달로 (카드 안에서 출석·결제 후 다시 그릴 때는 보던 달 유지) */
+  if(!oroot().querySelector('[data-stsheet="'+st.id+'"]'))delete adminStuCalYM[st.id];
+  const fee=feeFor(st);
   const isResearchSt=(st.classIds||[]).some(cid=>{const c=classById(cid);return c&&c.type==='연구';});
   const hasRealClassSt=(st.classIds||[]).some(cid=>{const c=classById(cid);return c&&classWeekday(c)!==null;});
   const isWorkerSt=(st.classIds||[]).some(cid=>{const c=classById(cid);return c&&c.type==='직장인';});
@@ -3327,7 +3333,7 @@ function studentSheet(st){const fee=feeFor(st);
     const marks=marksOf(st).slice(0,10);
     const paceEndSt=expectedPaceEnd(st);
     const ml=makeupLeft(st),due=makeupDue(st);
-    oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button>
+    oroot().innerHTML=`<div class="overlay"><div class="sheet" data-stsheet="${st.id}"><button class="quickx" onclick="closeOverlay()">✕</button>
       <h3>${esc(st.name)} · 출결·수업료</h3><div class="subt">${esc(clsNames(st))} · 기준 월요금(4회) ${won(fee)}${st.rate?' · 특별요금':''}${st.status==='paused'?' · 휴강중':''}${st.code?` · <b style="color:var(--jade-deep)">코드 ${st.code}</b>`:' · <span style="color:var(--verm)">코드 미발급</span>'}</div>
       <div class="note" style="margin:-4px 3px 8px;color:var(--ink-soft)">${st.lastLogin?(st.lastLogin.isAdminDevice?`⚠ 마지막 로그인 ${loginTimeStr(st.lastLogin.ts)} (원장님 기기${st.lastLogin.deviceLabel?': '+st.lastLogin.deviceLabel:''} — 테스트일 수 있어요)`:`✅ 마지막 로그인 ${loginTimeStr(st.lastLogin.ts)} (학생 기기)`):'아직 로그인 기록이 없어요'}${(st.lastLogin||st.lastStudentLogin)?` · <span id="stClrLogin" style="color:var(--verm);cursor:pointer;text-decoration:underline">접속 기록 지우기</span>`:''}</div>
       <button class="minibtn" id="stEdit" style="width:100%;margin:8px 0 4px;border-color:var(--blue);color:var(--blue)">✎ 정보 수정</button>
