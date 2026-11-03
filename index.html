@@ -2759,7 +2759,7 @@ function cardFeeOf(net,date){
       for(let j=i;j<cand.length;j++){walk(j+1,pick.concat([{x:cand[j]}]));if(best)return;}};
     walk(0,[]);if(best)return best;}
   /* 3) 일반 수수료율 한 가지로 맞는지 */
-  for(const unit of [5000,1000])for(const r of [0.023,0.022,0.015]){const g=Math.round(net/(1-r)/unit)*unit;if(g>net&&fit(g,r))return {gross:g,fee:g-net,rate:r,who:[]};}
+  for(const [unit,rs] of [[5000,[0.023,0.022,0.015]],[1000,[0.004,0.0015,0.023,0.022,0.015]]])for(const r of rs){const g=Math.round(net/(1-r)/unit)*unit;if(g>net&&fit(g,r))return {gross:g,fee:g-net,rate:r,who:[]};}
   return null;}
 function bankImportPreview(text){
   const parsed=parseBankCsv(text);
@@ -2790,7 +2790,7 @@ function bankImportPreview(text){
     if(m){m._used=true;dup++;return;}
     items.push(Object.assign({t,kind:'in'},c));});
   Object.keys(feeByM).sort().forEach(mk=>{const g=feeByM[mk];if(g.fee<=0)return;
-    items.push({t:{date:g.last,desc:'카드 정산 '+g.n+'건 (결제 '+won(g.gross)+')'+((g.who||[]).length?' · 맞춰 본 결제: '+g.who.join(', '):''),amt:g.fee,key:'cardfee|'+mk+'|'+g.keys.length+'|'+g.keys[0]},kind:'out',fixedId:null,
+    items.push({t:{date:g.last,desc:'카드 정산 '+g.n+'건 (결제 '+won(g.gross)+')',amt:g.fee,key:'cardfee|'+mk+'|'+g.keys.length+'|'+g.keys[0]},kind:'out',fixedId:null,
       name:'카드 수수료',memo:(+mk.slice(5,7))+'월 · 카드 결제 '+won(g.gross)+' 중',checked:true,how:'카드 수수료',feeKeys:g.keys});});
   const outN=all.filter(t=>t.amount<0).length,inN=all.filter(t=>t.amount>0).length;
   const skipSum={};skipped.forEach(s=>{const k=s.why;skipSum[k]=skipSum[k]||{n:0,a:0};skipSum[k].n++;skipSum[k].a+=s.t.amt;});
