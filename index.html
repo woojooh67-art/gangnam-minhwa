@@ -1162,7 +1162,7 @@ function holidaySheet(){
         const st=inRange&&!isEnd?'border-color:var(--jade);box-shadow:inset 0 0 0 1px var(--jade)':'';
         let lbl='',lc='var(--verm)';
         if(o.closed)lbl='전체휴무';
-        else if(o.cls.length===1)lbl=o.cls[0].name.replace(/\s+/g,'').slice(0,3);
+        else if(o.cls.length===1)lbl=o.cls[0].name.replace(/^[월화수목금토일]요(일)?\s*/,'').replace(/\s+/g,'').slice(0,4); /* 요일은 달력에 이미 있으니 빼고 '정규반'·'연구반'·'오전반'처럼 */
         else if(o.cls.length>1)lbl=o.cls.length+'개반';
         else if(o.hol){lbl=o.hol.slice(0,4);lc='#C9720A';}
         const dow=(lead+d-1)%7,numColor=!off&&!isEnd&&(dow===0||o.hol)?'color:var(--verm);':'';
