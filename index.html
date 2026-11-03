@@ -4675,7 +4675,7 @@ function confirmSheet2(){oroot().innerHTML=`<div class="overlay"><div class="she
    원장님 구글 계정의 Apps Script(apps-script-mail.gs)가 보내므로 별도 회사 계정 없음.
    MAIL_NOTIFY_URL 이 비어 있으면 아무것도 보내지 않음(기존 동작 그대로).
    메일 전송이 실패해도 학생 쪽 신청은 이미 저장된 뒤라 영향 없음. */
-const MAIL_NOTIFY_URL='';
+const MAIL_NOTIFY_URL='https://script.google.com/macros/s/AKfycbyH0sjGwPRTbD3e6njahFY6sOdqEbB40mqcJEQmQjjF6-dLcCZjZ2BYVVGQszOrb9Wq/exec';
 function notifyOwner(kind,detail){
   try{
     if(!MAIL_NOTIFY_URL)return;
