@@ -999,19 +999,28 @@ function announcementSheet(){
           <button class="btn-ghost" data-anplus="0" style="padding:4px 10px;font-size:12px">기한 없음</button>
         </div></div>
       ${a&&active?`<label style="display:flex;gap:8px;align-items:center;font-size:13px;margin:0 3px 12px"><input type="checkbox" id="anRepop"> 이미 확인한 학생들한테도 다시 한 번 띄우기</label>`:''}
-      <div class="actions"><button class="btn-ghost" id="anNo">취소</button><button class="btn-primary" id="anOk">저장</button></div>
+      ${a&&active?`<div class="note" id="anState" style="margin:0 3px 10px;color:var(--jade-deep);font-weight:700">✓ 이 공지는 저장되어 학생 앱에 떠 있어요${a.until?` (${fmtD(a.until)}까지)`:''}. 고칠 때만 다시 저장하세요.</div>`:''}
+      <div class="actions"><button class="btn-ghost" id="anNo">${a&&active?'닫기':'취소'}</button><button class="btn-primary" id="anOk">저장</button></div>
       ${hist.length?`<details style="margin-top:16px"><summary style="cursor:pointer;color:var(--ink-soft);font-weight:700">🗂 지난 공지 기록 (${hist.length})</summary><div style="margin-top:8px">${hist.map(histRow).join('')}</div></details>`:''}
       </div></div>`;
     const q=s=>oroot().querySelector(s);
     q('#anNo').onclick=closeOverlay;
+    /* 이미 저장된 공지를 그대로 다시 열었을 땐 저장 버튼을 잠가 두고, 내용·날짜를 고치면 '수정 내용 저장'으로 풀어 줌 */
+    const syncOk=()=>{const ok=q('#anOk');if(!ok)return;
+      const same=a&&active&&q('#anTa').value.trim()===(a.text||'').trim()&&(q('#anUntil').value||'')===(a.until||'')&&!(q('#anRepop')&&q('#anRepop').checked);
+      ok.disabled=!!same;ok.style.opacity=same?'.55':'';ok.textContent=same?'✓ 저장됨':(a&&active?'수정 내용 저장':'저장');};
+    q('#anTa').addEventListener('input',syncOk);q('#anUntil').addEventListener('change',syncOk);
+    if(q('#anRepop'))q('#anRepop').addEventListener('change',syncOk);
+    syncOk();
     oroot().querySelectorAll('[data-anplus]').forEach(b=>b.onclick=()=>{
-      const n=+b.dataset.anplus;q('#anUntil').value=n?addDays(todayISO(),n):'';
+      const n=+b.dataset.anplus;q('#anUntil').value=n?addDays(todayISO(),n):'';syncOk();
     });
     oroot().querySelectorAll('[data-anreuse]').forEach(b=>b.onclick=()=>{
       const h=hist[+b.dataset.anreuse];if(!h)return;
-      q('#anTa').value=h.text;q('#anTa').focus();toast('예전 공지를 불러왔어요. 날짜를 정하고 저장하세요.');
+      q('#anTa').value=h.text;q('#anTa').focus();syncOk();toast('예전 공지를 불러왔어요. 날짜를 정하고 저장하세요.');
     });
     q('#anOk').onclick=()=>{
+      if(q('#anOk').disabled)return;
       const text=q('#anTa').value.trim();
       const until=q('#anUntil').value||'';
       if(until&&until<todayISO()){toast('⚠ 지난 날짜예요. 오늘 이후 날짜를 골라주세요.');return;}
