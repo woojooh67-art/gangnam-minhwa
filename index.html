@@ -735,6 +735,9 @@ function migrate(d){
   if(!Array.isArray(d.expenseRules))d.expenseRules=defaultExpenseRules();
   if(!Array.isArray(d.materialPayers))d.materialPayers=defaultMaterialPayers();
   if(!Array.isArray(d.depositRules))d.depositRules=defaultDepositRules();
+  defaultDepositRules().forEach(r=>{if(!d.depositRules.some(x=>(x.match||'')===(r.match||'')&&(x.amount||0)===(r.amount||0)&&(x.from||'')===(r.from||'')))d.depositRules.push(r);});
+  if(!d.studentAliases||typeof d.studentAliases!=='object')d.studentAliases=defaultStudentAliases();
+  if(!d.fixAhn){d.fixAhn=true;d.materialPayers=(d.materialPayers||[]).filter(n=>n!=='안경자');d.studentAliases['안경자']=d.studentAliases['안경자']||'안혜신';}
   defaultExpenseRules().forEach(r=>{if(!d.expenseRules.some(x=>x.match===r.match&&(x.amount||0)===(r.amount||0)&&(x.date||'')===(r.date||'')))d.expenseRules.push(r);});
   if(!d.leaseAdded){d.leaseAdded=true;if(!d.fixedExpenses.some(f=>f.name==='차량 리스 (테슬라·롯데)'))d.fixedExpenses.push({id:uid(),active:true,name:'차량 리스 (테슬라·롯데)',amount:533740,day:19,variable:false});}
   if(!Array.isArray(d.fixedSeeded))d.fixedSeeded=['부동산 임대료','전기요금','가스요금 (코원에너지서비스)','인터넷 (SK브로드밴드)','정수기 (SK인텔릭스)','카드단말기 (포스플러스)','차량 리스 (테슬라·롯데)'];
@@ -2686,8 +2689,11 @@ function bankImportStart(){
     rd.readAsText(f,'utf-8');};
   inp.click();}
 /* ---- 입금(수입) 분류 ---- */
-function defaultMaterialPayers(){return ['정은경','김채민','조문교','주기도','심정화','손은영','김춘선','안경자','강선희','이현주','김형미','장예경','노현주','김해수','김현정','이현화','김보경'];}
+function defaultMaterialPayers(){return ['정은경','김채민','조문교','주기도','심정화','손은영','김춘선','강선희','이현주','김형미','장예경','노현주','김해수','김현정','이현화','김보경'];}
+function defaultStudentAliases(){return {'안경자':'안혜신'};} /* 통장에 다른 이름으로 찍히는 학생 */
 function defaultDepositRules(){return [
+  {match:'강신용',skip:'개인 입금 (연구소 수입 아님)'},
+  {match:'강준우',skip:'이전 운영자에게서 넘겨받은 운영자금 (수입 아님)'},
   {amount:170000,from:'2026-03-01',to:'2026-04-30',name:'아트페어 참가비 (회원)',cat:'art'},
   {amount:350000,from:'2026-08-01',to:'2026-10-31',name:'클램프 갤러리 단체전 참가비 (회원)',cat:'art'}
 ];}
@@ -2702,13 +2708,16 @@ function classifyDeposit(t,holder){
   if(/국세환급|세무서|지방소득|환급/.test(ty+' '+d))return {skip:'세금·수수료 환급'};
   if(/행운카드|용돈|복돈|이벤트/.test(d))return {skip:'1원 인증·이벤트 적립'};
   if(isCardSettle(d))return {skip:'카드 결제 정산 (수강료는 앱 결제 기록에 있음)'};
+  const sr=(data.depositRules||[]).find(r=>r.skip&&r.match&&d.indexOf(r.match)>=0&&(!r.amount||r.amount===amt));
+  if(sr)return {skip:sr.skip};
   const gj=d.match(/광진문화\s*(\d{1,2})월\s*강사비/);
   if(gj)return {name:'광진문화예술회관',memo:(+gj[1])+'월 강사비',cat:'class',checked:true,how:'수입 · 자동'};
-  const st=(data.students||[]).find(s=>s.name&&s.name.length>=2&&d.indexOf(s.name)>=0);
+  const al=data.studentAliases||{};const alias=Object.keys(al).find(a=>a&&d.indexOf(a)>=0);
+  const st=(alias&&(data.students||[]).find(s=>s.name===al[alias]))||(data.students||[]).find(s=>s.name&&s.name.length>=2&&d.indexOf(s.name)>=0);
   if(st){
     const paid=(st.payments||[]).some(p=>p.amount===amt&&p.date&&Math.abs((new Date(p.date)-new Date(t.date))/86400000)<=10);
     if(paid)return {skip:'수강료 (앱 결제 기록에 있음)'};
-    const r=(data.depositRules||[]).find(r=>r.amount===amt&&(!r.from||t.date>=r.from)&&(!r.to||t.date<=r.to));
+    const r=(data.depositRules||[]).find(r=>!r.skip&&r.amount===amt&&(!r.from||t.date>=r.from)&&(!r.to||t.date<=r.to));
     if(r)return {name:r.name+' · '+st.name,memo:'',cat:r.cat||'art',checked:true,how:'수입 · 자동'};
     if(/전시|판넬/.test(d))return {name:'전시비 · '+st.name,memo:d,cat:'art',checked:true,how:'수입 · 자동'};
     if(amt<100000)return {name:'재료비 · '+st.name,memo:parenMemo(d),cat:'mat',checked:true,how:'수입 · 자동'};
