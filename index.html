@@ -2887,15 +2887,19 @@ function renderReport(){try{renderActivityLog();}catch(e){console.error('activit
     if(repScope==='3m')return s.iso>=addDays(todayISO(),-90);
     return true;});
   const scopeLabel=repScope==='month'?'이번달':repScope==='3m'?'최근 3개월':'전체 누적';
-  let rows='';
-  studs.forEach(st=>{let p=0,a=0,m=0;
-    scopeSessions.forEach(s=>{const v=c.records[s.id+':'+st.id];if(v==='absent'&&!s.temp&&(isClosedDay(c,s.iso)||publicHolidayLabel(s.iso)))return;if(v==='present'||v==='late'||v==='makeup')p++;else if(v==='absent')a++;});
+  /* 수강 중인 학생은 모두, 휴강·종료 학생은 고른 기간에 출석 기록이 있을 때만 흐리게 표시 */
+  let rows='',hiddenCnt=0;
+  const cnt=st=>{let p=0,a=0;scopeSessions.forEach(s=>{const v=c.records[s.id+':'+st.id];if(v==='absent'&&!s.temp&&(isClosedDay(c,s.iso)||publicHolidayLabel(s.iso)))return;if(v==='present'||v==='late'||v==='makeup')p++;else if(v==='absent')a++;});return [p,a];};
+  const isOff=st=>st.status==='paused'||st.status==='ended';
+  studs.filter(st=>!isOff(st)).forEach(st=>{const [p,a]=cnt(st);
     rows+=`<tr><td>${esc(st.name)}</td><td class="c-p">${p}</td><td class="c-a">${a}</td><td>${remainSessions(st)}</td></tr>`;});
+  studs.filter(isOff).forEach(st=>{const [p,a]=cnt(st);if(p+a===0){hiddenCnt++;return;}
+    rows+=`<tr style="opacity:.5"><td>${esc(st.name)} <small>(${st.status==='paused'?'휴강':'종료'})</small></td><td class="c-p">${p}</td><td class="c-a">${a}</td><td>${remainSessions(st)}</td></tr>`;});
   const scopeChips=[['month','이번달'],['3m','최근 3개월'],['all','전체 누적']]
     .map(o=>`<button class="fchip ${repScope===o[0]?'on':''}" data-rs="${o[0]}">${o[1]}</button>`).join('');
   box.innerHTML=`<div class="filters" style="margin-bottom:8px">${scopeChips}</div>
     <table class="sum"><thead><tr><th>이름</th><th>출석</th><th>결석</th><th>잔여</th></tr></thead><tbody>${rows}</tbody></table>
-    <div class="note">· ${scopeLabel} 기준 ${scopeSessions.length}회차 (반 전체 누적 ${c.sessions.length}회차 중) · 회차 차감은 수업에 온 날만(출석·지각·다른 날 출석). 결석은 차감 없음.</div>`;
+    <div class="note">· ${scopeLabel} 기준 ${scopeSessions.length}회차 (반 전체 누적 ${c.sessions.length}회차 중) · 회차 차감은 수업에 온 날만(출석·지각·다른 날 출석). 결석은 차감 없음.${hiddenCnt?` · 이 기간 기록이 없는 휴강·종료 학생 ${hiddenCnt}명은 뺐어요.`:''} 휴강·종료 학생은 이 기간에 기록이 있을 때만 흐리게 보여요.</div>`;
   box.querySelectorAll('[data-rs]').forEach(b=>b.onclick=()=>{repScope=b.dataset.rs;renderReport();});
 }
 function renderActivityLog(){
