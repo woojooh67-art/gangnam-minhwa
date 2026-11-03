@@ -3816,7 +3816,7 @@ async function previewStudentView(st){
   v._pendingDropin=await pend('dropinRequests',d=>({sessionId:d.sessionId,rate:d.amount}));
   v._pendingMakeupCancel=await pend('makeupCancelRequests',d=>d.sessionId);
   v._pendingAbsentCancel=await pend('absentCancelRequests',d=>d.sessionId);
-  STU_PREVIEW=true;stuData=v;
+  STU_PREVIEW=true;stuData=v;stuCalYM=null;
   document.getElementById('adminApp').classList.add('hidden');
   document.getElementById('studentApp').classList.remove('hidden');
   renderStudentApp();
@@ -5051,7 +5051,7 @@ function renderStudentApp(){
     ${skippedNotice}
     ${isPaused?'':myDropinSection}
     ${dropinSection}
-    <div class="stucard"><details><summary>최근 출석 이력</summary><div id="stuHistCal">${stuCalGrid()}</div></details></div>
+    <div class="stucard"><details id="stuHistBox"><summary>최근 출석 이력</summary><div id="stuHistCal">${stuCalGrid()}</div></details></div>
     <div class="stucard"><details><summary>수강료 납부 내역</summary>${payRows}${(stuData.payments||[]).length>6?'<div class="note" style="margin-top:6px">최근 6건까지만 표시돼요. 이전 내역은 원장님께 문의해주세요.</div>':''}
       ${(()=>{
         const rd=(stuData.payments||[]).map(p=>p.date).filter(Boolean).sort()[0];
@@ -5070,6 +5070,9 @@ function renderStudentApp(){
   if(dropinToggleEl)dropinToggleEl.onclick=()=>{dropinOpen=!dropinOpen;renderStudentApp();};
   const upcomingMoreEl=document.getElementById('upcomingMoreToggle');
   if(upcomingMoreEl)upcomingMoreEl.onclick=()=>{upcomingMoreOpen=!upcomingMoreOpen;renderStudentApp();};
+  {const hb=document.getElementById('stuHistBox');if(hb)hb.addEventListener('toggle',()=>{if(!hb.open)return;
+    const [ty,tm]=todayISO().split('-').map(Number);stuCalYM={y:ty,m:tm};
+    const cal=document.getElementById('stuHistCal');if(cal){cal.innerHTML=stuCalGrid();if(typeof bindStuCalNav==='function')bindStuCalNav();}});}
   const stuRefreshBtn=document.getElementById('stuRefresh');
   if(stuRefreshBtn)stuRefreshBtn.onclick=async()=>{
     stuRefreshBtn.textContent='⏳ 불러오는 중...';
@@ -5335,7 +5338,7 @@ async function cancelAbsenceReport(sessionId){
   }catch(e){console.error(e);toast('취소 실패 — 다시 시도해주세요.');}
 }
 async function enterStudent(u){
-  dropinOpen=false;upcomingMoreOpen=false;
+  dropinOpen=false;upcomingMoreOpen=false;stuCalYM=null;
   document.getElementById('loginScreen').classList.add('hidden');
   document.getElementById('adminApp').classList.add('hidden');
   document.getElementById('studentApp').classList.remove('hidden');
