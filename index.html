@@ -2419,9 +2419,10 @@ function renderExpenseBlock(mk,tIn){
   /* 고정 지출 */
   const pending=[];
   h+=fixed.map(fx=>{
-    const r=recs.find(e=>e.fixedId===fx.id);
-    if(r)return `<div class="prow" data-exp="${r.id}" style="cursor:pointer"><div class="l">${esc(fx.name)}<small>${r.date}${r.memo?' · '+esc(r.memo):''}</small></div>
-      <div class="r" style="color:var(--verm)">${won(r.amount)}<small>수정/삭제</small></div></div>`;
+    const rs=recs.filter(e=>e.fixedId===fx.id).sort((a,b)=>a.date<b.date?-1:1);
+    if(rs.length)return rs.map(r=>`<div class="prow" data-exp="${r.id}" style="cursor:pointer"><div class="l">${esc(fx.name)}<small>${r.date}${r.memo?' · '+esc(r.memo):''}</small></div>
+      <div class="r" style="color:var(--verm)">${won(r.amount)}<small>수정/삭제</small></div></div>`).join('')
+      +(fx.variable?`<div class="note" style="text-align:right;margin:-3px 4px 8px"><span data-fx="${fx.id}" style="color:var(--jade);cursor:pointer">＋ ${esc(fx.name)} 이번 달 한 건 더</span></div>`:'');
     const guess=lastAmountOf(fx,mk);
     if(!fx.variable&&guess>0)pending.push(fx);
     return `<div class="prow" data-fx="${fx.id}" style="cursor:pointer;opacity:.6;border-style:dashed"><div class="l">${esc(fx.name)}<small>${fx.day?(fx.day>=31?'매달 말일':'매달 '+fx.day+'일'):'날짜 미정'} · 아직 기록 안 함</small></div>
@@ -2465,7 +2466,7 @@ function expenseSheet(it,fx,mk){
   const fixedItem=fx||(it&&it.fixedId?(data.fixedExpenses||[]).find(f=>f.id===it.fixedId):null);
   const def=it||{name:fx?fx.name:'',date:fx?fixedDateFor(fx,mk):(mk===curMonthKey()?todayISO():mk+'-01'),amount:fx?lastAmountOf(fx,mk):0,memo:''};
   const hint=(fixedItem&&fixedItem.variable?'<div class="note" style="margin:-4px 0 8px">매달 바뀌는 요금이에요. 이번 달 고지서 금액을 넣어 주세요.</div>':'')
-    +(fixedItem&&fixedItem.day>=31?'<div class="note" style="margin:-4px 0 8px">휴일 때문에 다음 달 1~2일에 빠져나가도, 날짜는 그대로 두면 이 달 지출로 계산돼요. 실제 출금일은 메모에 적어 두세요.</div>':'');
+    +(fixedItem?'<div class="note" style="margin:-4px 0 8px">날짜는 통장에 찍힌 출금일로 넣어 주세요. 메모에 \'10월분\'처럼 적어 두면 나중에 구분하기 쉬워요.</div>':'');
   oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button>
     <h3>${isNew?'지출 기록':'지출 수정'}</h3>
     <div class="subt">${fixedItem?'고정 지출':'재료비·표구·전시비 등 그때그때 나간 연구소 운영비를 기록합니다.'}</div>
@@ -2476,7 +2477,7 @@ function expenseSheet(it,fx,mk){
       <input type="number" id="eAmt" inputmode="numeric" value="${def.amount||''}" placeholder="0" style="width:120px!important">
       <button class="stpE" data-d="1000">＋</button></span></div>
     ${hint}
-    <div class="fgroup"><label>메모</label><input id="eMemo" class="selin" value="${esc(def.memo||'')}" placeholder="예: 10월 사용분"></div>
+    <div class="fgroup"><label>메모</label><input id="eMemo" class="selin" value="${esc(def.memo||'')}" placeholder="${fixedItem&&fixedItem.variable?'예: 10월분':'예: 10월 사용분'}"></div>
     <div class="actions">${isNew?'':'<button class="btn-danger" id="eDel">삭제</button>'}
       <button class="btn-ghost" id="eNo">취소</button><button class="btn-primary" id="eOk">저장</button></div>
     </div></div>`;
