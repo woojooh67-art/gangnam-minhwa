@@ -741,6 +741,7 @@ function migrate(d){
   if(!d.fixSungsim){d.fixSungsim=true; /* 가게 이름 바로잡기: 성신필방 → 성심필방 */
     (d.expenseRules||[]).forEach(r=>{if(r.name==='붓 (성신필방)')r.name='붓 (성심필방)';});
     (d.expenses||[]).forEach(e=>{if(e.name==='붓 (성신필방)')e.name='붓 (성심필방)';});}
+  if(!d.fixYun){d.fixYun=true;(d.expenses||[]).forEach(e=>{if(e.name==='윤평기')e.name='병풍 제작 (윤평기)';});}
   if(!d.leasePeriodSet){d.leasePeriodSet=true;d.fixedExpenses.forEach(f=>{if(f.name==='차량 리스 (테슬라·롯데)'){if(!f.start)f.start='2026-09';if(!f.end)f.end='2031-08';}});}
   d.fixedExpenses.forEach(f=>{if(f.name==='인터넷 (SK브로드밴드)'&&!f.day)f.day=21;if(f.name==='전기요금'&&f.day===30)f.day=31;}); /* 전기요금은 말일 청구 */ /* 결제일 21일 확인됨 */
   if(!d.activeClass&&d.classes.length)d.activeClass=d.classes[0].id;
@@ -2418,6 +2419,38 @@ function defaultFixedExpenses(){return [
   {name:'차량 리스 (테슬라·롯데)',amount:533740,day:19,variable:false,start:'2026-09',end:'2031-08'},
   {name:'국가무형문화재 회비 (매달 분납)',amount:20000,day:20,variable:false}
 ];}
+/* ---------- 구분: 수업 운영 / 재료·대행 / 작품·전시 ----------
+   기록에 cat 이 있으면 그대로, 없으면 이름으로 추정 (원장님이 기록 화면에서 바꾸면 cat 으로 저장) */
+const CATS={class:'수업 운영',mat:'재료·대행',art:'작품·전시'};
+function catOfExpense(e){if(e.cat&&CATS[e.cat])return e.cat;const n=e.name||'';
+  if(/원데이/.test(n))return 'class';
+  if(/표구|배접|액자|병풍|대관|아트페어|운송|설치|브로셔|전시/.test(n))return 'art';
+  if(/한지|붓|종이|재료|안료|물감/.test(n))return 'mat';
+  return 'class';}
+function catOfIncome(i){if(i.cat&&CATS[i.cat])return i.cat;const s=(i.source||'')+' '+(i.memo||'');
+  if(/재료|종이|붓|표구비|대신/.test(s))return 'mat';
+  if(/작품|그림|환경부|판매/.test(s))return 'art';
+  return 'class';}
+function catSelect(id,cur){return `<div class="fgroup"><label>구분</label><select id="${id}" class="selin">${Object.keys(CATS).map(k=>`<option value="${k}" ${k===cur?'selected':''}>${CATS[k]}</option>`).join('')}</select></div>`;}
+function catTotals(from,to){ /* from/to: 'YYYY-MM' 포함 범위 */
+  const inR=d=>{const m=(d||'').slice(0,7);return m&&m>=from&&m<=to;};
+  const t={};Object.keys(CATS).forEach(k=>t[k]={in:0,out:0});
+  allPayments().forEach(x=>{if(inR(x.p.date))t.class.in+=(x.p.amount||0);});
+  (data.income||[]).forEach(i=>{if(inR(i.date))t[catOfIncome(i)].in+=(i.amount||0);});
+  (data.expenses||[]).forEach(e=>{if(inR(e.date))t[catOfExpense(e)].out+=(e.amount||0);});
+  return t;}
+function renderCatSummary(mk){
+  const y=mk.slice(0,4),mo=+mk.slice(5,7);
+  const tbl=(t,title)=>{let tin=0,tout=0;
+    const rows=Object.keys(CATS).map(k=>{tin+=t[k].in;tout+=t[k].out;const d=t[k].in-t[k].out;
+      return `<tr><td style="padding:5px 4px">${CATS[k]}</td><td style="text-align:right;padding:5px 4px">${won(t[k].in)}</td><td style="text-align:right;padding:5px 4px;color:var(--verm)">${won(t[k].out)}</td><td style="text-align:right;padding:5px 4px;font-weight:700;color:${d<0?'var(--verm)':'var(--jade-deep)'}">${d<0?'－':''}${won(Math.abs(d))}</td></tr>`;}).join('');
+    const d=tin-tout;
+    return `<div class="note" style="margin:14px 3px 6px;font-weight:700">${title}</div>
+      <div style="overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:6px 8px">
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px"><tr style="color:var(--ink-soft)"><td style="padding:4px">구분</td><td style="text-align:right;padding:4px">수입</td><td style="text-align:right;padding:4px">지출</td><td style="text-align:right;padding:4px">차이</td></tr>
+      ${rows}<tr style="border-top:1px solid var(--line);font-weight:700"><td style="padding:6px 4px">전체</td><td style="text-align:right;padding:6px 4px">${won(tin)}</td><td style="text-align:right;padding:6px 4px;color:var(--verm)">${won(tout)}</td><td style="text-align:right;padding:6px 4px;color:${d<0?'var(--verm)':'var(--jade-deep)'}">${d<0?'－':''}${won(Math.abs(d))}</td></tr></table></div>`;};
+  return tbl(catTotals(mk,mk),`📂 ${mo}월 구분별`)+tbl(catTotals(y+'-01',mk),`📂 ${y}년 1~${mo}월 구분별 누적`)
+    +`<div class="note" style="margin:6px 3px">재료·대행은 학생에게 받은 재료비·표구비를 '기타 수입'에 같은 구분으로 넣어야 맞춰져요. 기록을 눌러 구분을 바꿀 수 있어요.</div>`;}
 function expMonthsSet(set){(data.expenses||[]).forEach(e=>{if(e.date)set.add(e.date.slice(0,7));});return set;}
 function expOfMonth(mk){return (data.expenses||[]).filter(e=>(e.date||'').slice(0,7)===mk);}
 function monthlyExpense(mk){return expOfMonth(mk).reduce((a,e)=>a+(e.amount||0),0);}
@@ -2457,7 +2490,7 @@ function renderExpenseBlock(mk,tIn){
   if(pending.length)h+=`<div class="barbtns" style="margin:4px 0 8px"><button id="expFillFixed">고정 금액 ${pending.length}건 한꺼번에 기록</button></div>`;
   /* 수시 지출 */
   const extra=recs.filter(e=>!e.fixedId||!fixed.some(f=>f.id===e.fixedId)).sort((a,b)=>a.date<b.date?-1:1);
-  if(extra.length)h+=extra.map(e=>`<div class="prow" data-exp="${e.id}" style="cursor:pointer"><div class="l">${esc(e.name||'기타 지출')}<small>${e.date}${e.memo?' · '+esc(e.memo):''}</small></div>
+  if(extra.length)h+=extra.map(e=>`<div class="prow" data-exp="${e.id}" style="cursor:pointer"><div class="l">${esc(e.name||'기타 지출')}<small>${e.date} · ${CATS[catOfExpense(e)]}${e.memo?' · '+esc(e.memo):''}</small></div>
       <div class="r" style="color:var(--verm)">${won(e.amount)}<small>수정/삭제</small></div></div>`).join('');
   const tOut=recs.reduce((a,e)=>a+(e.amount||0),0);
   const unrec=fixed.filter(fx=>fixedAppliesTo(fx,mk)&&!recs.some(e=>e.fixedId===fx.id)).length;
@@ -2504,6 +2537,7 @@ function expenseSheet(it,fx,mk){
       <input type="number" id="eAmt" inputmode="numeric" value="${def.amount||''}" placeholder="0" style="width:120px!important">
       <button class="stpE" data-d="1000">＋</button></span></div>
     ${hint}
+    ${catSelect('eCat',catOfExpense(it||{name:def.name}))}
     <div class="fgroup"><label>메모</label><input id="eMemo" class="selin" value="${esc(def.memo||'')}" placeholder="${fixedItem&&fixedItem.variable?'예: 10월분':'예: 10월 사용분'}"></div>
     <div class="actions">${isNew?'':'<button class="btn-danger" id="eDel">삭제</button>'}
       <button class="btn-ghost" id="eNo">취소</button><button class="btn-primary" id="eOk">저장</button></div>
@@ -2515,8 +2549,8 @@ function expenseSheet(it,fx,mk){
   q('#eOk').onclick=()=>{
     let a=parseInt(q('#eAmt').value);if(!Number.isFinite(a))a=0;
     if(a<=0){toast('금액을 넣어 주세요.');return;}
-    const rec={id:it?it.id:uid(),fixedId:fixedItem?fixedItem.id:null,name:q('#eName').value.trim()||'기타 지출',
-      date:q('#eDate').value||todayISO(),amount:a,memo:q('#eMemo').value.trim()};
+    const rec=Object.assign({},it||{},{id:it?it.id:uid(),fixedId:fixedItem?fixedItem.id:null,name:q('#eName').value.trim()||'기타 지출',
+      date:q('#eDate').value||todayISO(),amount:a,memo:q('#eMemo').value.trim(),cat:q('#eCat').value});
     if(!data.expenses)data.expenses=[];
     if(it){const k=data.expenses.findIndex(z=>z.id===it.id);data.expenses[k]=rec;}else data.expenses.push(rec);
     repMonth=rec.date.slice(0,7);
@@ -2588,6 +2622,7 @@ function defaultExpenseRules(){return [
   {match:'박건봉',name:'원데이 클래스용 액자 (더 에코)'},
   {match:'한국미술협회',name:'한국미술협회 연회비'},
   {match:'시디즈',name:'화실 의자 바퀴 (시디즈)'},
+  {match:'윤평기',name:'병풍 제작 (윤평기)'},
   /* 원장님이 개인 지출로 정한 건 (그 날짜·금액만 제외. 같은 곳이라도 다른 건은 그대로 '확인 필요'로 나옴) */
   {match:'내가그린여',amount:500000,date:'2026-01-27',personal:true},
   {match:'내가그린여',amount:1440100,date:'2026-03-12',personal:true},
@@ -2722,12 +2757,13 @@ function renderMonth(){
     : '<div class="note" style="text-align:center;padding:10px">수강료 결제 내역 없음</div>';
   h+=`<div class="note" style="margin:14px 3px 6px"><b>기타 수입</b> ${irows.length}건 <span style="float:right;color:var(--jade);cursor:pointer" id="incAdd">＋ 추가</span></div>`;
   h+= irows.length ? irows.map(x=>
-      `<div class="prow" data-inc="${x.id}" style="cursor:pointer"><div class="l">${esc(x.source||'기타')}<small>${x.date}${x.memo?' · '+esc(x.memo):''}</small></div>
+      `<div class="prow" data-inc="${x.id}" style="cursor:pointer"><div class="l">${esc(x.source||'기타')}<small>${x.date} · ${CATS[catOfIncome(x)]}${x.memo?' · '+esc(x.memo):''}</small></div>
         <div class="r">${won(x.amount)}<small>수정/삭제</small></div></div>`).join('')
     : '<div class="note" style="text-align:center;padding:10px">기타 수입 없음 — ＋ 추가로 강사료 등을 기록하세요</div>';
   h+=`<div class="msum"><span>${+mo}월 총수입</span><span>${won(tFee+tInc)}</span></div>
       <div class="note" style="margin-top:6px">수강료 ${won(tFee)} + 기타 ${won(tInc)}</div>`;
   h+=renderExpenseBlock(repMonth,tFee+tInc);
+  h+=renderCatSummary(repMonth);
   body.innerHTML=h;
   bindExpenseBlock(body,repMonth);
   body.querySelector('#incAdd').onclick=()=>incomeSheet(null);
@@ -2746,6 +2782,7 @@ function incomeSheet(it){
       <button class="stpI" data-d="-10000">－</button>
       <input type="number" id="iAmt" inputmode="numeric" value="${def.amount}" style="width:120px!important">
       <button class="stpI" data-d="10000">＋</button></span></div>
+    ${catSelect('iCat',catOfIncome(it||def))}
     <div class="fgroup"><label>메모</label><input id="iMemo" class="selin" value="${esc(def.memo||'')}" placeholder="예: 6월분, 수강생 12명"></div>
     <div class="actions">${isNew?'':'<button class="btn-danger" id="iDel">삭제</button>'}
       <button class="btn-ghost" id="iNo">취소</button><button class="btn-primary" id="iOk">저장</button></div>
@@ -2756,8 +2793,8 @@ function incomeSheet(it){
   q('#iNo').onclick=()=>{closeOverlay();renderReport();};
   q('#iOk').onclick=()=>{
     let a=parseInt(q('#iAmt').value); if(!Number.isFinite(a))a=0;
-    const rec={id:it?it.id:uid(),source:q('#iSrc').value.trim()||'기타',date:q('#iDate').value||todayISO(),
-      amount:Math.max(0,a),memo:q('#iMemo').value.trim()};
+    const rec=Object.assign({},it||{},{id:it?it.id:uid(),source:q('#iSrc').value.trim()||'기타',date:q('#iDate').value||todayISO(),
+      amount:Math.max(0,a),memo:q('#iMemo').value.trim(),cat:q('#iCat').value});
     if(!data.income)data.income=[];
     if(it){const k=data.income.findIndex(z=>z.id===it.id);data.income[k]=rec;}else data.income.push(rec);
     repMonth=rec.date.slice(0,7);
