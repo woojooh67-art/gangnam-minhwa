@@ -2710,6 +2710,7 @@ function classifyDeposit(t,holder){
   if(isCardSettle(d))return {skip:'카드 결제 정산 (수강료는 앱 결제 기록에 있음)'};
   const sr=(data.depositRules||[]).find(r=>r.skip&&r.match&&d.indexOf(r.match)>=0&&(!r.amount||r.amount===amt));
   if(sr)return {skip:sr.skip};
+  if(/카카오페이|페이머니/.test(d))return {name:'카카오페이 머니 옮김 (재료비 등)',memo:'',cat:'mat',checked:true,how:'수입 · 자동',note:'페이 머니로 받은 돈을 통장으로 옮긴 것 — 연구소와 무관한 돈이 섞였으면 금액을 고쳐 주세요'};
   const gj=d.match(/광진문화\s*(\d{1,2})월\s*강사비/);
   if(gj)return {name:'광진문화예술회관',memo:(+gj[1])+'월 강사비',cat:'class',checked:true,how:'수입 · 자동'};
   const al=data.studentAliases||{};const alias=Object.keys(al).find(a=>a&&d.indexOf(a)>=0);
