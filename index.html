@@ -729,6 +729,7 @@ function migrate(d){
   if(!Array.isArray(d.fixedExpenses))d.fixedExpenses=defaultFixedExpenses().map(x=>Object.assign({id:uid(),active:true},x));
   if(!Array.isArray(d.expenseRules))d.expenseRules=defaultExpenseRules();
   defaultExpenseRules().forEach(r=>{if(!d.expenseRules.some(x=>x.match===r.match))d.expenseRules.push(r);});
+  if(!d.leaseAdded){d.leaseAdded=true;if(!d.fixedExpenses.some(f=>f.name==='차량 리스 (테슬라·롯데)'))d.fixedExpenses.push({id:uid(),active:true,name:'차량 리스 (테슬라·롯데)',amount:533740,day:19,variable:false});}
   d.fixedExpenses.forEach(f=>{if(f.match===undefined&&FIXED_MATCH_BY_NAME[f.name])f.match=FIXED_MATCH_BY_NAME[f.name];});
   d.fixedExpenses.forEach(f=>{if(f.name==='인터넷 (SK브로드밴드)'&&!f.day)f.day=21;if(f.name==='전기요금'&&f.day===30)f.day=31;}); /* 전기요금은 말일 청구 */ /* 결제일 21일 확인됨 */
   if(!d.activeClass&&d.classes.length)d.activeClass=d.classes[0].id;
@@ -2402,7 +2403,8 @@ function defaultFixedExpenses(){return [
   {name:'가스요금 (코원에너지서비스)',amount:0,day:10,variable:true},
   {name:'인터넷 (SK브로드밴드)',amount:17600,day:21,variable:false},
   {name:'정수기 (SK인텔릭스)',amount:36500,day:20,variable:false},
-  {name:'카드단말기 (포스플러스)',amount:11000,day:28,variable:false}
+  {name:'카드단말기 (포스플러스)',amount:11000,day:28,variable:false},
+  {name:'차량 리스 (테슬라·롯데)',amount:533740,day:19,variable:false}
 ];}
 function expMonthsSet(set){(data.expenses||[]).forEach(e=>{if(e.date)set.add(e.date.slice(0,7));});return set;}
 function expOfMonth(mk){return (data.expenses||[]).filter(e=>(e.date||'').slice(0,7)===mk);}
@@ -2551,7 +2553,7 @@ function defaultExpenseRules(){return [
   {match:'엔엘씨',name:'출력·인쇄 (엔엘씨)'}
 ];}
 var FIXED_MATCH_BY_NAME={'부동산 임대료':'부동산임대','전기요금':'전기 ','가스요금 (코원에너지서비스)':'코원에너지',
-  '인터넷 (SK브로드밴드)':'SKB','정수기 (SK인텔릭스)':'인텔릭스','카드단말기 (포스플러스)':'포스플러스'};
+  '인터넷 (SK브로드밴드)':'SKB','정수기 (SK인텔릭스)':'인텔릭스','카드단말기 (포스플러스)':'포스플러스','차량 리스 (테슬라·롯데)':'롯데강남민화'};
 function parseCsv(text){
   const rows=[];let row=[],cur='',q=false;
   for(let i=0;i<text.length;i++){const ch=text[i];
