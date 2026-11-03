@@ -3848,7 +3848,8 @@ function msgSheet(st,withGuide){
     if(st.pausedSince)t+=`· 휴강 시작: ${md(st.pausedSince)}\n`;
     if(total>0&&holdEndOf(st)&&!xp)t+=`· 남은 회차 보존: ${md(holdEndOf(st))}까지\n`;
   }else{
-    if(lastCls)t+=`· ${(total<=0&&lastCls<=todayISO())?'마지막 수업일':'마지막 수업 예정일'}: ${md(lastCls)}\n`;
+    if(total<=0){const la=marksOf(st).filter(m=>(m.mark==='present'||m.mark==='late'||m.mark==='makeup')&&m.iso<=todayISO())[0];if(la)t+=`· 마지막 수업일: ${md(la.iso)}\n`;}
+    else if(lastCls)t+=`· 마지막 수업 예정일: ${md(lastCls)}\n`;
     if(due&&total>0)t+=`· 이용 기한: ${md(due)}까지 (마지막 수업 예정일 + 4주)\n`;
   }
   if(st.status==='paused'&&!xp&&total>0&&holdSoon(st)){
@@ -5015,7 +5016,9 @@ function renderStudentApp(){
         const row=(k,v,strong)=>`<div style="display:flex;justify-content:space-between;gap:10px;padding:3px 0"><span style="color:var(--ink-soft)">${k}</span><span style="${strong?'font-weight:700;color:var(--ink)':''}">${v}</span></div>`;
         let h='';
         if(stuData.lastPaymentDate)h+=row('결제일',md(stuData.lastPaymentDate)+(lp&&lp.sessions?` (${lp.sessions}회)`:''));
-        if(stuData.lastClassBase)h+=row((totalLeft<=0&&stuData.lastClassBase<=todayISO())?'마지막 수업일':'마지막 수업 예정일',md(stuData.lastClassBase));
+        /* 회차를 다 쓴 학생은 '예정일' 대신 실제로 마지막으로 온 날을 보여 줌 */
+        if(totalLeft<=0){if(stuData.lastAttendDate)h+=row('마지막 수업일',md(stuData.lastAttendDate));}
+        else if(stuData.lastClassBase)h+=row('마지막 수업 예정일',md(stuData.lastClassBase));
         if(stuData.makeupDue&&totalLeft>0)h+=row('이용 기한',md(stuData.makeupDue)+'까지',true);
         if(!h)return '';
         const soon=totalLeft>0&&stuData.makeupDueSoon&&!stuData.makeupDueExpired;
