@@ -3202,7 +3202,7 @@ function stuAdminCalHTML(st){
       <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--verm);vertical-align:middle"></span> 결석</span>
       <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--verm-tint);border:1px solid var(--verm);vertical-align:middle"></span> 휴강</span>
       <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--blue);vertical-align:middle"></span> 다른 날 출석</span>
-      <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--purple);vertical-align:middle"></span> 하루권</span>
+      ${(st.status==='paused'||st.status==='ended'||!!st.dropin||!!st.dropinPack||!(st.classIds||[]).some(cid=>{const c=classById(cid);return c&&classWeekday(c)!==null;})||Object.keys(markMap).some(k=>k.indexOf(cur)===0&&(markMap[k]||[]).some(r=>r.mark==='dropin'))||Object.keys(archMap).some(k=>k.indexOf(cur)===0&&archMap[k]==='dropin'))?'<span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--purple);vertical-align:middle"></span> 하루권</span>':''}
       ${CYC_LEGEND}
     </div>
     ${cur<'2026-07'?'<div class="note" style="margin-top:6px;text-align:center">점선 테두리 = 참고용 기록 기간(2025.12~2026.06)</div>':''}`;
@@ -4868,7 +4868,7 @@ function renderStudentApp(){
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--jade);vertical-align:middle"></span> 출석</span>
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--verm);vertical-align:middle"></span> 결석</span>
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--blue);vertical-align:middle"></span> 다른 날 수업</span>
-      <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--purple);vertical-align:middle"></span> 하루수업</span>
+      ${(stuData.status==='paused'||stuData.status==='ended'||stuData.hasRealClass===false||!!stuData.dropin||!!stuData.dropinPack||Object.keys(histMap).some(k=>k.indexOf(cur)===0&&(histMap[k]||[]).some(r=>r.mark==='dropin'))||Object.keys(am).some(k=>k.indexOf(cur)===0&&am[k]==='dropin'))?'<span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--purple);vertical-align:middle"></span> 하루수업</span>':''}
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--verm-tint);border:1px solid var(--verm);vertical-align:middle"></span> 휴강</span>
         ${CYC_LEGEND}
       </div>`;
