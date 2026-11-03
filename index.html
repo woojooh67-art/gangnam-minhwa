@@ -732,6 +732,11 @@ function migrate(d){
   if(!d.income)d.income=[];
   if(!Array.isArray(d.expenses))d.expenses=[];
   if(!Array.isArray(d.fixedExpenses))d.fixedExpenses=defaultFixedExpenses().map(x=>Object.assign({id:uid(),active:true},x));
+  /* '다른 날 출석'(하늘색)은 예약한 날이 올 때까지만. 그날이 지나면(오늘 포함) 그냥 '출석'으로 바꿈 — 회차 계산은 같음 */
+  {const t=todayISO();
+    (d.classes||[]).forEach(c=>{const iso={};(c.sessions||[]).forEach(se=>iso[se.id]=se.iso);
+      Object.keys(c.records||{}).forEach(k=>{if(c.records[k]==='makeup'){const sid=k.split(':')[0];if(iso[sid]&&iso[sid]<=t)c.records[k]='present';}});});
+    (d.students||[]).forEach(st=>{const am=st.archiveMarks;if(am)Object.keys(am).forEach(iso=>{if(am[iso]==='makeup'&&iso<=t)am[iso]='present';});});}
   if(!Array.isArray(d.expenseRules))d.expenseRules=defaultExpenseRules();
   if(!Array.isArray(d.materialPayers))d.materialPayers=defaultMaterialPayers();
   if(!Array.isArray(d.depositRules))d.depositRules=defaultDepositRules();
