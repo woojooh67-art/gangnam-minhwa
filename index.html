@@ -2556,7 +2556,7 @@ function defaultExpenseRules(){return [
   {match:'디자인밈',name:'전시 브로셔 제작 (디자인밈)'},
   {match:'유철준',name:'세무사 수수료 (유철준)'},
   {match:'장성주',name:'갤러리 대관료 (클램프 갤러리)'},
-  {match:'한국민화협회',name:'아트페어 추가 집기 (한국민화협회)'}
+  {match:'한국민화협회',name:'한국민화협회 납부'}
 ];}
 var FIXED_MATCH_BY_NAME={'부동산 임대료':'부동산임대','전기요금':'전기 ','가스요금 (코원에너지서비스)':'코원에너지',
   '인터넷 (SK브로드밴드)':'SKB','정수기 (SK인텔릭스)':'인텔릭스','카드단말기 (포스플러스)':'포스플러스','차량 리스 (테슬라·롯데)':'롯데강남민화'};
@@ -2588,8 +2588,8 @@ function parseBankCsv(text){
   return {holder,tx};}
 function classifyBankTx(t,holder){
   const d=t.desc;
-  if(/부가세박스/.test(d)||/부가세박스/.test(t.type))return {skip:'부가세박스 (통장 안에서 옮긴 돈)'};
-  if(holder&&d===holder)return {skip:'본인 이름 이체'};
+  if(/부가세박스|달러박스|세이프박스|저금통/.test(d+' '+t.type))return {skip:'통장 안에서 옮긴 돈 (부가세박스·달러박스 등)'};
+  if(holder&&(d===holder||d.indexOf(holder+'(')===0))return {skip:'본인 계좌끼리 옮긴 돈'};
   const fx=(data.fixedExpenses||[]).find(f=>f.active!==false&&f.match&&d.indexOf(normTxt(f.match))===0)
     ||(data.fixedExpenses||[]).find(f=>f.active!==false&&f.match&&f.match.trim().length>2&&d.indexOf(normTxt(f.match).trim())>=0);
   if(fx){let memo='';const m=d.match(/(\d{1,2})월\s*전기료/);if(m)memo=(+m[1])+'월분';
