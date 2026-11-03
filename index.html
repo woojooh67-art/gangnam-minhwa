@@ -733,6 +733,7 @@ function migrate(d){
   if(!Array.isArray(d.fixedSeeded))d.fixedSeeded=['부동산 임대료','전기요금','가스요금 (코원에너지서비스)','인터넷 (SK브로드밴드)','정수기 (SK인텔릭스)','카드단말기 (포스플러스)','차량 리스 (테슬라·롯데)'];
   defaultFixedExpenses().forEach(x=>{if(d.fixedSeeded.indexOf(x.name)<0){d.fixedSeeded.push(x.name);if(!d.fixedExpenses.some(f=>f.name===x.name))d.fixedExpenses.push(Object.assign({id:uid(),active:true},x));}});
   d.fixedExpenses.forEach(f=>{if(f.match===undefined&&FIXED_MATCH_BY_NAME[f.name])f.match=FIXED_MATCH_BY_NAME[f.name];});
+  if(!d.leasePeriodSet){d.leasePeriodSet=true;d.fixedExpenses.forEach(f=>{if(f.name==='차량 리스 (테슬라·롯데)'){if(!f.start)f.start='2026-09';if(!f.end)f.end='2031-08';}});}
   d.fixedExpenses.forEach(f=>{if(f.name==='인터넷 (SK브로드밴드)'&&!f.day)f.day=21;if(f.name==='전기요금'&&f.day===30)f.day=31;}); /* 전기요금은 말일 청구 */ /* 결제일 21일 확인됨 */
   if(!d.activeClass&&d.classes.length)d.activeClass=d.classes[0].id;
   return d;
@@ -2406,7 +2407,7 @@ function defaultFixedExpenses(){return [
   {name:'인터넷 (SK브로드밴드)',amount:17600,day:21,variable:false},
   {name:'정수기 (SK인텔릭스)',amount:36500,day:20,variable:false},
   {name:'카드단말기 (포스플러스)',amount:11000,day:28,variable:false},
-  {name:'차량 리스 (테슬라·롯데)',amount:533740,day:19,variable:false},
+  {name:'차량 리스 (테슬라·롯데)',amount:533740,day:19,variable:false,start:'2026-09',end:'2031-08'},
   {name:'국가무형문화재 회비 (매달 분납)',amount:20000,day:20,variable:false}
 ];}
 function expMonthsSet(set){(data.expenses||[]).forEach(e=>{if(e.date)set.add(e.date.slice(0,7));});return set;}
@@ -2418,8 +2419,16 @@ function lastAmountOf(fx,mk){
 function fixedDateFor(fx,mk){
   const [y,m]=mk.split('-').map(Number);const last=new Date(y,m,0).getDate();
   const d=Math.min(Math.max(1,fx.day||1),last);return mk+'-'+pad(d);}
+/* 고정 지출이 그 달에 해당하는지: 시작 월(start)·끝 월(end)이 있으면 그 기간만,
+   시작 월이 없으면 처음 기록된 달부터 (그 전 달에는 빈칸을 띄우지 않음) */
+function fixedAppliesTo(fx,mk){
+  if(fx.end&&mk>fx.end)return false;
+  let st=fx.start;
+  if(!st){const first=(data.expenses||[]).filter(e=>e.fixedId===fx.id&&e.date).map(e=>e.date.slice(0,7)).sort()[0];st=first||null;}
+  if(st&&mk<st)return false;
+  return true;}
 function renderExpenseBlock(mk,tIn){
-  const fixed=(data.fixedExpenses||[]).filter(f=>f.active!==false);
+  const fixed=(data.fixedExpenses||[]).filter(f=>f.active!==false&&(fixedAppliesTo(f,mk)||(data.expenses||[]).some(e=>e.fixedId===f.id&&(e.date||'').slice(0,7)===mk)));
   const recs=expOfMonth(mk);
   const mo=+mk.split('-')[1];
   let h=`<div class="note" style="margin:18px 3px 6px"><b>지출</b> ${recs.length}건
@@ -2443,7 +2452,7 @@ function renderExpenseBlock(mk,tIn){
   if(extra.length)h+=extra.map(e=>`<div class="prow" data-exp="${e.id}" style="cursor:pointer"><div class="l">${esc(e.name||'기타 지출')}<small>${e.date}${e.memo?' · '+esc(e.memo):''}</small></div>
       <div class="r" style="color:var(--verm)">${won(e.amount)}<small>수정/삭제</small></div></div>`).join('');
   const tOut=recs.reduce((a,e)=>a+(e.amount||0),0);
-  const unrec=fixed.filter(fx=>!recs.some(e=>e.fixedId===fx.id)).length;
+  const unrec=fixed.filter(fx=>fixedAppliesTo(fx,mk)&&!recs.some(e=>e.fixedId===fx.id)).length;
   const net=tIn-tOut;
   h+=`<div class="msum" style="background:var(--verm-tint);color:var(--verm)"><span>${mo}월 총지출</span><span>${won(tOut)}</span></div>
     ${unrec?`<div class="note" style="margin-top:6px">아직 기록 안 한 고정 지출 ${unrec}건은 총지출에 들어가지 않았어요.</div>`:''}
@@ -2464,7 +2473,7 @@ function bindExpenseBlock(body,mk){
   const fill=q('#expFillFixed');
   if(fill)fill.onclick=()=>{
     const recs=expOfMonth(mk);
-    const todo=(data.fixedExpenses||[]).filter(f=>f.active!==false&&!f.variable&&!recs.some(e=>e.fixedId===f.id)&&lastAmountOf(f,mk)>0);
+    const todo=(data.fixedExpenses||[]).filter(f=>f.active!==false&&fixedAppliesTo(f,mk)&&!f.variable&&!recs.some(e=>e.fixedId===f.id)&&lastAmountOf(f,mk)>0);
     if(!todo.length)return;
     confirmSheet(`${todo.map(f=>esc(f.name)).join(', ')}<br>${todo.length}건을 지난번과 같은 금액으로 기록할까요?`,()=>{
       todo.forEach(f=>data.expenses.push({id:uid(),fixedId:f.id,name:f.name,date:fixedDateFor(f,mk),amount:lastAmountOf(f,mk),memo:''}));
@@ -2519,6 +2528,7 @@ function fixedExpenseManager(){
           <input class="selin fxA" data-i="${i}" type="number" inputmode="numeric" value="${f.amount||''}" placeholder="금액" style="width:110px;flex:0 0 auto" ${f.variable?'disabled':''}>원
           · 매달 <input class="selin fxD" data-i="${i}" type="number" inputmode="numeric" min="1" max="31" value="${f.day||''}" placeholder="일" style="width:56px;flex:0 0 auto">일${f.day>=31?'(말일)':''}
           <label style="display:flex;align-items:center;gap:3px"><input type="checkbox" class="fxV" data-i="${i}" ${f.variable?'checked':''}>매달 바뀜</label>
+          <span style="flex-basis:100%;display:flex;align-items:center;gap:4px;margin-top:4px;flex-wrap:wrap">기간 <input class="selin fxS" data-i="${i}" type="month" value="${f.start||''}" style="width:130px;padding:4px 6px"> ~ <input class="selin fxE" data-i="${i}" type="month" value="${f.end||''}" style="width:130px;padding:4px 6px"><small style="color:var(--ink-soft)">(비우면 처음 기록된 달부터 계속)</small></span>
           <span style="flex-basis:100%;display:flex;align-items:center;gap:4px;margin-top:4px">통장 표시 <input class="selin fxM" data-i="${i}" value="${esc(f.match||'')}" placeholder="예: 포스플러스" style="flex:1;padding:4px 6px"></span>
           <span style="margin-left:auto;color:var(--ink-soft);cursor:pointer" class="fxT" data-i="${i}">${f.active===false?'다시 사용':'그만 쓰기'}</span>
         </div></div>`).join('')}
@@ -2531,7 +2541,9 @@ function fixedExpenseManager(){
       all('.fxA').forEach(e=>{const v=parseInt(e.value);list[e.dataset.i].amount=Number.isFinite(v)?Math.max(0,v):0;});
       all('.fxD').forEach(e=>{const v=parseInt(e.value);list[e.dataset.i].day=Number.isFinite(v)?Math.min(31,Math.max(1,v)):null;});
       all('.fxV').forEach(e=>list[e.dataset.i].variable=e.checked);
-      all('.fxM').forEach(e=>list[e.dataset.i].match=e.value);};
+      all('.fxM').forEach(e=>list[e.dataset.i].match=e.value);
+      all('.fxS').forEach(e=>list[e.dataset.i].start=e.value||'');
+      all('.fxE').forEach(e=>list[e.dataset.i].end=e.value||'');};
     all('.fxV').forEach(e=>e.onchange=()=>{sync();draw();});
     all('.fxT').forEach(e=>e.onclick=()=>{sync();const f=list[e.dataset.i];f.active=f.active===false;draw();});
     oroot().querySelector('#fxNew').onclick=()=>{sync();list.push({id:uid(),name:'',amount:0,day:null,variable:false,active:true});draw();};
