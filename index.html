@@ -738,6 +738,9 @@ function migrate(d){
   if(!Array.isArray(d.fixedSeeded))d.fixedSeeded=['부동산 임대료','전기요금','가스요금 (코원에너지서비스)','인터넷 (SK브로드밴드)','정수기 (SK인텔릭스)','카드단말기 (포스플러스)','차량 리스 (테슬라·롯데)'];
   defaultFixedExpenses().forEach(x=>{if(d.fixedSeeded.indexOf(x.name)<0){d.fixedSeeded.push(x.name);if(!d.fixedExpenses.some(f=>f.name===x.name))d.fixedExpenses.push(Object.assign({id:uid(),active:true},x));}});
   d.fixedExpenses.forEach(f=>{if(f.match===undefined&&FIXED_MATCH_BY_NAME[f.name])f.match=FIXED_MATCH_BY_NAME[f.name];});
+  if(!d.fixSungsim){d.fixSungsim=true; /* 가게 이름 바로잡기: 성신필방 → 성심필방 */
+    (d.expenseRules||[]).forEach(r=>{if(r.name==='붓 (성신필방)')r.name='붓 (성심필방)';});
+    (d.expenses||[]).forEach(e=>{if(e.name==='붓 (성신필방)')e.name='붓 (성심필방)';});}
   if(!d.leasePeriodSet){d.leasePeriodSet=true;d.fixedExpenses.forEach(f=>{if(f.name==='차량 리스 (테슬라·롯데)'){if(!f.start)f.start='2026-09';if(!f.end)f.end='2031-08';}});}
   d.fixedExpenses.forEach(f=>{if(f.name==='인터넷 (SK브로드밴드)'&&!f.day)f.day=21;if(f.name==='전기요금'&&f.day===30)f.day=31;}); /* 전기요금은 말일 청구 */ /* 결제일 21일 확인됨 */
   if(!d.activeClass&&d.classes.length)d.activeClass=d.classes[0].id;
@@ -2567,7 +2570,7 @@ function defaultExpenseRules(){return [
   {match:'코웨이위약금',name:'정수기 위약금 (코웨이)'},
   {match:'코웨이',name:'정수기 렌탈 (코웨이)'},
   {match:'김상용',name:'표구·배접 (김상용)'},
-  {match:'한원자',name:'붓 (성신필방)'},
+  {match:'한원자',name:'붓 (성심필방)'},
   {match:'임봉순',name:'표구·액자 (미림화방)'},
   {match:'진영카피',name:'출력·인쇄 (진영카피)'},
   {match:'엔엘씨',name:'출력·인쇄 (엔엘씨)'},
