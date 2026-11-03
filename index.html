@@ -5041,7 +5041,7 @@ function renderStudentApp(){
         return h+`<div class="note" style="margin-bottom:6px">이번 주는 수업이 없어요. 다음 수업은 <b>${lab(n0.s.iso)}</b>이에요.</div>`+rows;
       })()}
       ${upcomingRowsMore?`<div class="note" id="upcomingMoreToggle" style="text-align:center;margin:8px 0 0;cursor:pointer;color:var(--ink-soft);border-top:1px solid var(--line);padding-top:8px">${upcomingMoreOpen?'▲ 접기':'▼ 다음주 이후 더보기'}</div>${upcomingMoreOpen?upcomingRowsMore:''}`:''}
-      <div class="note">결석하실 것 같으면 미리 눌러서 알려주세요. 참석 예정이면 아무것도 안 누르셔도 돼요.</div></div>`}
+      ${needPay?'':'<div class="note">결석하실 것 같으면 미리 눌러서 알려주세요. 참석 예정이면 아무것도 안 누르셔도 돼요.</div>'}</div>`}
     ${isPaused?'':makeupSection}
     ${isPaused?'':myMakeupSection}
     ${timetableSection}
