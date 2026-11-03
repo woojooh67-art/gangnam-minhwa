@@ -4614,6 +4614,7 @@ function renderStudentApp(){
       q('#reNo').onclick=closeOverlay;
       q('#reOk').onclick=async()=>{if(stuPreviewBlocked())return;const ok=q('#reOk');ok.disabled=true;ok.textContent='전송 중...';
         try{await db.collection('checkinRequests').add({kind:'reenroll',note:q('#reNote').value.trim(),uid:auth.currentUser.uid,studentId:stuData.studentId,studentName:stuData.name,ts:Date.now(),createdAt:Date.now()});
+          notifyOwner('재등록 신청',q('#reNote').value.trim());
           try{localStorage.setItem('gmh_reenroll_'+stuData.studentId,todayISO());}catch(e){}
           closeOverlay();markSent(todayISO());toast('재등록 신청을 보냈어요.');}
         catch(e){console.error(e);ok.disabled=false;ok.textContent='신청하기';toast('전송에 실패했어요. 잠시 후 다시 시도해 주세요.');}};
@@ -4669,9 +4670,25 @@ function confirmSheet2(){oroot().innerHTML=`<div class="overlay"><div class="she
   <div class="actions"><button class="btn-ghost" id="slNo">취소</button><button class="btn-primary" id="slYes">로그아웃</button></div></div></div>`;
   oroot().querySelector('#slNo').onclick=closeOverlay;
   oroot().querySelector('#slYes').onclick=()=>{closeOverlay();auth.signOut();};}
+/* ── 원장님 Gmail 알림 (EmailJS) ──
+   학생이 결석·예약·취소·재등록을 보내면 원장님 메일로 짧은 알림을 보냄.
+   아래 세 값이 비어 있으면 아무것도 보내지 않음(기존 동작 그대로).
+   메일 전송이 실패해도 학생 쪽 신청은 이미 저장된 뒤라 영향 없음. */
+const EMAIL_NOTIFY={serviceId:'',templateId:'',publicKey:''};
+function notifyOwner(kind,detail){
+  try{
+    if(!EMAIL_NOTIFY.serviceId||!EMAIL_NOTIFY.templateId||!EMAIL_NOTIFY.publicKey)return;
+    const name=(stuData&&stuData.name)||'학생';
+    fetch('https://api.emailjs.com/api/v1.0/email/send',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({service_id:EMAIL_NOTIFY.serviceId,template_id:EMAIL_NOTIFY.templateId,user_id:EMAIL_NOTIFY.publicKey,
+        template_params:{kind,student:name,detail:detail||'',sent_at:new Date().toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})}})
+    }).catch(e=>console.warn('메일 알림 실패',e));
+  }catch(e){console.warn('메일 알림 실패',e);}
+}
 async function reportAbsence(classId,sessionId,iso){if(stuPreviewBlocked())return;
   try{
     await db.collection('selfChecks').add({uid:auth.currentUser.uid,studentId:stuData.studentId,classId,sessionId,iso,status:'absent',createdAt:Date.now()});
+    notifyOwner('결석 예정',iso);
     if(!stuData._pendingAbsent)stuData._pendingAbsent=[];
     stuData._pendingAbsent.push(sessionId);renderStudentApp();
     const approvedMakeup=stuData.makeupLeft||0;
@@ -4727,6 +4744,7 @@ function openMakeupPicker(excludeSessionId){
 async function bookMakeup(classId,sessionId,iso,label,className){if(stuPreviewBlocked())return;
   try{
     await db.collection('makeupRequests').add({uid:auth.currentUser.uid,studentId:stuData.studentId,studentName:stuData.name,toClassId:classId,toSessionId:sessionId,iso,label,className,createdAt:Date.now()});
+    notifyOwner('다른 날 수업 예약',(className||'')+' '+(label||iso));
     if(!stuData._pendingMakeup)stuData._pendingMakeup=[];
     stuData._pendingMakeup.push(sessionId);renderStudentApp();
     toast('수업 예약을 신청했어요. 원장님이 확인하면 확정돼요.');
@@ -4762,6 +4780,7 @@ async function bookDropin(classId,sessionId,iso,label,className,rate){if(stuPrev
   try{
     const amount=parseInt(rate)||stuData.dailyRate||60000;
     await db.collection('dropinRequests').add({uid:auth.currentUser.uid,studentId:stuData.studentId,studentName:stuData.name,classId,sessionId,iso,label,className,amount,createdAt:Date.now()});
+    notifyOwner('추가 수업 신청',(className||'')+' '+(label||iso));
     if(!stuData._pendingDropin)stuData._pendingDropin=[];
     stuData._pendingDropin.push({sessionId,rate:amount});renderStudentApp();
     toast('하루수업을 예약했어요. 원장님이 확인하면 확정돼요.');
@@ -4796,6 +4815,7 @@ async function cancelDropin(sessionId){if(stuPreviewBlocked())return;
 async function requestMakeupCancel(classId,sessionId,iso,label,className){if(stuPreviewBlocked())return;
   try{
     await db.collection('makeupCancelRequests').add({uid:auth.currentUser.uid,studentId:stuData.studentId,studentName:stuData.name,classId,sessionId,iso,label,className,createdAt:Date.now()});
+    notifyOwner('예약 취소',(className||'')+' '+(label||iso));
     if(!stuData._pendingMakeupCancel)stuData._pendingMakeupCancel=[];
     stuData._pendingMakeupCancel.push(sessionId);renderStudentApp();
     toast('수업 예약 취소를 신청했어요. 원장님이 확인하면 확정돼요.');
@@ -4804,6 +4824,7 @@ async function requestMakeupCancel(classId,sessionId,iso,label,className){if(stu
 async function requestDropinCancel(classId,sessionId,iso,label,className){if(stuPreviewBlocked())return;
   try{
     await db.collection('dropinCancelRequests').add({uid:auth.currentUser.uid,studentId:stuData.studentId,studentName:stuData.name,classId,sessionId,iso,label,className,createdAt:Date.now()});
+    notifyOwner('추가 수업 취소',(className||'')+' '+(label||iso));
     if(!stuData._pendingDropinCancel)stuData._pendingDropinCancel=[];
     stuData._pendingDropinCancel.push(sessionId);renderStudentApp();
     toast('하루수업 취소를 신청했어요. 원장님이 확인하면 확정돼요.');
@@ -4812,6 +4833,7 @@ async function requestDropinCancel(classId,sessionId,iso,label,className){if(stu
 async function requestAbsenceCancel(classId,sessionId,iso,label,className){if(stuPreviewBlocked())return;
   try{
     await db.collection('absentCancelRequests').add({uid:auth.currentUser.uid,studentId:stuData.studentId,studentName:stuData.name,classId,sessionId,iso,label,className,createdAt:Date.now()});
+    notifyOwner('결석 취소',(className||'')+' '+(label||iso));
     if(!stuData._pendingAbsentCancel)stuData._pendingAbsentCancel=[];
     stuData._pendingAbsentCancel.push(sessionId);renderStudentApp();
     toast('결석 취소를 신청했어요. 원장님이 확인하면 확정돼요.');
