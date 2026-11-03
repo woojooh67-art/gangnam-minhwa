@@ -4670,18 +4670,18 @@ function confirmSheet2(){oroot().innerHTML=`<div class="overlay"><div class="she
   <div class="actions"><button class="btn-ghost" id="slNo">취소</button><button class="btn-primary" id="slYes">로그아웃</button></div></div></div>`;
   oroot().querySelector('#slNo').onclick=closeOverlay;
   oroot().querySelector('#slYes').onclick=()=>{closeOverlay();auth.signOut();};}
-/* ── 원장님 Gmail 알림 (EmailJS) ──
-   학생이 결석·예약·취소·재등록을 보내면 원장님 메일로 짧은 알림을 보냄.
-   아래 세 값이 비어 있으면 아무것도 보내지 않음(기존 동작 그대로).
+/* ── 원장님 Gmail 알림 (구글 Apps Script) ──
+   학생이 결석·예약·취소·재등록을 보내면 원장님 Gmail로 짧은 알림을 보냄.
+   원장님 구글 계정의 Apps Script(apps-script-mail.gs)가 보내므로 별도 회사 계정 없음.
+   MAIL_NOTIFY_URL 이 비어 있으면 아무것도 보내지 않음(기존 동작 그대로).
    메일 전송이 실패해도 학생 쪽 신청은 이미 저장된 뒤라 영향 없음. */
-const EMAIL_NOTIFY={serviceId:'',templateId:'',publicKey:''};
+const MAIL_NOTIFY_URL='';
 function notifyOwner(kind,detail){
   try{
-    if(!EMAIL_NOTIFY.serviceId||!EMAIL_NOTIFY.templateId||!EMAIL_NOTIFY.publicKey)return;
+    if(!MAIL_NOTIFY_URL)return;
     const name=(stuData&&stuData.name)||'학생';
-    fetch('https://api.emailjs.com/api/v1.0/email/send',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({service_id:EMAIL_NOTIFY.serviceId,template_id:EMAIL_NOTIFY.templateId,user_id:EMAIL_NOTIFY.publicKey,
-        template_params:{kind,student:name,detail:detail||'',sent_at:new Date().toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})}})
+    fetch(MAIL_NOTIFY_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({kind,student:name,detail:detail||'',sent_at:new Date().toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})})
     }).catch(e=>console.warn('메일 알림 실패',e));
   }catch(e){console.warn('메일 알림 실패',e);}
 }
