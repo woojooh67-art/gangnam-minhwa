@@ -727,7 +727,7 @@ function migrate(d){
   if(!d.income)d.income=[];
   if(!Array.isArray(d.expenses))d.expenses=[];
   if(!Array.isArray(d.fixedExpenses))d.fixedExpenses=defaultFixedExpenses().map(x=>Object.assign({id:uid(),active:true},x));
-  d.fixedExpenses.forEach(f=>{if(f.name==='인터넷 (SK브로드밴드)'&&!f.day)f.day=21;}); /* 결제일 21일 확인됨 */
+  d.fixedExpenses.forEach(f=>{if(f.name==='인터넷 (SK브로드밴드)'&&!f.day)f.day=21;if(f.name==='전기요금'&&f.day===30)f.day=31;}); /* 전기요금은 말일 청구 */ /* 결제일 21일 확인됨 */
   if(!d.activeClass&&d.classes.length)d.activeClass=d.classes[0].id;
   return d;
 }
@@ -2395,7 +2395,7 @@ function renderRevenueChart(){
 /* 고정 지출: 매달 나가는 항목. variable=true 는 매달 금액이 바뀌는 요금(고지서 보고 입력). */
 function defaultFixedExpenses(){return [
   {name:'부동산 임대료',amount:1660000,day:5,variable:false},
-  {name:'전기요금',amount:0,day:30,variable:true},
+  {name:'전기요금',amount:0,day:31,variable:true},
   {name:'가스요금 (코원에너지서비스)',amount:0,day:10,variable:true},
   {name:'인터넷 (SK브로드밴드)',amount:17600,day:21,variable:false},
   {name:'정수기 (SK인텔릭스)',amount:36500,day:20,variable:false},
@@ -2424,7 +2424,7 @@ function renderExpenseBlock(mk,tIn){
       <div class="r" style="color:var(--verm)">${won(r.amount)}<small>수정/삭제</small></div></div>`;
     const guess=lastAmountOf(fx,mk);
     if(!fx.variable&&guess>0)pending.push(fx);
-    return `<div class="prow" data-fx="${fx.id}" style="cursor:pointer;opacity:.6;border-style:dashed"><div class="l">${esc(fx.name)}<small>${fx.day?'매달 '+fx.day+'일':'날짜 미정'} · 아직 기록 안 함</small></div>
+    return `<div class="prow" data-fx="${fx.id}" style="cursor:pointer;opacity:.6;border-style:dashed"><div class="l">${esc(fx.name)}<small>${fx.day?(fx.day>=31?'매달 말일':'매달 '+fx.day+'일'):'날짜 미정'} · 아직 기록 안 함</small></div>
       <div class="r">${fx.variable?'금액 입력':won(guess)}<small>${fx.variable?(guess?'지난번 '+won(guess):'고지서 보고 입력'):'눌러서 기록'}</small></div></div>`;
   }).join('');
   if(pending.length)h+=`<div class="barbtns" style="margin:4px 0 8px"><button id="expFillFixed">고정 금액 ${pending.length}건 한꺼번에 기록</button></div>`;
@@ -2464,7 +2464,8 @@ function expenseSheet(it,fx,mk){
   const isNew=!it;
   const fixedItem=fx||(it&&it.fixedId?(data.fixedExpenses||[]).find(f=>f.id===it.fixedId):null);
   const def=it||{name:fx?fx.name:'',date:fx?fixedDateFor(fx,mk):(mk===curMonthKey()?todayISO():mk+'-01'),amount:fx?lastAmountOf(fx,mk):0,memo:''};
-  const hint=fixedItem&&fixedItem.variable?'<div class="note" style="margin:-4px 0 8px">매달 바뀌는 요금이에요. 이번 달 고지서 금액을 넣어 주세요.</div>':'';
+  const hint=(fixedItem&&fixedItem.variable?'<div class="note" style="margin:-4px 0 8px">매달 바뀌는 요금이에요. 이번 달 고지서 금액을 넣어 주세요.</div>':'')
+    +(fixedItem&&fixedItem.day>=31?'<div class="note" style="margin:-4px 0 8px">휴일 때문에 다음 달 1~2일에 빠져나가도, 날짜는 그대로 두면 이 달 지출로 계산돼요. 실제 출금일은 메모에 적어 두세요.</div>':'');
   oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button>
     <h3>${isNew?'지출 기록':'지출 수정'}</h3>
     <div class="subt">${fixedItem?'고정 지출':'재료비·표구·전시비 등 그때그때 나간 연구소 운영비를 기록합니다.'}</div>
@@ -2505,12 +2506,12 @@ function fixedExpenseManager(){
         <input class="selin fxN" data-i="${i}" value="${esc(f.name)}" placeholder="항목 이름" style="margin-bottom:6px">
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:13px">
           <input class="selin fxA" data-i="${i}" type="number" inputmode="numeric" value="${f.amount||''}" placeholder="금액" style="width:110px;flex:0 0 auto" ${f.variable?'disabled':''}>원
-          · 매달 <input class="selin fxD" data-i="${i}" type="number" inputmode="numeric" min="1" max="31" value="${f.day||''}" placeholder="일" style="width:56px;flex:0 0 auto">일
+          · 매달 <input class="selin fxD" data-i="${i}" type="number" inputmode="numeric" min="1" max="31" value="${f.day||''}" placeholder="일" style="width:56px;flex:0 0 auto">일${f.day>=31?'(말일)':''}
           <label style="display:flex;align-items:center;gap:3px"><input type="checkbox" class="fxV" data-i="${i}" ${f.variable?'checked':''}>매달 바뀜</label>
           <span style="margin-left:auto;color:var(--ink-soft);cursor:pointer" class="fxT" data-i="${i}">${f.active===false?'다시 사용':'그만 쓰기'}</span>
         </div></div>`).join('')}
       <div class="barbtns"><button id="fxNew">＋ 항목 추가</button></div>
-      <div class="note" style="margin:6px 2px">'그만 쓰기'를 해도 지난 달 기록은 그대로 남아요.</div>
+      <div class="note" style="margin:6px 2px">날짜에 31을 넣으면 '말일'로 처리돼요(2월은 28일). '그만 쓰기'를 해도 지난 달 기록은 그대로 남아요.</div>
       <div class="actions"><button class="btn-ghost" id="fxNo">취소</button><button class="btn-primary" id="fxOk">저장</button></div>
     </div></div>`;
     const all=s=>oroot().querySelectorAll(s);
