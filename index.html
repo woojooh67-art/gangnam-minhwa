@@ -727,6 +727,7 @@ function migrate(d){
   if(!d.income)d.income=[];
   if(!Array.isArray(d.expenses))d.expenses=[];
   if(!Array.isArray(d.fixedExpenses))d.fixedExpenses=defaultFixedExpenses().map(x=>Object.assign({id:uid(),active:true},x));
+  d.fixedExpenses.forEach(f=>{if(f.name==='인터넷 (SK브로드밴드)'&&!f.day)f.day=21;}); /* 결제일 21일 확인됨 */
   if(!d.activeClass&&d.classes.length)d.activeClass=d.classes[0].id;
   return d;
 }
@@ -2396,7 +2397,7 @@ function defaultFixedExpenses(){return [
   {name:'부동산 임대료',amount:1660000,day:5,variable:false},
   {name:'전기요금',amount:0,day:30,variable:true},
   {name:'가스요금 (코원에너지서비스)',amount:0,day:10,variable:true},
-  {name:'인터넷 (SK브로드밴드)',amount:17600,day:null,variable:false},
+  {name:'인터넷 (SK브로드밴드)',amount:17600,day:21,variable:false},
   {name:'정수기 (SK인텔릭스)',amount:36500,day:20,variable:false},
   {name:'카드단말기 (포스플러스)',amount:11000,day:28,variable:false}
 ];}
