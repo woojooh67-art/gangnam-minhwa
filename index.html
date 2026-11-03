@@ -727,6 +727,9 @@ function migrate(d){
   if(!d.income)d.income=[];
   if(!Array.isArray(d.expenses))d.expenses=[];
   if(!Array.isArray(d.fixedExpenses))d.fixedExpenses=defaultFixedExpenses().map(x=>Object.assign({id:uid(),active:true},x));
+  if(!Array.isArray(d.expenseRules))d.expenseRules=defaultExpenseRules();
+  defaultExpenseRules().forEach(r=>{if(!d.expenseRules.some(x=>x.match===r.match))d.expenseRules.push(r);});
+  d.fixedExpenses.forEach(f=>{if(f.match===undefined&&FIXED_MATCH_BY_NAME[f.name])f.match=FIXED_MATCH_BY_NAME[f.name];});
   d.fixedExpenses.forEach(f=>{if(f.name==='인터넷 (SK브로드밴드)'&&!f.day)f.day=21;if(f.name==='전기요금'&&f.day===30)f.day=31;}); /* 전기요금은 말일 청구 */ /* 결제일 21일 확인됨 */
   if(!d.activeClass&&d.classes.length)d.activeClass=d.classes[0].id;
   return d;
@@ -2415,7 +2418,8 @@ function renderExpenseBlock(mk,tIn){
   const recs=expOfMonth(mk);
   const mo=+mk.split('-')[1];
   let h=`<div class="note" style="margin:18px 3px 6px"><b>지출</b> ${recs.length}건
-    <span style="float:right;color:var(--jade);cursor:pointer" id="expAdd">＋ 수시 지출</span></div>`;
+    <span style="float:right;color:var(--jade);cursor:pointer" id="expAdd">＋ 수시 지출</span></div>
+    <div class="barbtns" style="margin:0 0 8px"><button id="bankImport">📥 통장 내역 불러오기 (CSV)</button></div>`;
   /* 고정 지출 */
   const pending=[];
   h+=fixed.map(fx=>{
@@ -2447,6 +2451,7 @@ function bindExpenseBlock(body,mk){
   const q=x=>body.querySelector(x);
   q('#expAdd').onclick=()=>expenseSheet(null,null,mk);
   q('#fxManage').onclick=fixedExpenseManager;
+  q('#bankImport').onclick=bankImportStart;
   body.querySelectorAll('[data-exp]').forEach(el=>el.onclick=()=>{
     const it=(data.expenses||[]).find(z=>z.id===el.dataset.exp);if(it)expenseSheet(it,null,mk);});
   body.querySelectorAll('[data-fx]').forEach(el=>el.onclick=()=>{
@@ -2502,13 +2507,14 @@ function fixedExpenseManager(){
   const draw=()=>{
     oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button>
       <h3>고정 지출 항목</h3>
-      <div class="subt">매달 나가는 요금을 등록해 두면, 달마다 기록할 칸이 자동으로 생겨요. '매달 바뀜'은 전기·가스처럼 고지서마다 금액이 다른 요금이에요.</div>
+      <div class="subt">매달 나가는 요금을 등록해 두면, 달마다 기록할 칸이 자동으로 생겨요. '매달 바뀜'은 전기·가스처럼 고지서마다 금액이 다른 요금이에요. '통장 표시'는 통장 내역에 찍히는 글자로, 통장 내역을 불러올 때 이 항목을 자동으로 찾아 줘요.</div>
       ${list.map((f,i)=>`<div style="border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:8px;${f.active===false?'opacity:.5':''}">
         <input class="selin fxN" data-i="${i}" value="${esc(f.name)}" placeholder="항목 이름" style="margin-bottom:6px">
         <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:13px">
           <input class="selin fxA" data-i="${i}" type="number" inputmode="numeric" value="${f.amount||''}" placeholder="금액" style="width:110px;flex:0 0 auto" ${f.variable?'disabled':''}>원
           · 매달 <input class="selin fxD" data-i="${i}" type="number" inputmode="numeric" min="1" max="31" value="${f.day||''}" placeholder="일" style="width:56px;flex:0 0 auto">일${f.day>=31?'(말일)':''}
           <label style="display:flex;align-items:center;gap:3px"><input type="checkbox" class="fxV" data-i="${i}" ${f.variable?'checked':''}>매달 바뀜</label>
+          <span style="flex-basis:100%;display:flex;align-items:center;gap:4px;margin-top:4px">통장 표시 <input class="selin fxM" data-i="${i}" value="${esc(f.match||'')}" placeholder="예: 포스플러스" style="flex:1;padding:4px 6px"></span>
           <span style="margin-left:auto;color:var(--ink-soft);cursor:pointer" class="fxT" data-i="${i}">${f.active===false?'다시 사용':'그만 쓰기'}</span>
         </div></div>`).join('')}
       <div class="barbtns"><button id="fxNew">＋ 항목 추가</button></div>
@@ -2519,7 +2525,8 @@ function fixedExpenseManager(){
     const sync=()=>{all('.fxN').forEach(e=>list[e.dataset.i].name=e.value);
       all('.fxA').forEach(e=>{const v=parseInt(e.value);list[e.dataset.i].amount=Number.isFinite(v)?Math.max(0,v):0;});
       all('.fxD').forEach(e=>{const v=parseInt(e.value);list[e.dataset.i].day=Number.isFinite(v)?Math.min(31,Math.max(1,v)):null;});
-      all('.fxV').forEach(e=>list[e.dataset.i].variable=e.checked);};
+      all('.fxV').forEach(e=>list[e.dataset.i].variable=e.checked);
+      all('.fxM').forEach(e=>list[e.dataset.i].match=e.value);};
     all('.fxV').forEach(e=>e.onchange=()=>{sync();draw();});
     all('.fxT').forEach(e=>e.onclick=()=>{sync();const f=list[e.dataset.i];f.active=f.active===false;draw();});
     oroot().querySelector('#fxNew').onclick=()=>{sync();list.push({id:uid(),name:'',amount:0,day:null,variable:false,active:true});draw();};
@@ -2530,6 +2537,110 @@ function fixedExpenseManager(){
   };
   draw();
 }
+/* ---------- 통장 내역 불러오기 (카카오뱅크 CSV) ---------- */
+/* 고정 지출은 통장 표시 글자(match)로, 자주 쓰는 거래처는 expenseRules 로 자동 분류.
+   부가세박스(통장 안에서 옮긴 돈)와 본인 이름 이체는 지출이 아니므로 기본 제외.
+   이미 장부에 있는 건(bankKey 같음)은 다시 넣지 않음. */
+function defaultExpenseRules(){return [
+  {match:'코웨이위약금',name:'정수기 위약금 (코웨이)'},
+  {match:'코웨이',name:'정수기 렌탈 (코웨이)'},
+  {match:'김상용',name:'표구·배접 (김상용)'},
+  {match:'한원자',name:'붓 (성신필방)'},
+  {match:'임봉순',name:'표구·액자 (미림화방)'},
+  {match:'진영카피',name:'출력·인쇄 (진영카피)'},
+  {match:'엔엘씨',name:'출력·인쇄 (엔엘씨)'}
+];}
+var FIXED_MATCH_BY_NAME={'부동산 임대료':'부동산임대','전기요금':'전기 ','가스요금 (코원에너지서비스)':'코원에너지',
+  '인터넷 (SK브로드밴드)':'SKB','정수기 (SK인텔릭스)':'인텔릭스','카드단말기 (포스플러스)':'포스플러스'};
+function parseCsv(text){
+  const rows=[];let row=[],cur='',q=false;
+  for(let i=0;i<text.length;i++){const ch=text[i];
+    if(q){if(ch==='"'){if(text[i+1]==='"'){cur+='"';i++;}else q=false;}else cur+=ch;}
+    else if(ch==='"')q=true;
+    else if(ch===','){row.push(cur);cur='';}
+    else if(ch==='\n'){row.push(cur.replace(/\r$/,''));rows.push(row);row=[];cur='';}
+    else cur+=ch;}
+  if(cur||row.length){row.push(cur);rows.push(row);}
+  return rows;}
+function normTxt(s){return String(s||'').normalize('NFKC');}
+function parseBankCsv(text){
+  const rows=parseCsv(text.replace(/^﻿/,''));
+  const hi=rows.findIndex(r=>r.some(c=>c.trim()==='거래일시'));
+  if(hi<0)return null;
+  const H=rows[hi].map(c=>c.trim());const col=n=>H.indexOf(n);
+  const cD=col('거래일시'),cA=col('거래금액'),cT=col('거래구분'),cX=col('내용'),cM=col('메모');
+  if(cD<0||cA<0||cX<0)return null;
+  let holder='';rows.slice(0,hi).forEach(r=>{const k=r.findIndex(c=>c.trim()==='성명');if(k>=0&&r[k+1])holder=r[k+1].trim();});
+  const tx=[];
+  rows.slice(hi+1).forEach(r=>{
+    const dt=(r[cD]||'').trim();if(!/^\d{4}\.\d{2}\.\d{2}/.test(dt))return;
+    const amt=parseInt(String(r[cA]||'').replace(/[^\d-]/g,''),10);if(!Number.isFinite(amt))return;
+    tx.push({date:dt.slice(0,10).replace(/\./g,'-'),time:dt.slice(11,19),amount:amt,type:normTxt(cT>=0?r[cT]:'').trim(),
+      desc:normTxt(r[cX]).trim(),memo:normTxt(cM>=0?r[cM]:'').trim()});});
+  return {holder,tx};}
+function classifyBankTx(t,holder){
+  const d=t.desc;
+  if(/부가세박스/.test(d)||/부가세박스/.test(t.type))return {skip:'부가세박스 (통장 안에서 옮긴 돈)'};
+  if(holder&&d===holder)return {skip:'본인 이름 이체'};
+  const fx=(data.fixedExpenses||[]).find(f=>f.active!==false&&f.match&&d.indexOf(normTxt(f.match))===0)
+    ||(data.fixedExpenses||[]).find(f=>f.active!==false&&f.match&&f.match.trim().length>2&&d.indexOf(normTxt(f.match).trim())>=0);
+  if(fx){let memo='';const m=d.match(/(\d{1,2})월\s*전기료/);if(m)memo=(+m[1])+'월분';
+    return {fixedId:fx.id,name:fx.name,memo,checked:true,how:'고정 지출'};}
+  const rule=(data.expenseRules||[]).find(r=>r.match&&d.indexOf(normTxt(r.match))>=0);
+  if(rule)return {fixedId:null,name:rule.name,memo:t.memo||'',checked:true,how:'자주 쓰는 거래처'};
+  return {fixedId:null,name:t.memo?d+' · '+t.memo:d,memo:'',checked:false,how:'확인 필요'};}
+function bankKeyOf(t){return t.date+'|'+(t.time||'')+'|'+Math.abs(t.amount)+'|'+t.desc;}
+function bankImportStart(){
+  const inp=document.createElement('input');inp.type='file';inp.accept='.csv,text/csv';
+  inp.onchange=()=>{const f=inp.files&&inp.files[0];if(!f)return;
+    const rd=new FileReader();
+    rd.onload=()=>{let txt=String(rd.result||'');
+      if(txt.indexOf('거래일시')<0){ /* 엑셀에서 'CSV (쉼표로 분리)'로 저장하면 한글이 EUC-KR 인 경우가 있어 다시 읽음 */
+        const rd2=new FileReader();rd2.onload=()=>bankImportPreview(String(rd2.result||''));rd2.readAsText(f,'euc-kr');return;}
+      bankImportPreview(txt);};
+    rd.readAsText(f,'utf-8');};
+  inp.click();}
+function bankImportPreview(text){
+  const parsed=parseBankCsv(text);
+  if(!parsed||!parsed.tx.length){toast('통장 거래내역 CSV를 읽지 못했어요. 은행 엑셀을 CSV로 저장한 파일인지 확인해 주세요.');return;}
+  const have=new Set((data.expenses||[]).map(e=>e.bankKey).filter(Boolean));
+  const outs=parsed.tx.filter(t=>t.amount<0).map(t=>Object.assign({},t,{amt:-t.amount,key:bankKeyOf(t)}));
+  const items=[],skipped=[];let dup=0;
+  outs.forEach(t=>{if(have.has(t.key)){dup++;return;}
+    const c=classifyBankTx(t,parsed.holder);
+    if(c.skip)skipped.push({t,why:c.skip});else items.push(Object.assign({t},c));});
+  const sumSkip=skipped.reduce((a,x)=>a+x.t.amt,0);
+  const draw=()=>{
+    const sel=items.filter(x=>x.checked);
+    oroot().innerHTML=`<div class="overlay"><div class="sheet" style="max-height:88vh;overflow:auto"><button class="quickx" onclick="closeOverlay()">✕</button>
+      <h3>통장 내역 불러오기</h3>
+      <div class="subt">출금 ${outs.length}건 중 장부에 넣을 것을 골라 주세요. 체크된 것만 들어가요.${dup?` 이미 장부에 있는 ${dup}건은 뺐어요.`:''}</div>
+      ${['고정 지출','자주 쓰는 거래처','확인 필요'].map(g=>{const gi=items.map((x,i)=>[x,i]).filter(([x])=>x.how===g);if(!gi.length)return '';
+        return `<div class="note" style="margin:12px 2px 6px;font-weight:700">${g} ${gi.length}건${g==='확인 필요'?' — 연구소 지출만 체크하고 항목 이름을 고쳐 주세요':''}</div>`+
+        gi.map(([x,i])=>`<div class="prow" style="gap:8px;align-items:flex-start;${x.checked?'':'opacity:.65'}">
+          <input type="checkbox" class="biC" data-i="${i}" ${x.checked?'checked':''} style="margin-top:4px;flex:0 0 auto">
+          <div class="l" style="flex:1;min-width:0">${g==='확인 필요'?`<input class="selin biN" data-i="${i}" value="${esc(x.name)}" style="padding:4px 6px;font-size:13px">`:esc(x.name)}
+            <small>${x.t.date} · 통장: ${esc(x.t.desc)}${x.memo?' · '+esc(x.memo):''}</small></div>
+          <div class="r" style="color:var(--verm);flex:0 0 auto">${won(x.t.amt)}</div></div>`).join('');}).join('')}
+      ${skipped.length?`<div class="note" style="margin:12px 2px">지출이 아니어서 뺀 것 ${skipped.length}건 (${won(sumSkip)}): ${[...new Set(skipped.map(s=>s.why))].join(', ')}</div>`:''}
+      <div class="msum" style="background:var(--verm-tint);color:var(--verm)"><span>넣을 지출 ${sel.length}건</span><span>${won(sel.reduce((a,x)=>a+x.t.amt,0))}</span></div>
+      <div class="actions"><button class="btn-ghost" id="biNo">취소</button><button class="btn-primary" id="biOk" ${sel.length?'':'disabled'}>장부에 넣기</button></div>
+    </div></div>`;
+    const all=s=>oroot().querySelectorAll(s);
+    const sync=()=>all('.biN').forEach(e=>items[e.dataset.i].name=e.value);
+    all('.biC').forEach(e=>e.onchange=()=>{sync();items[e.dataset.i].checked=e.checked;const sc=oroot().querySelector('.sheet').scrollTop;draw();oroot().querySelector('.sheet').scrollTop=sc;});
+    oroot().querySelector('#biNo').onclick=closeOverlay;
+    oroot().querySelector('#biOk').onclick=()=>{sync();
+      const pick=items.filter(x=>x.checked);if(!pick.length)return;
+      if(!data.expenses)data.expenses=[];
+      const now=new Set(data.expenses.map(e=>e.bankKey).filter(Boolean));
+      let n=0;
+      pick.forEach(x=>{if(now.has(x.t.key))return;now.add(x.t.key);n++;
+        data.expenses.push({id:uid(),fixedId:x.fixedId||null,name:(x.name||'').trim()||'기타 지출',date:x.t.date,amount:x.t.amt,memo:x.memo||'',bankKey:x.t.key});});
+      const last=pick.map(x=>x.t.date).sort().pop();if(last)repMonth=last.slice(0,7);
+      save();closeOverlay();renderReport();toast(n+'건을 지출 장부에 넣었어요.');};
+  };
+  draw();}
 function renderMonth(){
   const nav=document.getElementById('monthNav'),body=document.getElementById('monthBody');
   const inc=data.income||[];
