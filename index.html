@@ -1079,6 +1079,8 @@ function holidaySheet(){
   function draw(){
     oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>📅 휴강 · 휴무일 관리</h3>
       <div class="subt">기간과 쉬는 반을 고르세요. 화실 전체를 쉬실 땐 반을 모두 체크하면 돼요. 이미 있는 출석 기록은 지워지지 않아요.</div>
+      <div id="hCal" style="margin:4px 0 2px"></div>
+      <div id="hCalInfo" class="note" style="margin:0 0 10px;min-height:18px"></div>
       <div class="fgroup"><label>시작일</label><input type="date" id="hFrom" class="selin" value="${t}"></div>
       <div class="fgroup"><label>종료일</label><input type="date" id="hTo" class="selin" value="${t}"></div>
       ${mode==='class'?`<div class="fgroup"><label>대상 반 <button class="minibtn" id="hAllChk" style="margin-left:6px;padding:2px 8px;font-size:11.5px">전체 선택/해제</button></label>
@@ -1092,6 +1094,57 @@ function holidaySheet(){
     q('#hNo').onclick=closeOverlay;
     q('#hList').onclick=()=>bulkUncancelListSheet();
     q('#hAuto').onclick=()=>publicHolidayBulkSheet();
+    /* 달력: 이미 등록된 휴강·휴무일과 공휴일을 한눈에 보고, 날짜를 눌러 기간을 고름
+       (첫 번째 누름 = 시작일, 두 번째 누름 = 종료일, 다시 누르면 새로 시작) */
+    const DOWK='일월화수목금토';
+    let cy=+t.slice(0,4),cm=+t.slice(5,7),pickStep=0,infoIso=null;
+    const offOn=iso=>{
+      const closed=(data.studioClosedDates||[]).find(x=>x.iso===iso)||null;
+      const cls=data.classes.filter(c=>!c.isTempContainer&&(c.skippedDates||[]).indexOf(iso)>=0)
+        .sort((a,b)=>classSortKey(a)-classSortKey(b));
+      return {closed,cls,hol:publicHolidayLabel(iso)};};
+    const showInfo=iso=>{
+      const box=q('#hCalInfo');if(!box)return;
+      if(!iso){box.innerHTML='<span style="color:var(--ink-soft)">빨간 날 = 이미 휴강·휴무 등록 · 주황 점 = 공휴일 · 날짜를 두 번 눌러 기간을 고르세요</span>';return;}
+      const o=offOn(iso),parts=[];
+      if(o.closed)parts.push(`<b style="color:var(--verm)">화실 전체 휴무</b>${o.closed.label?' · '+esc(o.closed.label):''}`);
+      if(o.cls.length)parts.push(`<b style="color:var(--verm)">휴강</b> `+o.cls.map(c=>{const r=holidayRangeFor(c.id,iso);return esc(c.name)+(r&&r.reason?` (${esc(r.reason)})`:'');}).join(', '));
+      if(o.hol)parts.push(`<span style="color:#C9720A;font-weight:700">공휴일 · ${esc(o.hol)}</span>`);
+      box.innerHTML=`<b>${shortDate(iso)}(${DOWK[new Date(iso+'T00:00:00').getDay()]})</b> — ${parts.length?parts.join(' · '):'등록된 휴강 없음'}`;};
+    const drawCal=()=>{
+      const box=q('#hCal');if(!box)return;
+      const from=q('#hFrom').value,to=q('#hTo').value;
+      const first=new Date(cy,cm-1,1),days=new Date(cy,cm,0).getDate(),lead=first.getDay();
+      let cells=[];for(let i=0;i<lead;i++)cells.push('<td></td>');
+      for(let d=1;d<=days;d++){
+        const iso=`${cy}-${pad(cm)}-${pad(d)}`,o=offOn(iso);
+        const off=!!(o.closed||o.cls.length);
+        const inRange=from&&to&&iso>=from&&iso<=to,isEnd=iso===from||iso===to;
+        const cl=['calcell',off?'skipped':'',o.hol?'pubhol':'',iso===t?'today':'',isEnd?'sel':''].filter(Boolean).join(' ');
+        const st=inRange&&!isEnd?'border-color:var(--jade);box-shadow:inset 0 0 0 1px var(--jade)':'';
+        let lbl='',lc='var(--verm)';
+        if(o.closed)lbl='전체휴무';
+        else if(o.cls.length===1)lbl=o.cls[0].name.replace(/\s+/g,'').slice(0,3);
+        else if(o.cls.length>1)lbl=o.cls.length+'개반';
+        else if(o.hol){lbl=o.hol.slice(0,4);lc='#C9720A';}
+        const dow=(lead+d-1)%7,numColor=!off&&!isEnd&&(dow===0||o.hol)?'color:var(--verm);':'';
+        cells.push(`<td><div class="${cl}" data-hci="${iso}" style="${numColor}${st}" title="${esc([o.closed?'화실 전체 휴무':'',o.cls.map(c=>c.name).join(', '),o.hol||''].filter(Boolean).join(' · '))}">${d}</div><div class="cyclbl" style="color:${lc}">${esc(lbl)}</div></td>`);
+      }
+      while(cells.length%7)cells.push('<td></td>');
+      let rows='';for(let i=0;i<cells.length;i+=7)rows+='<tr>'+cells.slice(i,i+7).join('')+'</tr>';
+      box.innerHTML=`<div class="calhead"><button class="calnav" type="button" data-hnav="-1">‹</button><div class="calmonth">${cy}년 ${cm}월</div><button class="calnav" type="button" data-hnav="1">›</button></div>
+        <table class="calTable cyc"><tr>${[...DOWK].map(w=>`<th>${w}</th>`).join('')}</tr>${rows}</table>`;
+      box.querySelectorAll('[data-hnav]').forEach(b=>b.onclick=()=>{cm+=+b.dataset.hnav;if(cm<1){cm=12;cy--;}if(cm>12){cm=1;cy++;}drawCal();});
+      box.querySelectorAll('[data-hci]').forEach(el=>el.onclick=()=>{
+        const iso=el.dataset.hci,f=q('#hFrom'),e=q('#hTo');
+        if(pickStep===1&&iso>=f.value){e.value=iso;pickStep=0;}
+        else{f.value=iso;e.value=iso;pickStep=1;}
+        infoIso=iso;drawCal();showInfo(iso);});
+    };
+    const syncFromInputs=()=>{const f=q('#hFrom').value;if(f){cy=+f.slice(0,4);cm=+f.slice(5,7);}pickStep=0;drawCal();};
+    q('#hFrom').onchange=()=>{const f=q('#hFrom'),e=q('#hTo');if(f.value&&(!e.value||e.value<f.value))e.value=f.value;syncFromInputs();};
+    q('#hTo').onchange=()=>drawCal();
+    drawCal();showInfo(infoIso);
     let allOn=true;
     if(mode==='class'&&q('#hAllChk'))q('#hAllChk').onclick=()=>{allOn=!allOn;oroot().querySelectorAll('[data-hcid]').forEach(el=>el.checked=allOn);};
     q('#hOk').onclick=()=>{
