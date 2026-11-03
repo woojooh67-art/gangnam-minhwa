@@ -2567,7 +2567,13 @@ function defaultExpenseRules(){return [
   {match:'더  에코',name:'원데이 클래스용 액자 (더 에코)'},
   {match:'박건봉',name:'원데이 클래스용 액자 (더 에코)'},
   {match:'한국미술협회',name:'한국미술협회 연회비'},
-  {match:'시디즈',name:'화실 의자 바퀴 (시디즈)'}
+  {match:'시디즈',name:'화실 의자 바퀴 (시디즈)'},
+  /* 원장님이 개인 지출로 정한 건 (그 날짜·금액만 제외. 같은 곳이라도 다른 건은 그대로 '확인 필요'로 나옴) */
+  {match:'내가그린여',amount:500000,date:'2026-01-27',personal:true},
+  {match:'내가그린여',amount:1440100,date:'2026-03-12',personal:true},
+  {match:'공주상회',amount:109000,date:'2026-02-23',personal:true},
+  {match:'고미경',amount:25800,date:'2026-04-06',personal:true},
+  {match:'파킹',amount:4000,date:'2026-08-21',personal:true}
 ];}
 var FIXED_MATCH_BY_NAME={'부동산 임대료':'부동산임대','전기요금':'전기 ','가스요금 (코원에너지서비스)':'코원에너지',
   '인터넷 (SK브로드밴드)':'SKB','정수기 (SK인텔릭스)':'인텔릭스','카드단말기 (포스플러스)':'포스플러스','차량 리스 (테슬라·롯데)':'롯데강남민화','국가무형문화재 회비 (매달 분납)':'국가무형문화재'};
@@ -2608,6 +2614,7 @@ function classifyBankTx(t,holder){
   const fits=r=>r.match&&d.indexOf(normTxt(r.match))>=0&&(!r.amount||Math.abs(t.amount)===r.amount)&&(!r.date||t.date===r.date);
   const rules=data.expenseRules||[];
   const rule=rules.find(r=>(r.amount||r.date)&&fits(r))||rules.find(r=>!r.amount&&!r.date&&fits(r));
+  if(rule&&rule.personal)return {skip:'개인 지출로 정한 것'};
   if(rule)return {fixedId:null,name:rule.name,memo:t.memo||'',checked:true,how:'자주 쓰는 거래처'};
   return {fixedId:null,name:t.memo?d+' · '+t.memo:d,memo:'',checked:false,how:'확인 필요'};}
 function bankKeyOf(t){return t.date+'|'+(t.time||'')+'|'+Math.abs(t.amount)+'|'+t.desc;}
