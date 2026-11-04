@@ -276,6 +276,7 @@
       <div class="barbtns" style="margin:14px 0 8px"><button id="announceBtn">📢 공지사항 (학생 앱 팝업) · 지난 공지 기록</button></div>
       <div class="barbtns" style="margin:0 0 8px"><button id="checkinQrBtn" style="border-color:var(--jade);color:var(--jade-deep)">📷 체크인 QR코드 (화실 입구용)</button></div>
       <div class="barbtns" style="margin:0 0 6px"><button id="holidayBtn" style="border-color:var(--verm);color:var(--verm)">📅 휴강·휴무일 관리</button></div>
+      <div class="barbtns" style="margin:0 0 6px"><button id="inquiryBtn" style="border-color:var(--purple);color:var(--purple)">📨 수강 문의 안내 문구 (등록 전 문의하신 분께)</button></div>
       <div class="note" style="margin:0 3px 10px">· 시간표 관리, 수업료 설정, 백업은 오른쪽 위 <b>⚙ 설정</b>에 있어요.</div>
     </section>
 
@@ -3950,6 +3951,56 @@ function appGuideSheet(st){
     if(!done&&navigator.clipboard){navigator.clipboard.writeText(ta.value).then(()=>toast('복사되었습니다.'),()=>toast('길게 눌러 복사해 주세요.'));}
     else toast(done?'복사되었습니다.':'길게 눌러 복사해 주세요.');};}
 
+/* ---------- 📨 수강 문의 안내 문구 (등록 전 문의하신 분께) ----------
+   반 이름·시간은 지금 운영 중인 반(보관·임시·하루수업 반 제외)에서, 수업료·할인율은 수업료 설정에서 자동으로 가져와요 */
+const STUDIO_ADDR='서울 강남구 논현로38길 18, 아나 빌딩 6층';
+function inquiryGuideText(withResearch){
+  const P=priceFor(null);
+  const dayFull={'월':'월요일','화':'화요일','수':'수요일','목':'목요일','금':'금요일','토':'토요일','일':'일요일'};
+  const live=data.classes.filter(c=>!c.isTempContainer&&!c.archived&&c.type!=='하루'&&!/하루|쿠폰|원데이|종료/.test(c.name||'')).slice().sort((a,b)=>classSortKey(a)-classSortKey(b));
+  const timeOf=c=>{const sc=String(c.sched||'').replace(/\s+/g,' ').trim();if(!sc)return '';
+    const m=sc.match(/^([월화수목금토일])\S*\s*(.*)$/);return m?`${dayFull[m[1]]} ${m[2].replace(/\s*~\s*/g,'~')}`.trim():sc;};
+  const groups=[['정규','정규반','3시간'],['직장인','취미반','2시간']];if(withResearch)groups.push(['연구','연구반','']);
+  let t=`안녕하세요, 강남민화연구소입니다 :) 문의 주셔서 감사합니다.\n\n`;
+  t+=`🎨 수업 소개\n전통 민화를 그대로 그려 보는 재현민화와, 나만의 그림으로 풀어내는 창작민화를 함께 배우실 수 있어요. 처음 붓을 잡는 분도 기초부터 1:1로 봐 드립니다.\n\n`;
+  let tt='',fee='';
+  groups.forEach(([type,label,hrs])=>{
+    const cs=live.filter(c=>(c.type||'정규')===type);if(!cs.length)return;
+    const times=cs.map(timeOf).filter(Boolean);
+    tt+=`· ${label}${hrs?` (${hrs})`:''}\n`+(times.length?times.map(x=>`  ${x}\n`).join(''):`  시간은 따로 안내드려요\n`);
+    const v=P[type];if(v)fee+=`· ${label} ${won(v)}${type==='정규'?' (기본 채색 재료비 포함)':''}\n`;
+  });
+  if(tt)t+=`🗓 수업 시간 (주 1회)\n${tt}\n`;
+  if(fee){
+    const d3=(data.rates&&data.rates.d3!=null)?data.rates.d3:10,d6=(data.rates&&data.rates.d6!=null)?data.rates.d6:15;
+    t+=`💳 수업료 (4회 기준)\n${fee}`;
+    const ds=[d3>0?`3개월 ${d3}%`:'',d6>0?`6개월 ${d6}%`:''].filter(Boolean);
+    if(ds.length)t+=`· 장기 등록 할인: ${ds.join(' · ')}\n`;
+    t+=`※ 붓·종이는 개별 구매예요. 처음 오시면 필요한 것을 안내해 드려요.\n\n`;
+  }
+  t+=`📌 등록 방법\n원하시는 반과 시작 날짜를 알려 주시면 자리를 확인해 드려요.\n\n`;
+  t+=`📍 오시는 길\n${STUDIO_ADDR}\n\n궁금한 점은 편하게 물어봐 주세요 🙂`;
+  return t;
+}
+function inquirySheet(){
+  let withRes=false;
+  const draw=()=>{
+    oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>📨 수강 문의 안내 문구</h3>
+    <div class="subt">아직 등록하지 않은 분이 문의하셨을 때 보내는 문구예요. 반 시간과 수업료는 앱 설정에서 자동으로 채워져요. 보내기 전에 아래 칸에서 바로 고쳐 쓰셔도 돼요.</div>
+    <label style="display:flex;align-items:center;gap:8px;margin:4px 3px 8px"><input type="checkbox" id="iqRes" ${withRes?'checked':''}> <span>연구반도 넣기</span></label>
+    <textarea class="msg" id="iqTa">${esc(inquiryGuideText(withRes))}</textarea>
+    <div class="actions"><button class="btn-ghost" id="iqNo">닫기</button><button class="btn-primary" id="iqCopy">전체 복사</button></div></div></div>`;
+    const q=x=>oroot().querySelector(x);
+    q('#iqRes').onchange=e=>{withRes=e.target.checked;draw();};
+    q('#iqNo').onclick=closeOverlay;
+    q('#iqCopy').onclick=()=>{const ta=q('#iqTa');ta.select();ta.setSelectionRange(0,99999);
+      let done=false;try{done=document.execCommand('copy');}catch(e){}
+      if(!done&&navigator.clipboard){navigator.clipboard.writeText(ta.value).then(()=>toast('복사되었습니다.'),()=>toast('길게 눌러 복사해 주세요.'));}
+      else toast(done?'복사되었습니다.':'길게 눌러 복사해 주세요.');};
+  };
+  draw();
+}
+
 /* ---------- student edit ---------- */
 function extractPhoneLast4(memo){
   if(!memo)return '';
@@ -4555,6 +4606,7 @@ document.getElementById('ttEdit').onclick=timetableSheet;
 document.getElementById('bulkClearBtn').onclick=bulkClearRecordsSheet;
 document.getElementById('holidayBtn').onclick=holidaySheet;
 document.getElementById('announceBtn').onclick=announcementSheet;
+document.getElementById('inquiryBtn').onclick=inquirySheet;
 document.getElementById('checkinQrBtn').onclick=()=>{
   const url=location.href.split('#')[0].split('?')[0]+'?checkin=1';
   const qrSrc='https://api.qrserver.com/v1/create-qr-code/?size=280x280&data='+encodeURIComponent(url);
