@@ -647,7 +647,7 @@ async function regenerateStudentViews(){
     const t=todayISO();
     const allUpcoming=[];
     data.classes.forEach(cc=>(cc.sessions||[]).forEach(s=>{if(s.iso>=t){
-      const cap=capacityOf(),occ=occupancyOf(cc,s);
+      const cap=capacityOf(cc),occ=occupancyOf(cc,s);
       allUpcoming.push({classId:cc.id,className:cc.name,classType:cc.type,iso:s.iso,label:s.label,sessionId:s.id,cap,occ,avail:Math.max(0,cap-occ)});
     }}));
     allUpcoming.sort((a,b)=>a.iso<b.iso?-1:1);
@@ -1559,7 +1559,8 @@ function freeSessionsFor(st){
   }
   return Math.max(0,rem-booked-regular);
 }
-function capacityOf(){return (data.capacity)||7;}
+/* 반 정원: 반에 따로 정한 값이 있으면 그 값, 없으면 ⚙ 수업료 설정의 기본 정원 */
+function capacityOf(c){const own=c&&parseInt(c.capacity);return own>0?own:((data.capacity)||7);}
 function occupancyOf(c,s){
   let n=0;
   data.students.forEach(st=>{
@@ -4224,7 +4225,7 @@ function openSettings(){oroot().innerHTML=`<div class="overlay"><div class="shee
   <div class="note" style="margin:12px 3px 4px;font-weight:700">장기 결제 할인 · 기타</div>
   <div class="setrow"><div class="l">12회(3개월) 할인<small>%</small></div><input type="number" id="setD3" value="${data.rates.d3}"></div>
   <div class="setrow"><div class="l">24회(6개월) 할인<small>%</small></div><input type="number" id="setD6" value="${data.rates.d6}"></div>
-  <div class="setrow"><div class="l">타임당 정원<small>다른 날 수업 예약 가능 인원 기준</small></div><input type="number" id="setCap" value="${capacityOf()}"></div>
+  <div class="setrow"><div class="l">기본 정원<small>반마다 정원을 따로 안 정한 반에 적용 (반 정원은 반 이름 옆 ✎에서)</small></div><input type="number" id="setCap" value="${capacityOf()}"></div>
   <div class="setrow" style="display:none"><div class="l">하루수업 8회 선결제(쿠폰) 가격<small>원</small></div><input type="number" id="setDropin8Price" value="${data.rates.dropin8Price||440000}"></div>
   <div class="setrow" style="display:none"><div class="l">쿠폰 사용 기한<small>결제일로부터 일수</small></div><input type="number" id="setDropin8Days" value="${data.rates.dropin8Days||90}"></div>
   <div class="actions" style="margin-top:15px"><button class="btn-ghost" id="sNo">취소</button><button class="btn-primary" id="sOk">저장</button></div></div></div>`;
@@ -4344,6 +4345,7 @@ function addClass(){const v={day:'',type:'정규',slot:'',start:'',end:'',name:'
 function editClass(){const c=curClass();const v=Object.assign(cpParse(c),{name:c.name,nameManual:true});oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>반 수정</h3>
   ${classPickerHTML(v)}
   <div class="fgroup"><label>월요금(4회, 원)</label><input id="ecFee" type="number" class="selin" value="${c.fee}"></div>
+  <div class="fgroup"><label>정원 (명)</label><input id="ecCap" type="number" min="1" class="selin" value="${parseInt(c.capacity)>0?parseInt(c.capacity):''}" placeholder="비우면 기본 정원 ${data.capacity||7}명"><div class="note" style="margin:4px 2px 0">다른 날 수업 예약·보강 신청 때 이 인원이 차면 "정원 마감"이 돼요. 비워두면 ⚙ 수업료 설정의 기본 정원을 따라가요.</div></div>
   <div class="fgroup" style="background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px">${c.archived
       ?'<div class="note" style="margin:0 0 8px">📦 지금 <b>보관된 반</b>이에요. 수업 일정·시간표에는 안 나오고 출석 기록만 남아 있어요.</div><button class="btn-primary" id="ecArch" style="width:100%">다시 열기 (수업 재개)</button>'
       :'<div class="note" style="margin:0 0 8px">수업이 없어진 반은 삭제하지 말고 <b>보관</b>하세요. 시간표와 수업 일정에서는 빠지고, 학생들 출석 기록과 잔여 회차는 그대로 남아요.</div><button class="btn-ghost" id="ecArch" style="width:100%;border-color:var(--ochre);color:var(--ochre);font-weight:700">📦 반 보관 (수업 중단)</button>'}</div>
@@ -4359,9 +4361,11 @@ function editClass(){const c=curClass();const v=Object.assign(cpParse(c),{name:c
   const readCp=bindClassPicker(v,t=>{if(!c.fee||['정규','연구','직장인'].some(x=>typeFee(x)===+q('#ecFee').value))q('#ecFee').value=CP_FEE[t]||200000;});
   q('#ecOk').onclick=()=>{const r=readCp();if(!r.day){toast('요일을 골라주세요.');return;}
     const feeVal=parseInt(q('#ecFee').value); /* 확인 창이 뜨면 이 화면이 닫히므로 미리 읽어둬요 */
+    const capVal=parseInt(q('#ecCap').value);
     const before=cpParse(c);const changedCore=before.day!==r.day||(c.type||'정규')!==r.type;
     const stuN=data.students.filter(x=>x.status!=='ended'&&(x.classIds||[]).indexOf(c.id)>=0).length;
     const apply=()=>{const oldName=c.name;c.name=r.name||c.name;c.type=r.type;c.sched=r.sched;c.fee=feeVal||c.fee;
+      if(capVal>0)c.capacity=capVal;else delete c.capacity;
       /* 요일이 바뀌면, 아직 기록이 없는 앞으로의 빈 수업 회차 중 새 요일과 안 맞는 것은 정리 */
       const t=todayISO(),dw=classWeekday(c);
       c.sessions=c.sessions.filter(se=>se.temp||se.iso<=t||Object.keys(c.records).some(k=>k.indexOf(se.id+':')===0)||dw===null||new Date(se.iso+'T00:00:00').getDay()===dw);
