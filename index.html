@@ -289,6 +289,7 @@
         <div class="addrow"><input id="nameInput" placeholder="이름 (여러 명은 쉼표로, 뒤에 전화번호도: 홍길동 01012345678)" autocomplete="off"><input id="phoneInput" placeholder="전화번호(선택)" autocomplete="off" style="flex:0 0 130px"><button id="addStudent">추가</button></div>
         <div class="note" id="addStuNote" style="margin:-4px 3px 10px"></div>
         <input class="search" id="rosterSearch" placeholder="이름 검색" autocomplete="off">
+        <div class="filters" id="rosterStatusF" style="flex-wrap:wrap;overflow:visible;white-space:normal;gap:6px"></div>
         <div id="rosterList"></div>
       </div>
       <div id="feeModeBox" class="hidden">
@@ -362,7 +363,7 @@ const KEY='ggmh_v22';
 const STATUSES=['present','absent']; /* 보강 없음: 다른 날 온 것도 출석 ('makeup' 기록은 '다른 날 수업'으로 남아 출석과 똑같이 계산) */
 const LABEL={present:'출석',late:'지각',absent:'결석',makeup:'다른 날 출석',dropin:'하루권 출석',none:'재결제 필요'};
 const CLS={present:'st-present',late:'st-late',absent:'st-absent',makeup:'st-makeup',dropin:'st-dropin',none:'st-none'};
-let mem=null,data=null,tab='check',activeSess={},feeFilter='active',feeQuery='',feeScope='all',rosterScope='all',rosterQuery='',repMonth=null,repScope='month',checkCalYM={},checkMode='all',dropinOpen=false,stuMode='fee',logOlderOpen=false,logAdminOpen=false,upcomingMoreOpen=false;
+let mem=null,data=null,tab='check',activeSess={},feeFilter='active',feeQuery='',feeScope='all',rosterScope='all',rosterStatus='active',rosterQuery='',repMonth=null,repScope='month',checkCalYM={},checkMode='all',dropinOpen=false,stuMode='fee',logOlderOpen=false,logAdminOpen=false,upcomingMoreOpen=false;
 let _lastPillClickTs=0;
 function pillClickGuard(){ // 연속 두 번 눌리는 실수 방지(0.5초 내 재클릭 무시)
   const now=Date.now();if(now-_lastPillClickTs<500)return false;_lastPillClickTs=now;return true;
@@ -2365,14 +2366,29 @@ function renderRoster(){const c=curClass(),box=document.getElementById('rosterLi
     r.innerHTML=`<span class="nm">${esc(st.name)}${codeLine}</span><span class="sub">${sub.join(' · ')}</span><span class="pill" style="background:var(--line-soft);color:var(--ink-soft);min-width:44px">수정</span>`;
     r.onclick=()=>editStudent(st);return r;};
 
+  /* 명단 보기: 기본은 지금 수강 중인 학생만. 휴강·종료 학생은 아래 버튼을 눌렀을 때만 따로 보여요 (원장님 요청 2026-11-19)
+     이름 검색 중에는 상태와 상관없이 모두 찾아줘요 */
+  const pool=rosterScope==='all'?data.students.slice():studentsInClass(c.id);
+  const isAct=s=>s.status!=='paused'&&s.status!=='ended';
+  const stOk={active:isAct,paused:s=>s.status==='paused',ended:s=>s.status==='ended'};
+  const cnt={active:pool.filter(isAct).length,paused:pool.filter(stOk.paused).length,ended:pool.filter(stOk.ended).length};
+  const sf=document.getElementById('rosterStatusF');
+  if(sf){sf.innerHTML=[['active','수강중'],['paused','🌙 휴강중'],['ended','종료']].map(o=>`<button class="fchip ${rosterStatus===o[0]?'on':''}" data-rs="${o[0]}" style="flex:0 0 auto;margin:0">${o[1]} <b>${cnt[o[0]]}</b>명</button>`).join('');
+    sf.querySelectorAll('.fchip').forEach(b=>b.onclick=()=>{rosterStatus=b.dataset.rs;renderRoster();});}
+  const head=document.createElement('div');head.className='note';
+  head.innerHTML=q?`🔎 "${esc(q)}" 검색 중 · 휴강·종료 학생도 함께 찾아요`
+    :rosterStatus==='active'?`지금 수강중 <b>${cnt.active}</b>명 · 휴강중·종료 학생은 위 버튼을 눌러 따로 보세요`
+    :rosterStatus==='paused'?`🌙 휴강중 <b>${cnt.paused}</b>명 · 남은 회차가 보존되고 있는 학생이에요`
+    :`종료 <b>${cnt.ended}</b>명 · 기록은 그대로 보존돼 있어요`;
+  const list=pool.filter(s=>q?s.name.indexOf(q)>=0:stOk[rosterStatus](s));
+  box.appendChild(head);
+  if(!list.length){
+    const e=document.createElement('div');e.className='empty';
+    e.innerHTML=q?'해당하는 학생이 없습니다.':rosterStatus!=='active'?(rosterStatus==='paused'?'휴강중인 학생이 없어요.':'종료된 학생이 없어요.')
+      :rosterScope==='all'?'지금 수강중인 학생이 없어요.':'이 반에 지금 수강중인 학생이 없어요.<br>위 칸에 이름을 넣고 <b>추가</b>를 누르세요.';
+    box.appendChild(e);return;}
   if(rosterScope==='all'){
-    let list=data.students.filter(s=>!q||s.name.indexOf(q)>=0);
-    if(!list.length){box.innerHTML='<div class="empty">해당하는 학생이 없습니다.</div>';return;}
-    const head=document.createElement('div');head.className='note';
-    {const pausedN=data.students.filter(s=>s.status==='paused').length;
-    head.innerHTML=`전체 <b>${enrolled().length}</b>명 · 재적 ${enrolled().length-pausedN} · 휴강중 ${pausedN} · 종료 (${data.students.filter(s=>s.status==='ended').length})`;}
-    box.appendChild(head);
-    list.slice().sort((a,b)=>{
+    list.sort((a,b)=>{
       const ae=a.status==='ended'?1:0, be=b.status==='ended'?1:0;
       if(ae!==be)return ae-be;
       return a.name.localeCompare(b.name,'ko');
@@ -2381,16 +2397,7 @@ function renderRoster(){const c=curClass(),box=document.getElementById('rosterLi
     });
     return;
   }
-  const studs=studentsInClass(c.id).filter(s=>!q||s.name.indexOf(q)>=0);
-  if(!studs.length){box.innerHTML='<div class="empty">이 반에 학생이 없어요.<br>위 칸에 이름을 넣고 <b>추가</b>를 누르세요.</div>';return;}
-  {const clsAll=studentsInClass(c.id);
-  const clsEnded=clsAll.filter(s=>s.status==='ended').length;
-  const clsPaused=clsAll.filter(s=>s.status==='paused').length;
-  const clsTotal=clsAll.length-clsEnded;
-  const head=document.createElement('div');head.className='note';
-  head.innerHTML=`전체 <b>${clsTotal}</b>명 · 재적 ${clsTotal-clsPaused} · 휴강중 ${clsPaused}${clsEnded?` · 종료 (${clsEnded})`:''}`;
-  box.appendChild(head);}
-  studs.forEach((st,i)=>box.appendChild(rowFor(st,String(i+1))));}
+  list.forEach((st,i)=>box.appendChild(rowFor(st,String(i+1))));}
 function allPayments(){const out=[];data.students.forEach(st=>(st.payments||[]).forEach(p=>out.push({st,p})));return out;}
 function monthsWithData(){const set=new Set(allPayments().map(x=>(x.p.date||'').slice(0,7)).filter(Boolean));
   set.add(curMonthKey());return [...set].sort();}
