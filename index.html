@@ -1645,7 +1645,8 @@ function packageLastClassDate(st){
   const p=lastPayment(st);if(!p)return '';
   const sched=scheduledLastClassDate(st);
   const t=todayISO();
-  const used=marksOf(st).filter(m=>(m.mark==='present'||m.mark==='late'||m.mark==='absent'||m.mark==='makeup')&&m.iso>=payEffDate(p)&&m.iso<=t).map(m=>m.iso).sort();
+  /* 결석 기록은 기준일을 미루지 않아요 — 실제로 온 날만 봐요 (원장님 요청 2026-11-22: 결석해도 마지막 수업 예정일·이용기한은 고정) */
+  const used=marksOf(st).filter(m=>(m.mark==='present'||m.mark==='late'||m.mark==='makeup')&&m.iso>=payEffDate(p)&&m.iso<=t).map(m=>m.iso).sort();
   const lastUsed=used.length?used[used.length-1]:'';
   return (lastUsed&&lastUsed>sched)?lastUsed:sched;
 }
