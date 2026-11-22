@@ -1494,6 +1494,12 @@ function usedSincePayment(st){const t=todayISO();
   }catch(e){}
   return marksSincePayment(st).filter(m=>m.iso<=t&&isAttendMark(m.mark)).length;}
 function absentSincePayment(st){const t=todayISO();return marksSincePayment(st).filter(m=>m.iso<=t&&m.mark==='absent').length;}
+/* 결제 회차를 다 쓴 날(마지막 회차 출석일). 아직 다 안 썼으면 '' */
+function packageExhaustDate(st){const p=lastPayment(st);if(!p)return '';const pl=(p.sessions>0?p.sessions:planOf(st,p));
+  const at=marksSincePayment(st).filter(m=>isAttendMark(m.mark)&&m.iso<=todayISO()).map(m=>m.iso).sort();return at.length>=pl?at[pl-1]:'';}
+/* 원장님 카드용: 결석을 '결제분 안'과 '회차를 다 쓴 뒤(미결제 기간)'로 나눠요 (원장님 요청 2026-11-22) */
+function absentSplit(st){const t=todayISO(),ex=packageExhaustDate(st);const ab=marksSincePayment(st).filter(m=>m.iso<=t&&m.mark==='absent');
+  if(!ex)return {inPkg:ab.length,after:0};const after=ab.filter(m=>m.iso>ex).length;return {inPkg:ab.length-after,after};}
 function makeupUsedSincePayment(st){const t=todayISO();return marksSincePayment(st).filter(m=>m.iso<=t&&m.mark==='makeup').length;}
 function plannedSincePayment(st){const t=todayISO();return marksSincePayment(st).filter(m=>m.iso>t&&(m.mark==='present'||m.mark==='late'||m.mark==='makeup')).length;}
 function makeupUsed(st){return scopedMarks(st).filter(m=>m.iso<=todayISO()&&m.mark==='makeup').length;}
@@ -3363,6 +3369,7 @@ function studentSheet(st){
     const paceEndSt=expectedPaceEnd(st);
     const ml=makeupLeft(st),due=makeupDue(st);
     const lastClsSt=activeLastClassOverride(st)||packageLastClassDate(st)||'';
+    const absSp=absentSplit(st);
     oroot().innerHTML=`<div class="overlay"><div class="sheet" data-stsheet="${st.id}"><button class="quickx" onclick="closeOverlay()">✕</button>
       <h3>${esc(st.name)} · 출결·수업료</h3><div class="subt">${esc(clsNames(st))} · 기준 월요금(4회) ${won(fee)}${st.rate?' · 특별요금':''}${st.status==='paused'?' · 휴강중':''}${st.code?` · <b style="color:var(--jade-deep)">코드 ${st.code}</b>`:' · <span style="color:var(--verm)">코드 미발급</span>'}</div>
       <div class="note" style="margin:-4px 3px 8px;color:var(--ink-soft)">${st.lastLogin?(st.lastLogin.isAdminDevice?`⚠ 마지막 로그인 ${loginTimeStr(st.lastLogin.ts)} (원장님 기기${st.lastLogin.deviceLabel?': '+st.lastLogin.deviceLabel:''} — 테스트일 수 있어요)`:`✅ 마지막 로그인 ${loginTimeStr(st.lastLogin.ts)} (학생 기기)`):'아직 로그인 기록이 없어요'}${(st.lastLogin||st.lastStudentLogin)?` · <span id="stClrLogin" style="color:var(--verm);cursor:pointer;text-decoration:underline">접속 기록 지우기</span>`:''}</div>
@@ -3372,7 +3379,7 @@ function studentSheet(st){
       <div class="kpi">
         <div><div class="v ${remainSessions(st)<=0?'c-a':''}">${remainSessions(st)}</div><div class="t">${remainSessions(st)<0?'미리 사용':'잔여 회차'}</div></div>
         <div><div class="v c-p">${usedSincePayment(st)}</div><div class="t">출석<br><small style="font-weight:400">(이번 결제분${(lastPayment(st)&&lastPayment(st).sessions>0&&usedSincePayment(st)>=lastPayment(st).sessions)?' · 모두 사용':''})</small>${plannedSincePayment(st)>0?`<br><small style="color:var(--ink-soft);font-weight:400">+ 예정 ${plannedSincePayment(st)}회</small>`:''}</div></div>
-        <div><div class="v c-a">${absentSincePayment(st)}</div><div class="t">결석<br><small style="font-weight:400">(차감 없음)</small></div></div>
+        <div><div class="v c-a">${absSp.inPkg}</div><div class="t">결석<br><small style="font-weight:400">(이번 결제분 · 차감 없음)</small>${absSp.after>0?`<br><small style="color:var(--verm);font-weight:600">회차 다 쓴 뒤 결석 ${absSp.after}회</small>`:''}</div></div>
         ${remainSessions(st)<=0&&st.status!=='paused'
           ?`<div><div class="v" style="font-size:15px;color:var(--ink-soft)">-</div><div class="t">이용 기한<br><small style="font-weight:400">(회차 모두 사용)</small></div></div>`
           :`<div><div class="v" style="font-size:15px;${due&&dueExpired(st)?'color:var(--verm)':''}">${due?shortDate(due):'-'}</div><div class="t">이용 기한${due&&dueExpired(st)?'<br><small style="color:var(--verm);font-weight:600">지남</small>':''}${lastClsSt?`<br><small style="font-weight:400;color:var(--ink-soft)">마지막 수업 예정일 ${shortDate(lastClsSt)}</small>`:''}</div></div>`}
