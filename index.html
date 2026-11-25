@@ -492,6 +492,7 @@ function secondaryAuth(){
 let warned=false;
 async function load(){
   try{const snap=await db.collection('appData').doc('main').get();
+    _knownUpdatedAt=(snap.exists&&snap.data().updatedAt)||0;_saveConflict=false;
     return {ok:true,data:(snap.exists&&snap.data().json)?JSON.parse(snap.data().json):null};
   }catch(e){console.error(e);toast('데이터를 불러오지 못했어요. 인터넷 연결을 확인해 주세요.');
     return {ok:false,data:null};
@@ -502,45 +503,118 @@ function scheduleRegenerateStudentViews(){
   if(_regenTimer)clearTimeout(_regenTimer);
   _regenTimer=setTimeout(()=>{_regenTimer=null;regenerateStudentViews();},2000);
 }
-async function save(){
+/* ── 다른 기기 덮어쓰기 방지 (2026-11-25) ──
+   예전에는 저장할 때 이 기기가 들고 있는 데이터를 그대로 서버에 덮어써서,
+   다른 기기(휴대폰·iPad 등)가 그사이 저장한 내용(학생 결석·예약 반영 등)이 사라질 수 있었음.
+   이제는 저장 직전에 서버의 마지막 저장 시각을 확인해서, 이 기기가 불러온 뒤 다른 기기가 저장했으면
+   덮어쓰지 않고 멈춘 뒤 최신 내용을 다시 불러오게 함. 저장은 한 번에 하나씩 차례로 함. */
+let _knownUpdatedAt=0,_saveConflict=false,_saveChain=Promise.resolve(true);
+function save(){
+  _saveChain=_saveChain.then(_saveNow,_saveNow);
+  return _saveChain;
+}
+async function _saveNow(){
+  if(_saveConflict||!data)return false;
   try{
-    await db.collection('appData').doc('main').set({json:JSON.stringify(data),updatedAt:Date.now()});
+    const ref=db.collection('appData').doc('main');
+    const json=JSON.stringify(data);
+    const res=await db.runTransaction(async tx=>{
+      const snap=await tx.get(ref);
+      const remote=(snap.exists&&snap.data().updatedAt)||0;
+      if(remote>_knownUpdatedAt)return {conflict:true};
+      const ts=Math.max(Date.now(),remote+1);
+      tx.set(ref,{json,updatedAt:ts});
+      return {ts};
+    });
+    if(res.conflict){handleSaveConflict();return false;}
+    _knownUpdatedAt=res.ts;
     warned=false;document.getElementById('storeWarn').style.display='none';
     scheduleRegenerateStudentViews();
+    return true;
   }catch(e){console.error(e);
     if(!warned){warned=true;document.getElementById('storeWarn').style.display='block';}
-    toast('저장 실패 — 인터넷 연결을 확인해 주세요.');}
+    toast('저장 실패 — 인터넷 연결을 확인해 주세요.');
+    return false;}
 }
+function handleSaveConflict(){
+  if(_saveConflict)return;
+  _saveConflict=true;
+  try{stopAutoMerge();}catch(e){}
+  oroot().innerHTML=`<div class="overlay"><div class="sheet">
+    <h3>⚠ 다른 기기에서 먼저 저장했어요</h3>
+    <div class="subt" style="line-height:1.7">이 기기 화면이 예전 내용이라, 다른 기기에서 저장한 내용(학생 결석·예약 등)을 지우지 않도록 <b>저장을 멈췄어요</b>.<br>
+    아래 버튼을 눌러 최신 내용을 불러온 뒤, 방금 이 기기에서 바꾸신 것이 있으면 한 번 더 해 주세요.</div>
+    <div class="actions" style="margin-top:14px"><button class="btn-primary" id="conflictReload" style="flex:none;width:100%">최신 내용 불러오기</button></div>
+  </div></div>`;
+  oroot().querySelector('#conflictReload').onclick=()=>{
+    try{sessionStorage.setItem('gmh_refresh_tab',tab);sessionStorage.setItem('gmh_refresh_stumode',stuMode||'');}catch(e){}
+    location.reload();
+  };
+}
+/* 다른 창·앱을 쓰다가 이 앱으로 돌아오면, 다른 기기가 그사이 저장했는지 확인해서 최신 내용으로 바꿔 둠 */
+function refreshIfStale(){
+  if(_merging||_mergeNeedsSave)return; /* 반영 중이거나 아직 저장 못 한 반영이 있으면 건너뜀 */
+  _merging=_refreshIfStale().finally(()=>{_merging=null;});
+  return _merging;
+}
+async function _refreshIfStale(){
+  if(!data||_saveConflict||!auth.currentUser)return;
+  if(document.getElementById('adminApp').classList.contains('hidden'))return;
+  if(oroot().innerHTML.trim())return; /* 입력 창이 열려 있으면 건드리지 않음 (저장할 때 다시 확인함) */
+  try{
+    await _saveChain;
+    const snap=await db.collection('appData').doc('main').get();
+    const remote=(snap.exists&&snap.data().updatedAt)||0;
+    if(remote>_knownUpdatedAt&&snap.data().json&&!oroot().innerHTML.trim()){
+      data=migrate(JSON.parse(snap.data().json));_knownUpdatedAt=remote;
+      render();toast('다른 기기에서 바뀐 내용을 불러왔어요.');
+    }
+  }catch(e){console.warn('최신 확인 실패',e);}
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshIfStale();});
 
 /* ---------- student self-check merge ---------- */
-async function mergeAllStudentActivity(showToast){
+/* 학생 신청 대기함 → 원장님 데이터로 옮기기.
+   2026-11-25: 대기함 원본은 원장님 데이터 저장이 성공한 뒤에만 지움 (저장이 막히거나 실패하면 그대로 남아 다음에 다시 반영).
+   이미 반영한 신청 번호는 data.mergedQueueIds 에 남겨 두어, 지우기가 실패해 다시 읽혀도 두 번 반영하지 않음. */
+let _merging=null,_mergeNeedsSave=false;
+function mergeAllStudentActivity(showToast){
+  if(_merging)return _merging.then(()=>mergeAllStudentActivity(showToast));
+  _merging=_mergeAllStudentActivity(showToast).finally(()=>{_merging=null;});
+  return _merging;
+}
+async function _mergeAllStudentActivity(showToast){
+  if(_saveConflict)return {total:0,msgs:[]};
   let total=0;const msgs=[];let failCount=0;
+  const delRefs=[];
+  if(!Array.isArray(data.mergedQueueIds))data.mergedQueueIds=[];
+  const doneIds=new Set(data.mergedQueueIds);
+  /* 처음 보는 신청이면 true (번호를 기록), 이미 반영한 신청이면 false */
+  const fresh=(doc)=>{delRefs.push(doc.ref);if(doneIds.has(doc.id))return false;doneIds.add(doc.id);data.mergedQueueIds.push(doc.id);return true;};
   const step=async(label,fn)=>{
     try{await fn();}catch(e){console.error('merge step failed: '+label,e);failCount++;}
   };
   await step('selfChecks',async()=>{
     const q1=await db.collection('selfChecks').get();
-    q1.forEach(doc=>{const d=doc.data();const c=classById(d.classId);
+    q1.forEach(doc=>{if(!fresh(doc))return;const d=doc.data();const c=classById(d.classId);
       if(c){const k=d.sessionId+':'+d.studentId;const status=d.status||'present';c.records[k]=status;
         const stName=(studentById(d.studentId)||{}).name||'학생';
         const msg=status==='absent'?`${stName}님이 ${shortDate(d.iso)} 결석 예정을 알렸어요 (${c.name})`
                            :`${stName}님이 ${shortDate(d.iso)} 출석을 체크했어요 (${c.name})`;
         pushLog(status==='absent'?'absent':'selfcheck',msg,d.iso,status==='absent'?{cid:c.id,sid:d.sessionId,stid:d.studentId}:null);msgs.push(msg);
         total++;}});
-    if(!q1.empty){const b1=db.batch();q1.forEach(doc=>b1.delete(doc.ref));await b1.commit();}
   });
   await step('makeupRequests',async()=>{
     const q2=await db.collection('makeupRequests').get();
-    q2.forEach(doc=>{const d=doc.data();const c=classById(d.toClassId);
+    q2.forEach(doc=>{if(!fresh(doc))return;const d=doc.data();const c=classById(d.toClassId);
       if(c){const k=d.toSessionId+':'+d.studentId;c.records[k]='makeup';
         const stForClear=studentById(d.studentId);if(stForClear&&stForClear.makeupDueOverride)delete stForClear.makeupDueOverride;
         const msg=`${d.studentName||'학생'}님이 ${c.name} · ${d.label||shortDate(d.iso)} 다른 날 수업을 예약했어요.`;
         pushLog('makeup',msg,d.iso);msgs.push(msg);total++;}});
-    if(!q2.empty){const b2=db.batch();q2.forEach(doc=>b2.delete(doc.ref));await b2.commit();}
   });
   await step('dropinRequests',async()=>{
     const q3=await db.collection('dropinRequests').get();
-    q3.forEach(doc=>{const d=doc.data();const c=classById(d.classId);const st=studentById(d.studentId);
+    q3.forEach(doc=>{if(!fresh(doc))return;const d=doc.data();const c=classById(d.classId);const st=studentById(d.studentId);
       if(c&&st){const k=d.sessionId+':'+st.id;c.records[k]='present';
         if(!st.dropinBookings)st.dropinBookings=[];
         let fromPack=false,paymentId=null;
@@ -558,31 +632,28 @@ async function mergeAllStudentActivity(showToast){
         }
         st.dropinBookings.push({sessionId:d.sessionId,classId:d.classId,className:c.name,iso:d.iso,label:d.label,fromPack,paymentId});
         total++;}});
-    if(!q3.empty){const b3=db.batch();q3.forEach(doc=>b3.delete(doc.ref));await b3.commit();}
   });
   await step('makeupCancelRequests',async()=>{
     const q4=await db.collection('makeupCancelRequests').get();
-    q4.forEach(doc=>{const d=doc.data();const c=classById(d.classId);const st=studentById(d.studentId);
+    q4.forEach(doc=>{if(!fresh(doc))return;const d=doc.data();const c=classById(d.classId);const st=studentById(d.studentId);
       if(c&&st){const k=d.sessionId+':'+st.id;
         if(c.records[k]==='makeup'){delete c.records[k];
           const msg=`${st.name}님이 ${c.name} · ${d.label||shortDate(d.iso)} 다른 날 수업 예약을 취소했어요.`;
           pushLog('makeup',msg,d.iso);msgs.push(msg);
           total++;}}});
-    if(!q4.empty){const b4=db.batch();q4.forEach(doc=>b4.delete(doc.ref));await b4.commit();}
   });
   await step('absentCancelRequests',async()=>{
     const q5=await db.collection('absentCancelRequests').get();
-    q5.forEach(doc=>{const d=doc.data();const c=classById(d.classId);const st=studentById(d.studentId);
+    q5.forEach(doc=>{if(!fresh(doc))return;const d=doc.data();const c=classById(d.classId);const st=studentById(d.studentId);
       if(c&&st){const k=d.sessionId+':'+st.id;
         if(c.records[k]==='absent'){delete c.records[k];
           const msg=`${st.name}님이 ${c.name} · ${d.label||shortDate(d.iso)} 결석 취소를 신청했어요.`;
           pushLog('absent',msg,d.iso);msgs.push(msg);
           total++;}}});
-    if(!q5.empty){const b5=db.batch();q5.forEach(doc=>b5.delete(doc.ref));await b5.commit();}
   });
   await step('dropinCancelRequests',async()=>{
     const q6=await db.collection('dropinCancelRequests').get();
-    q6.forEach(doc=>{const d=doc.data();const c=classById(d.classId);const st=studentById(d.studentId);
+    q6.forEach(doc=>{if(!fresh(doc))return;const d=doc.data();const c=classById(d.classId);const st=studentById(d.studentId);
       if(c&&st){const k=d.sessionId+':'+st.id;
         const bk=(st.dropinBookings||[]).find(b=>b.sessionId===d.sessionId);
         if(bk&&c.records[k]==='present'){
@@ -594,7 +665,7 @@ async function mergeAllStudentActivity(showToast){
           pushLog('dropin',msg,d.iso);msgs.push(msg);
           total++;
         }}});
-    if(!q6.empty){const b6=db.batch();q6.forEach(doc=>b6.delete(doc.ref));await b6.commit();}
+
   });
   let loginEventsProcessed=false;
   await step('loginEvents',async()=>{
@@ -611,22 +682,32 @@ async function mergeAllStudentActivity(showToast){
       const d=latestByStudent[sid];if(st.loginClearedAt&&d.ts<=st.loginClearedAt)return;
       if(!st.lastLogin||d.ts>st.lastLogin.ts){st.lastLogin={ts:d.ts,isAdminDevice:!!d.isAdminDevice,deviceLabel:d.adminDeviceLabel||''};loginEventsProcessed=true;}
     });
-    if(!q7.empty){const b7=db.batch();q7.forEach(doc=>b7.delete(doc.ref));await b7.commit();}
+    q7.forEach(doc=>delRefs.push(doc.ref));
   });
   await step('checkinRequests',async()=>{
     const q8=await db.collection('checkinRequests').get();
-    q8.forEach(doc=>{const d=doc.data();
+    q8.forEach(doc=>{if(!fresh(doc))return;const d=doc.data();
       if(d.kind==='reenroll'){const msg=`🔁 ${d.studentName||'학생'}님이 재등록을 신청했어요${d.note?` (희망: ${d.note})`:''} · 학생 정보에서 상태를 수강으로 바꾸고 결제를 입력해 주세요.`;pushLog('reenroll',msg,todayISO());msgs.push(msg);total++;return;}
       const timeStr=(()=>{const dt=new Date(d.ts);return pad(dt.getHours())+':'+pad(dt.getMinutes());})();
       const msg=`🙋 ${d.studentName||'학생'}님이 방금 체크인했어요 (${timeStr}) · [출석] 탭에서 확인해주세요.`;
       pushLog('selfcheck',msg,todayISO());msgs.push(msg);total++;
     });
-    if(!q8.empty){const b8=db.batch();q8.forEach(doc=>b8.delete(doc.ref));await b8.commit();}
+
   });
   try{
     const pruneCutoff=addDays(todayISO(),-30);
     data.students.forEach(sx=>{if(sx.dropinBookings&&sx.dropinBookings.length)sx.dropinBookings=sx.dropinBookings.filter(b=>b.iso>=pruneCutoff);});
-    if(total>0||loginEventsProcessed){await save();render();}
+    if(data.mergedQueueIds.length>300)data.mergedQueueIds=data.mergedQueueIds.slice(-300);
+    let saved=true;
+    if(total>0||loginEventsProcessed||_mergeNeedsSave){saved=await save();_mergeNeedsSave=!saved;if(saved)render();}
+    if(!saved){
+      /* 저장이 막힘(다른 기기가 먼저 저장) 또는 실패 → 대기함은 지우지 않음. 최신 내용을 불러온 뒤 다시 반영됨 */
+      return {total:0,msgs:[]};
+    }
+    if(delRefs.length){
+      try{for(let i=0;i<delRefs.length;i+=400){const b=db.batch();delRefs.slice(i,i+400).forEach(r=>b.delete(r));await b.commit();}}
+      catch(e){console.error('대기함 정리 실패 (다음에 다시 정리)',e);}
+    }
     if(showToast){
       if(failCount>0)toast(total>0?(total+'건 반영했어요 (일부 항목은 실패해서 다시 시도해주세요).'):'불러오기 중 일부 실패했어요. 다시 시도해주세요.');
       else toast(total>0?(total+'건 반영했어요.'):'새로 반영할 게 없어요.');
