@@ -5432,7 +5432,9 @@ function renderStudentApp(){
   const approvedMakeup=stuData.makeupLeft||0;
   const totalLeft=(stuData.remain||0); /* makeupLeft는 이제 '다른 날로 옮길 수 있는 여유 회차'(잔여 안에 포함) — 더하지 않아요 */
   /* 다른 날 예약 가능 횟수 = 여유 회차(정규 일정 외에 남은 회차) + 결석 알린 만큼 + 취소 신청한 만큼. 회차를 다 쓴 경우만 1회 미리 참여 허용 */
-  const preBookAllowance=0; /* '수업 미리 참여하기'는 학생 앱에서 뺐어요 (2026-11). 원장님이 결제 전 출석을 기록하면 다음 결제에서 먼저 빠짐 */
+  /* '수업 미리 참여하기' 다시 켬 (원장님 요청 2026-11-26): 결제 회차를 딱 다 쓴(잔여 0) 학생은 다른 날 수업을 1회까지 예약하고, 오는 날 결제.
+     이미 결제 없이 들은 회차가 있으면(잔여 마이너스) 더 예약 못 해요. 휴강·종료 회원 제외. 들은 회차는 다음 결제분 1회차로 들어가요 */
+  const preBookAllowance=(totalLeft===0&&stuData.status!=='paused'&&stuData.status!=='ended'&&(approvedMakeup+pendingAbsent.length+pendingMakeupCancel.length)<=0)?1:0;
   const quotaTotal=approvedMakeup+pendingAbsent.length+pendingMakeupCancel.length+preBookAllowance;
   const quotaLeft=Math.max(0,quotaTotal-pendingMakeup.length);
   const realEntitlement=approvedMakeup+pendingAbsent.length+pendingMakeupCancel.length;
