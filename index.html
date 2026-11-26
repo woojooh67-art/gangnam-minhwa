@@ -241,7 +241,7 @@
 <div id="adminApp" class="hidden">
 <div class="app">
   <div class="topbar">
-    <div class="brand" style="justify-content:space-between;display:flex;width:100%;align-items:center"><div style="display:flex;align-items:center;gap:9px"><img id="logoImgTop" style="width:44px;height:44px;border-radius:50%;flex:0 0 auto"><div><h1 style="display:inline">강남민화연구소</h1> <span>출석 · 수업료</span></div></div><div style="display:flex;gap:6px"><button class="logoutbtn" id="adminSettings" title="설정">⚙ 설정</button><button class="logoutbtn" id="adminRefresh" style="border-color:var(--jade);color:var(--jade-deep);font-weight:700" title="강력 새로고침">🔄 새로고침</button><button class="logoutbtn" id="adminLogout">로그아웃</button></div></div>
+    <div class="brand" style="justify-content:space-between;display:flex;width:100%;align-items:center"><div style="display:flex;align-items:center;gap:9px"><img id="logoImgTop" style="width:44px;height:44px;border-radius:50%;flex:0 0 auto"><div><h1 style="display:inline">강남민화연구소</h1> <span>출석 · 수업료</span></div></div><div style="display:flex;gap:6px"><button class="logoutbtn" id="adminToastLog" title="최근 안내 알림" onclick="toastLogSheet()">🔔</button><button class="logoutbtn" id="adminSettings" title="설정">⚙ 설정</button><button class="logoutbtn" id="adminRefresh" style="border-color:var(--jade);color:var(--jade-deep);font-weight:700" title="강력 새로고침">🔄 새로고침</button><button class="logoutbtn" id="adminLogout">로그아웃</button></div></div>
     <div class="classrow" id="classRowBox">
       <select id="classSel"></select>
       <button class="iconbtn" id="addClass">＋</button>
@@ -715,7 +715,7 @@ async function _mergeAllStudentActivity(showToast){
     }
     if(showToast){
       if(failCount>0)toast(total>0?(total+'건 반영했어요 (일부 항목은 실패해서 다시 시도해주세요).'):'불러오기 중 일부 실패했어요. 다시 시도해주세요.');
-      else toast(total>0?(total+'건 반영했어요.'):'새로 반영할 게 없어요.');
+      else toast(total>0?(total+'건 반영했어요. 내용은 \'학생 알림\'에서 볼 수 있어요.'):'새로 반영할 게 없어요.');
     }
     return {total,msgs};
   }catch(e){console.error(e);if(showToast)toast('저장 중 오류가 있었어요. 인터넷 연결을 확인해주세요.');return {total,msgs};}
@@ -845,8 +845,30 @@ function seed(){return {"rates": {"d3": 10, "d6": 15, "daily": 60000}, "activeCl
 /* ---------- dialogs ---------- */
 function oroot(){return document.getElementById('overlayRoot');}
 function closeOverlay(){oroot().innerHTML='';}
-function toast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;document.body.appendChild(t);
-  requestAnimationFrame(()=>t.classList.add('show'));setTimeout(()=>{t.classList.remove('show');setTimeout(()=>t.remove(),250);},2000);}
+/* 안내 알림 (원장님 요청 2026-11-27: 너무 빨리 사라지고 다시 볼 곳이 없었음)
+   - 글자 수에 맞춰 4~12초 보여주고, 경고·실패 알림은 누를 때까지 남아 있어요. 누르면 바로 닫혀요.
+   - 여러 개가 겹치지 않게 위로 쌓이고, 최근 50개는 이 기기에 '🔔 알림 내역'으로 남아요 */
+const TOAST_LOG_KEY='gmh_toast_log';
+function toastLog(){try{return JSON.parse(localStorage.getItem(TOAST_LOG_KEY)||'[]');}catch(e){return [];}}
+function layoutToasts(){let y=94;Array.from(document.querySelectorAll('.toast')).reverse().forEach(t=>{t.style.bottom=y+'px';y+=t.offsetHeight+8;});}
+function toast(m){
+  m=String(m==null?'':m);
+  try{const L=toastLog();L.unshift({t:Date.now(),m});localStorage.setItem(TOAST_LOG_KEY,JSON.stringify(L.slice(0,50)));}catch(e){}
+  const sticky=/⚠|실패|오류|못했|못해/.test(m);
+  const t=document.createElement('div');t.className='toast';t.textContent=m;t.style.cursor='pointer';t.title='누르면 닫혀요';
+  if(sticky){const x=document.createElement('div');x.style.cssText='font-size:11.5px;opacity:.75;margin-top:3px';x.textContent='(누르면 닫혀요)';t.appendChild(x);}
+  document.body.appendChild(t);layoutToasts();
+  const close=()=>{if(t._closed)return;t._closed=true;t.classList.remove('show');setTimeout(()=>{t.remove();layoutToasts();},250);};
+  t.onclick=close;
+  requestAnimationFrame(()=>t.classList.add('show'));
+  if(!sticky)setTimeout(close,Math.min(12000,Math.max(4000,1500+m.length*120)));}
+function toastLogSheet(){
+  const L=toastLog();const two=n=>String(n).padStart(2,'0');
+  const fmt=ms=>{const d=new Date(ms);return `${d.getMonth()+1}/${d.getDate()} ${two(d.getHours())}:${two(d.getMinutes())}`;};
+  oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>🔔 최근 안내 알림</h3>
+    <div class="subt">화면 아래에 잠깐 떴던 안내를 최근 50개까지 모아 둬요 (이 기기에만 저장). 학생 활동 내용은 '학생 알림'에 있어요.</div>
+    <div style="max-height:60vh;overflow:auto">${L.length?L.map(x=>`<div style="padding:8px 2px;border-bottom:1px solid var(--line);font-size:14px;line-height:1.5"><small style="color:var(--ink-soft)">${fmt(x.t)}</small><br>${esc(x.m)}</div>`).join(''):'<div class="note">아직 기록된 알림이 없어요.</div>'}</div>
+    <div class="actions" style="margin-top:12px"><button class="btn-ghost" onclick="closeOverlay()" style="flex:1">닫기</button></div></div></div>`;}
 function confirmSheet(msg,onYes,yesLabel){yesLabel=yesLabel||'삭제';
   oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>확인</h3>
     <div style="font-size:14px;line-height:1.6;margin:6px 0 18px">${msg}</div>
@@ -5427,7 +5449,7 @@ function startAutoMerge(){
     if(!data)return;
     try{
       const merged=await mergeAllStudentActivity(false);
-      if(merged.total>0){render();toast('🔄 '+merged.total+'건 자동으로 반영됐어요.');}
+      if(merged.total>0){render();toast('🔄 '+merged.total+'건 자동으로 반영됐어요. 내용은 \'학생 알림\'에서 볼 수 있어요.');}
     }catch(e){console.error(e);}
   },60000);
 }
@@ -5750,7 +5772,7 @@ function renderStudentApp(){
   const isPaused=stuData.status==='paused';
   root.innerHTML=`<div class="stuwrap">
     <div class="stutop"><div style="display:flex;align-items:center;gap:10px"><img src="${LOGO_URI}" style="width:52px;height:52px;border-radius:50%;flex:0 0 auto"><div><h2>${esc(stuData.name)}님</h2><small>${esc((stuData.classes||[]).filter(c=>c.official!==false).map(c=>c.name).join(' · '))}</small></div></div>
-      <div style="display:flex;gap:6px"><button class="logoutbtn" id="stuRefresh" style="border-color:var(--jade);color:var(--jade-deep);font-weight:700" title="새로고침">🔄 새로고침</button><button class="logoutbtn" id="stuLogout">로그아웃</button></div></div>
+      <div style="display:flex;gap:6px"><button class="logoutbtn" title="최근 안내 알림" onclick="toastLogSheet()">🔔</button><button class="logoutbtn" id="stuRefresh" style="border-color:var(--jade);color:var(--jade-deep);font-weight:700" title="새로고침">🔄 새로고침</button><button class="logoutbtn" id="stuLogout">로그아웃</button></div></div>
     ${installCardHTML()}
     ${stuClosedBanner()}
     ${(()=>{
