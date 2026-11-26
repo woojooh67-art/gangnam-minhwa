@@ -1624,7 +1624,13 @@ function effectiveMakeupLeft(st){return dueExpired(st)?0:makeupLeft(st);}
    = 잔여 회차 − 앞으로 잡힌 수업(다른 날·출석 예정) − 마지막 수업 예정일까지 남은 정규 수업(결석 표시한 날은 빼고) */
 function freeSessionsFor(st){
   if(st.status==='paused'||st.status==='ended')return 0;
-  const rem=liveRemain(st);if(rem<=0)return 0;
+  const rem=liveRemain(st);
+  if(rem<=0){
+    /* 회차를 다 쓴 학생: 앞으로 있을 내 반 수업을 결석 예정으로 바꾼 만큼만 다른 날로 바꿀 수 있어요 (원장님 요청 2026-11-26)
+       = 오늘 이후 내 반 결석 수 − 오늘 이후 다른 날 수업 예약 수. 수업이 늘지 않아 미결제 회차도 안 늘어요 */
+    const t0=todayISO();const own=new Set(st.classIds||[]);const ms=marksOf(st).filter(m=>m.iso>=t0);
+    return Math.max(0,ms.filter(m=>m.mark==='absent'&&own.has(m.classId)).length-ms.filter(m=>m.mark==='makeup').length);
+  }
   const t=todayISO();
   const marks=marksOf(st);
   const booked=marks.filter(m=>m.iso>t&&isAttendMark(m.mark)).length;
@@ -5553,7 +5559,8 @@ function renderStudentApp(){
         const planLabel=v==='dropin'?'하루수업 참여 예정':'참여 예정';
         right=`<span class="c-p" style="font-weight:700">${s.iso>t?planLabel:doneLabel}</span>`;
       }
-      else if(needPay&&c.official!==false)right=`<span style="color:var(--ochre);font-size:12.5px;font-weight:700">오시는 날 결제</span>`;
+      /* 회차를 다 쓴 학생도 정규 수업 대신 다른 날로 바꿀 수 있게 (원장님 요청 2026-11-26): 결석 예정 → 그만큼만 다른 날 예약. 수업이 늘지 않아 미결제 회차도 안 늘어요 */
+      else if(needPay&&c.official!==false)right=s.iso>t?`<span style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><span style="color:var(--ochre);font-size:12.5px;font-weight:700">오시는 날 결제</span><button class="minibtn" style="color:var(--blue);padding:3px 2px;font-size:12px;text-decoration:underline" data-cid="${c.id}" data-sid="${s.id}" data-iso="${s.iso}" data-swap="1">다른 날로 바꾸기</button></span>`:`<span style="color:var(--ochre);font-size:12.5px;font-weight:700">오시는 날 결제</span>`;
       else right=`<button class="checkbtn" style="width:auto;padding:8px 14px;margin:0;font-size:12.5px" data-cid="${c.id}" data-sid="${s.id}" data-iso="${s.iso}">결석 예정 알리기</button>`;
       const rowHtml=`<div class="stuhist"><span>${esc(c.name)} · ${mkDateLabel(s)}${isLastPaid?' <b style="color:var(--verm)">· 마지막 수업일</b>':''}</span>${right}</div>`;
       if(s.iso<weekCutoff)upcomingRows+=rowHtml;else upcomingRowsMore+=rowHtml;
@@ -5799,7 +5806,7 @@ function renderStudentApp(){
         return h+`<div class="note" style="margin-bottom:6px">이번 주는 수업이 없어요. 다음 수업은 <b>${lab(n0.s.iso)}</b>이에요.</div>`+rows;
       })()}
       ${upcomingRowsMore?`<div class="note" id="upcomingMoreToggle" style="text-align:center;margin:8px 0 0;cursor:pointer;color:var(--ink-soft);border-top:1px solid var(--line);padding-top:8px">${upcomingMoreOpen?'▲ 접기':'▼ 다음주 이후 더보기'}</div>${upcomingMoreOpen?upcomingRowsMore:''}`:''}
-      ${needPay?'':'<div class="note">결석하실 것 같으면 미리 눌러서 알려주세요. 참석 예정이면 아무것도 안 누르셔도 돼요.</div>'}</div>`}
+      ${needPay?'<div class="note">이 날 못 오시면 <b>다른 날로 바꾸기</b>를 눌러 이번 주 다른 수업으로 바꾸실 수 있어요. (수업이 늘어나는 게 아니라 날짜만 바뀌어요)</div>':'<div class="note">결석하실 것 같으면 미리 눌러서 알려주세요. 참석 예정이면 아무것도 안 누르셔도 돼요.</div>'}</div>`}
     ${isPaused?'':makeupSection}
     ${isPaused?'':myMakeupSection}
     ${timetableSection}
@@ -5980,7 +5987,8 @@ function openMakeupPicker(excludeSessionId){
   const t=todayISO();const pendingMakeup=stuData._pendingMakeup||[];
   const realEntitlementNow=(stuData.makeupLeft||0)+(stuData._pendingAbsent||[]).length+(stuData._pendingMakeupCancel||[]).length;
   const isGraceOnly=realEntitlementNow<=0&&stuData.remain<=0;
-  const cutoff=isGraceOnly?null:(stuData.makeupDue||null);
+  const swapOnly=!isGraceOnly&&(stuData.remain||0)<=0; /* 회차를 다 쓴 학생이 정규 수업 대신 다른 날로 바꾸는 경우: 지난 이용 기한과 상관없이 일주일 안에서 */
+  const cutoff=(isGraceOnly||swapOnly)?null:(stuData.makeupDue||null);
   const windowEnd=addDays(t,STU_WINDOW_DAYS);
   const effectiveCutoff=cutoff?(cutoff<windowEnd?cutoff:windowEnd):windowEnd;
   const beyondWindow=cutoff&&cutoff>windowEnd;
@@ -5996,7 +6004,9 @@ function openMakeupPicker(excludeSessionId){
       <span class="pill" style="background:var(--jade-tint);color:var(--jade-deep)">${i===0?'가장 빠름':'선택'}</span>
     </div>`).join('');
   let dueBadge='';
-  if(isGraceOnly){
+  if(swapOnly){
+    dueBadge=`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">🔁 정규 수업 대신 오실 날짜를 골라 주세요. 오시는 날 결제해 주세요.</div>`;
+  }else if(isGraceOnly){
     dueBadge=`<div class="note" style="background:var(--ochre-tint);color:var(--ochre);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">⏳ 결제하신 회차를 모두 쓰셔서, 다음 결제분으로 미리 참여하시는 거예요. 오시는 날 결제해 주세요.</div>`;
   }else if(stuData.makeupDue&&!stuData.makeupDueExtended){
     if(stuData.makeupDueExpired&&stuData.status!=='paused')dueBadge=`<div class="note" style="background:var(--verm-tint);color:var(--verm);padding:9px 11px;border-radius:9px;font-weight:700;margin:10px 0">⚠ 이용 기한(${stuData.makeupDue})이 지나 남은 회차가 소멸됐어요.</div>`;
