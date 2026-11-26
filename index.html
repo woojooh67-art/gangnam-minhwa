@@ -5478,7 +5478,7 @@ function renderStudentApp(){
         const planLabel=v==='dropin'?'하루수업 참여 예정':'참여 예정';
         right=`<span class="c-p" style="font-weight:700">${s.iso>t?planLabel:doneLabel}</span>`;
       }
-      else if(needPay&&c.official!==false)right=`<span style="color:var(--ochre);font-size:12.5px;font-weight:700">결제 후 참여</span>`;
+      else if(needPay&&c.official!==false)right=`<span style="color:var(--ochre);font-size:12.5px;font-weight:700">오시는 날 결제</span>`;
       else right=`<button class="checkbtn" style="width:auto;padding:8px 14px;margin:0;font-size:12.5px" data-cid="${c.id}" data-sid="${s.id}" data-iso="${s.iso}">결석 예정 알리기</button>`;
       const rowHtml=`<div class="stuhist"><span>${esc(c.name)} · ${mkDateLabel(s)}${isLastPaid?' <b style="color:var(--verm)">· 마지막 수업일</b>':''}</span>${right}</div>`;
       if(s.iso<weekCutoff)upcomingRows+=rowHtml;else upcomingRowsMore+=rowHtml;
@@ -5717,10 +5717,10 @@ function renderStudentApp(){
         const lab=iso=>(+iso.slice(5,7))+'월 '+(+iso.slice(8,10))+'일('+wd(iso)+')';
         const n0=nextOfficial[0];
         let h='';
-        if(needPay)h+=`<div class="note" style="background:var(--ochre-tint);color:var(--ink);padding:10px 12px;border-radius:9px;margin:0 0 10px;line-height:1.6">💳 결제하신 회차를 모두 쓰셨어요.${n0?` <b>${lab(n0.s.iso)} 수업</b>부터 계속 들으시려면`:' 수업을 계속 들으시려면'} 수업료를 결제해 주세요.</div>`;
+        if(needPay)h+=`<div class="note" style="background:var(--ochre-tint);color:var(--ink);padding:10px 12px;border-radius:9px;margin:0 0 10px;line-height:1.6">💳 결제하신 회차를 모두 쓰셨어요. 내 반 수업은 <b>예약 없이 그냥 오시면 돼요</b>.${n0?` <b>${lab(n0.s.iso)} 수업</b>에 오시는 날`:' 오시는 날'} 수업료를 결제해 주세요.</div>`;
         if(upcomingRows)return h+upcomingRows;
         if(!n0)return h+'<div class="note">이번주는 예정된 수업이 없어요.</div>';
-        const rows=nextOfficial.slice(0,needPay?2:1).map(({c,s})=>`<div class="stuhist"><span>${esc(c.name)} · ${mkDateLabel(s)}</span>${needPay?'<span style="color:var(--ochre);font-size:12.5px;font-weight:700">결제 후 참여</span>':''}</div>`).join('');
+        const rows=nextOfficial.slice(0,needPay?2:1).map(({c,s})=>`<div class="stuhist"><span>${esc(c.name)} · ${mkDateLabel(s)}</span>${needPay?'<span style="color:var(--ochre);font-size:12.5px;font-weight:700">오시는 날 결제</span>':''}</div>`).join('');
         return h+`<div class="note" style="margin-bottom:6px">이번 주는 수업이 없어요. 다음 수업은 <b>${lab(n0.s.iso)}</b>이에요.</div>`+rows;
       })()}
       ${upcomingRowsMore?`<div class="note" id="upcomingMoreToggle" style="text-align:center;margin:8px 0 0;cursor:pointer;color:var(--ink-soft);border-top:1px solid var(--line);padding-top:8px">${upcomingMoreOpen?'▲ 접기':'▼ 다음주 이후 더보기'}</div>${upcomingMoreOpen?upcomingRowsMore:''}`:''}
