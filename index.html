@@ -3490,8 +3490,8 @@ function studentSheet(st){
       <div class="field"><label>등록 회차 <small style="color:var(--ink-soft)">(선택한 권종 그대로 · 특별한 경우만 직접 고치세요)</small></label><span class="stepwrap"><button class="stp" data-d="-1">－</button><input type="number" id="pSess" inputmode="numeric" value="${sess}"><button class="stp" data-d="1">＋</button></span></div>
       <div class="field"><label>금액 <small style="color:var(--ink-soft)">(±1만원)</small></label><span class="stepwrap"><button class="stpA" data-d="-10000">－</button><input type="number" id="pAmt" inputmode="numeric" value="${amt}" style="width:120px!important"><button class="stpA" data-d="10000">＋</button></span></div>
       <div class="field"><label>결제일</label><input type="date" id="pDate" value="${todayISO()}"></div>
-      <div class="fgroup" id="pEarlyWrap" style="display:none;background:var(--ochre-tint);border-radius:9px;padding:8px 10px"><label class="chk" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="pEarlyPay"> <span>오늘 수업 마치고 결제했어요 (오늘 수업은 이전 결제분으로, 새 회차는 내일부터)</span></label>
-        <div class="note" style="margin:4px 0 0 26px">오늘 출석이 이미 기록돼 있어서 보여요. 수업 시작 전에 결제해서 오늘이 새 결제분 1회차면 체크하지 마세요.</div></div>
+      <div class="fgroup" id="pEarlyWrap" style="display:none;background:var(--ochre-tint);border-radius:9px;padding:8px 10px"><label class="chk" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="pEarlyPay"> <span>결제일 수업 마치고 결제했어요 (그날 수업은 이전 결제분으로, 새 회차는 다음 수업부터)</span></label>
+        <div class="note" id="pEarlyNote" style="margin:4px 0 0 26px">결제일 출석이 이미 기록돼 있어서 보여요. 수업 시작 전에 결제해서 그날이 새 결제분 1회차면 체크하지 마세요.</div></div>
       <div class="field"><label>메모 <small style="color:var(--ink-soft)">(선택 · 예: 카드, 현금영수증)</small></label><input id="pMemo" placeholder="메모 없음"></div>
       <div class="note" style="margin:-6px 2px 10px" id="pHint">· 회차는 위에서 고르신 권종 그대로 등록돼요.<br>· 예전 기록을 계산에서 빼고 새로 시작하고 싶으면, [정보 수정] → "회차 리셋 기준일"에 이 결제일을 넣어주세요.</div>
       ${(()=>{const j=window.__lastPaySaved;const just=j&&j.sid===st.id&&Date.now()-j.at<180000;
@@ -3533,10 +3533,17 @@ function studentSheet(st){
       let v=parseInt(i.value);if(!Number.isFinite(v))v=0;v=Math.max(0,v+(+b.dataset.d));i.value=v;});
     oroot().querySelectorAll('.stpA').forEach(b=>b.onclick=()=>{const i=oroot().querySelector('#pAmt');
       let v=parseInt(i.value);if(!Number.isFinite(v))v=0;v=Math.max(0,v+(+b.dataset.d));i.value=v;});
-    /* '오늘 수업 마치고 결제' 체크는 결제일이 오늘이고 오늘 출석이 이미 있을 때만 보여요 */
-    {const ew=q('#pEarlyWrap'),dIn=q('#pDate');
-      const upd=()=>{const D=dIn.value;const show=D===todayISO()&&marksOf(st).some(m=>m.iso===D&&isAttendMark(m.mark));
-        ew.style.display=show?'':'none';if(!show)q('#pEarlyPay').checked=false;};
+    /* '수업 마치고 결제' 체크는 결제일에 출석이 이미 있을 때만 보여요.
+       그날 수업으로 이전 결제분을 딱 다 쓴 경우(그날 수업 뒤 잔여 0)에는 자동으로 체크돼요 → 새 회차는 다음 수업부터 (원장님 요청 2026-11-26) */
+    {const ew=q('#pEarlyWrap'),dIn=q('#pDate'),eb=q('#pEarlyPay'),en=q('#pEarlyNote');
+      const usedUpOn=D=>{
+        if(st.cycleStart&&D<st.cycleStart)return false;
+        const after=scopedMarks(st).filter(m=>m.iso>D&&m.iso<=todayISO()&&isAttendMark(m.mark)).length;
+        return remainSessions(st)+after===0;};
+      const upd=()=>{const D=dIn.value;const show=!!D&&D<=todayISO()&&marksOf(st).some(m=>m.iso===D&&isAttendMark(m.mark));
+        ew.style.display=show?'':'none';
+        const auto=show&&usedUpOn(D);eb.checked=auto;
+        if(en)en.innerHTML=auto?'✓ <b>자동으로 체크했어요.</b> 이 날 수업으로 이전 결제 회차를 다 쓰셨어요. 새 회차는 <b>다음 수업부터 1회차</b>로 세요. (수업 시작 전에 결제해서 이 날이 새 1회차면 체크를 끄세요.)':'결제일 출석이 이미 기록돼 있어서 보여요. 수업 시작 전에 결제해서 그날이 새 결제분 1회차면 체크하지 마세요.';};
       if(ew&&dIn){dIn.addEventListener('change',upd);dIn.addEventListener('input',upd);upd();}}
     q('#pClose').onclick=closeOverlay;
     {const j=window.__lastPaySaved;const ps=q('#pSave');
@@ -3557,7 +3564,7 @@ function studentSheet(st){
       oroot().insertAdjacentHTML('beforeend',`<div class="overlay" id="pConfirmOv"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>이대로 저장할까요?</h3>
         <div style="font-size:14.5px;line-height:1.9;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:6px 0 16px">
           <div>📅 결제일: <b>${D}</b></div>
-          ${earlyPay?`<div>⏩ 새 회차 적용 시작일: <b>${effFrom}</b> (오늘 회차는 예전 걸로 계산)</div>`:''}
+          ${earlyPay?`<div>⏩ 새 회차 적용 시작일: <b>${effFrom}</b> (결제일 수업은 이전 결제분으로, 다음 수업이 새 1회차)</div>`:''}
           <div>🔢 등록 회차: <b>${S}회</b></div>
           <div>💰 금액: <b>${won(A)}</b></div>
           ${memoFinal?`<div>📝 메모: <b>${esc(memoFinal)}</b>${autoMemo?' <small style="color:var(--ink-soft)">(미리 들은 회차는 자동으로 적혀요)</small>':''}</div>`:''}
