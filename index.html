@@ -3579,7 +3579,10 @@ function studentSheet(st){
         let committed=false; /* 이어서 쓰기/새로 시작 버튼을 여러 번 눌러도 결제는 한 번만 */
         const commitPay=(fresh)=>{
           if(committed)return;committed=true;
+          let undo=null;
           if(fresh){
+            /* 이 결제를 나중에 삭제하면 아래 값들을 결제 전 상태로 되돌릴 수 있게 기억해 둬요 (원장님 요청 2026-11-26) */
+            undo={cycleStart:st.cycleStart||null,remainAdjust:(st.remainAdjust!=null?st.remainAdjust:null),lastClassOverride:st.lastClassOverride||null,extend:st.extend||0};
             pushLog('admin',`(원장님) ${esc(st.name)}님 ${D} 결제 시 이전 잔여 ${rmBefore}회를 정리하고 새로 시작했어요.`,D);
             st.cycleStart=effFrom;
             delete st.remainAdjust; // 이전 결제 기간의 수동 보정값은 새 회차로 넘어가지 않게
@@ -3588,7 +3591,7 @@ function studentSheet(st){
           }else if(rmBefore+mkLive>0){
             pushLog('admin',`(원장님) ${esc(st.name)}님 ${D} 결제 시 이전에 남은 ${rmBefore+mkLive}회를 이어서 쓰도록(이월) 했어요.`,D);
           }
-          st.payments.push({id:uid(),sessions:S,amount:A,date:D,plan:S,memo:memoFinal,effectiveFrom:earlyPay?effFrom:undefined});window.__lastPaySaved={sid:st.id,at:Date.now(),D,A};save();renderFee();renderReport();studentSheet(st);toast('결제가 저장되었습니다.');
+          st.payments.push({id:uid(),sessions:S,amount:A,date:D,plan:S,memo:memoFinal,effectiveFrom:earlyPay?effFrom:undefined,...(undo?{undo}:{})});window.__lastPaySaved={sid:st.id,at:Date.now(),D,A};save();renderFee();renderReport();studentSheet(st);toast('결제가 저장되었습니다.');
         };
         const lrBefore=liveRemain(st);const leftTotal=lrBefore>=0?lrBefore+(expiredLeftover(st)?0:mkLive):0;
         if(lrBefore<0){
@@ -3685,7 +3688,21 @@ function studentSheet(st){
       };
     });
     oroot().querySelectorAll('.hno').forEach(b=>b.onclick=()=>{delId=null;draw();});
-    oroot().querySelectorAll('.hyes').forEach(b=>b.onclick=()=>{st.payments=st.payments.filter(x=>x.id!==b.dataset.id);recomputeDropinPack(st);save();delId=null;draw();renderFee();toast('결제 기록을 삭제했습니다.');});
+    oroot().querySelectorAll('.hyes').forEach(b=>b.onclick=()=>{
+      const dp=(st.payments||[]).find(x=>x.id===b.dataset.id);
+      st.payments=st.payments.filter(x=>x.id!==b.dataset.id);
+      /* 이 결제가 '새로 시작'하면서 바꿔 놓은 리셋 기준일·잔여 보정·기한 연장을 결제 전 상태로 되돌려요 (리셋 기준일이 아직 이 결제분 시작일일 때만) */
+      let restored=false;
+      if(dp&&dp.undo&&st.cycleStart===payEffDate(dp)){
+        const u=dp.undo;
+        if(u.cycleStart)st.cycleStart=u.cycleStart;else delete st.cycleStart;
+        if(u.remainAdjust!=null)st.remainAdjust=u.remainAdjust;else delete st.remainAdjust;
+        if(u.lastClassOverride)st.lastClassOverride=u.lastClassOverride;else delete st.lastClassOverride;
+        st.extend=u.extend||0;
+        restored=true;
+        pushLog('admin',`(원장님) ${esc(st.name)}님 ${dp.date} 결제를 삭제해서 회차 리셋 기준일 등을 결제 전 상태로 되돌렸어요.`,dp.date);
+      }
+      recomputeDropinPack(st);save();delId=null;draw();renderFee();toast(restored?'결제 기록을 삭제하고, 회차 계산을 결제 전 상태로 되돌렸어요.':'결제 기록을 삭제했습니다.');});
     const newSheet=oroot().querySelector('.sheet');if(newSheet)newSheet.scrollTop=savedScroll;
   }
   draw();}
