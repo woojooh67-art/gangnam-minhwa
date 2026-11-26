@@ -851,9 +851,22 @@ function closeOverlay(){oroot().innerHTML='';}
 const TOAST_LOG_KEY='gmh_toast_log';
 function toastLog(){try{return JSON.parse(localStorage.getItem(TOAST_LOG_KEY)||'[]');}catch(e){return [];}}
 function layoutToasts(){let y=94;Array.from(document.querySelectorAll('.toast')).reverse().forEach(t=>{t.style.bottom=y+'px';y+=t.offsetHeight+8;});}
+/* 원장님 화면 알림은 클라우드(appData/toastLog)에도 모아서, 휴대폰에서 뜬 알림도 PC·노트북에서 볼 수 있게 (원장님 요청 2026-11-27).
+   본 데이터(appData/main)와 따로 저장하므로 학생·출결 데이터에는 영향 없음. 저장 실패해도 조용히 넘어감 */
+const TOAST_CLOUD_MAX=300;let _toastBuf=[],_toastTimer=null;
+function toastDevice(){const u=navigator.userAgent||'';return /iPad|Tablet/i.test(u)?'태블릿':/Mobi|Android|iPhone/i.test(u)?'휴대폰':'PC';}
+function isAdminScreen(){const a=document.getElementById('adminApp');return !!(a&&!a.classList.contains('hidden')&&typeof db!=='undefined'&&auth&&auth.currentUser);}
+function queueToastCloud(e){if(!isAdminScreen())return;_toastBuf.push(e);clearTimeout(_toastTimer);_toastTimer=setTimeout(flushToastCloud,3000);}
+async function flushToastCloud(){const add=_toastBuf.splice(0);if(!add.length)return;
+  try{const ref=db.collection('appData').doc('toastLog');
+    await db.runTransaction(async tx=>{const s=await tx.get(ref);const cur=(s.exists&&Array.isArray(s.data().items))?s.data().items:[];
+      tx.set(ref,{items:add.slice().reverse().concat(cur).slice(0,TOAST_CLOUD_MAX),updatedAt:Date.now()});});
+  }catch(err){console.warn('알림 내역 클라우드 저장 실패(이 기기에는 남아 있음)',err);}}
 function toast(m){
   m=String(m==null?'':m);
-  try{const L=toastLog();L.unshift({t:Date.now(),m});localStorage.setItem(TOAST_LOG_KEY,JSON.stringify(L.slice(0,50)));}catch(e){}
+  const entry={t:Date.now(),m,dev:toastDevice()};
+  try{const L=toastLog();L.unshift(entry);localStorage.setItem(TOAST_LOG_KEY,JSON.stringify(L.slice(0,50)));}catch(e){}
+  try{queueToastCloud(entry);}catch(e){}
   const sticky=/⚠|실패|오류|못했|못해/.test(m);
   const t=document.createElement('div');t.className='toast';t.textContent=m;t.style.cursor='pointer';t.title='누르면 닫혀요';
   if(sticky){const x=document.createElement('div');x.style.cssText='font-size:11.5px;opacity:.75;margin-top:3px';x.textContent='(누르면 닫혀요)';t.appendChild(x);}
@@ -862,12 +875,18 @@ function toast(m){
   t.onclick=close;
   requestAnimationFrame(()=>t.classList.add('show'));
   if(!sticky)setTimeout(close,Math.min(12000,Math.max(4000,1500+m.length*120)));}
-function toastLogSheet(){
-  const L=toastLog();const two=n=>String(n).padStart(2,'0');
+async function toastLogSheet(){
+  let L=toastLog();const two=n=>String(n).padStart(2,'0');
+  let cloudOk=false;
+  if(isAdminScreen()){
+    try{await flushToastCloud();const s=await db.collection('appData').doc('toastLog').get();
+      const C=(s.exists&&Array.isArray(s.data().items))?s.data().items:[];cloudOk=true;
+      const seen=new Set();L=C.concat(L).filter(x=>{const k=x.t+'|'+x.m;if(seen.has(k))return false;seen.add(k);return true;}).sort((a,b)=>b.t-a.t).slice(0,TOAST_CLOUD_MAX);
+    }catch(e){console.warn(e);}}
   const fmt=ms=>{const d=new Date(ms);return `${d.getMonth()+1}/${d.getDate()} ${two(d.getHours())}:${two(d.getMinutes())}`;};
   oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>🔔 최근 안내 알림</h3>
-    <div class="subt">화면 아래에 잠깐 떴던 안내를 최근 50개까지 모아 둬요 (이 기기에만 저장). 학생 활동 내용은 '학생 알림'에 있어요.</div>
-    <div style="max-height:60vh;overflow:auto">${L.length?L.map(x=>`<div style="padding:8px 2px;border-bottom:1px solid var(--line);font-size:14px;line-height:1.5"><small style="color:var(--ink-soft)">${fmt(x.t)}</small><br>${esc(x.m)}</div>`).join(''):'<div class="note">아직 기록된 알림이 없어요.</div>'}</div>
+    <div class="subt">${cloudOk?'화면 아래에 잠깐 떴던 원장님 화면 안내를 <b>모든 기기(PC·휴대폰) 것을 합쳐</b> 최근 '+TOAST_CLOUD_MAX+'개까지 보여드려요.':'화면 아래에 잠깐 떴던 안내를 이 기기 것만 최근 50개까지 보여드려요.'} 학생 활동 내용은 '학생 알림'에 있어요.</div>
+    <div style="max-height:60vh;overflow:auto">${L.length?L.map(x=>`<div style="padding:8px 2px;border-bottom:1px solid var(--line);font-size:14px;line-height:1.5"><small style="color:var(--ink-soft)">${fmt(x.t)}${x.dev?' · '+esc(x.dev):''}</small><br>${esc(x.m)}</div>`).join(''):'<div class="note">아직 기록된 알림이 없어요.</div>'}</div>
     <div class="actions" style="margin-top:12px"><button class="btn-ghost" onclick="closeOverlay()" style="flex:1">닫기</button></div></div></div>`;}
 function confirmSheet(msg,onYes,yesLabel){yesLabel=yesLabel||'삭제';
   oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>확인</h3>
