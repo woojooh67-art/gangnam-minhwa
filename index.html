@@ -5493,13 +5493,15 @@ function openInChrome(){const url=location.href.split('#')[0];const e=installEnv
   if(e.kakao){location.href='kakaotalk://web/openExternal?url='+encodeURIComponent(url);return;}
   if(e.android){location.href='intent://'+url.replace(/^https?:\/\//,'')+'#Intent;scheme=https;package=com.android.chrome;end';return;}
   location.href=url;}
+const GALAXY_TIP=`<div class="note" style="margin-top:8px">📌 <b>갤럭시 휴대폰</b>은 설치가 끝나도 바탕화면에 아이콘이 안 보일 수 있어요. 그럴 땐 바탕화면을 <b>위로 쓸어 올려</b> 앱 목록에서 <b>"강남민화연구소"</b>를 찾아 <b>꾹 누른 뒤 "홈 화면에 추가"</b>를 누르세요.</div>`;
 function installHelpSheet(backFn){
   const e=installEnv();const url=location.href.split('#')[0];let steps='';
-  if(e.inapp&&e.android)steps=`<div class="note" style="margin-bottom:10px">지금은 <b>카카오톡 안의 창</b>으로 열려 있어서 바로 설치가 안 돼요. 아래 버튼을 눌러 <b>크롬</b>으로 연 다음, 다시 이 화면의 설치 버튼을 눌러주세요.</div><button class="btn-primary" id="ihChrome" style="width:100%;margin-bottom:10px">🌐 크롬으로 열기</button>`;
+  if(e.inapp&&e.android)steps=`<div class="note" style="margin-bottom:10px">지금은 <b>카카오톡 안의 창</b>으로 열려 있어서 바로 설치가 안 돼요. 아래 버튼을 눌러 <b>인터넷 앱</b>(갤럭시는 보통 <b>삼성 인터넷</b>, 또는 크롬)으로 연 다음, 다시 이 화면의 설치 버튼을 눌러주세요.</div><button class="btn-primary" id="ihChrome" style="width:100%;margin-bottom:10px">🌐 인터넷 앱으로 열기</button>`;
   else if(e.inapp&&e.ios)steps=`<div class="note">지금은 <b>카카오톡 안의 창</b>으로 열려 있어요.<br>① 오른쪽 아래 <b>⋯ 또는 공유 버튼</b> → <b>"Safari로 열기"</b><br>② 사파리 아래쪽 <b>공유 버튼(□↑)</b> → <b>"홈 화면에 추가"</b></div>`;
   else if(e.ios)steps=`<div class="note">① 사파리 아래쪽 <b>공유 버튼(□↑)</b>을 누르세요.<br>② 목록을 조금 올려서 <b>"홈 화면에 추가"</b>를 누르세요.<br>③ 오른쪽 위 <b>"추가"</b>를 누르면 끝이에요.</div>`;
-  else if(e.android&&deferredInstallPrompt)steps=`<button class="btn-primary" id="ihInstall" style="width:100%;margin-bottom:10px">📲 지금 설치하기</button>`;
-  else if(e.android)steps=`<div class="note">① 크롬 오른쪽 위 <b>⋮ (점 세 개)</b>를 누르세요.<br>② <b>"홈 화면에 추가"</b> 또는 <b>"앱 설치"</b>를 누르세요.<br>③ <b>"설치"</b>를 누르면 바탕화면에 아이콘이 생겨요.</div>${e.samsung?'<div class="note" style="margin-top:6px">삼성 인터넷이라면 아래쪽 <b>≡ 메뉴 → "현재 페이지 추가" → "홈 화면"</b>을 누르세요.</div>':''}`;
+  else if(e.android&&deferredInstallPrompt)steps=`<button class="btn-primary" id="ihInstall" style="width:100%;margin-bottom:10px">📲 지금 설치하기</button>`+GALAXY_TIP;
+  else if(e.android&&e.samsung)steps=`<div class="note">지금은 <b>삼성 인터넷</b>으로 열려 있어요.<br>① 주소창 옆에 <b>설치(⬇) 아이콘</b>이 보이면 그걸 누르고 <b>"설치"</b>를 누르세요.<br>② 아이콘이 없으면 맨 아래 오른쪽 <b>≡ (줄 세 개)</b> → <b>"현재 페이지 추가"</b> → <b>"홈 화면"</b>을 누르세요.</div>`+GALAXY_TIP;
+  else if(e.android)steps=`<div class="note">① 크롬 오른쪽 위 <b>⋮ (점 세 개)</b>를 누르세요.<br>② <b>"앱 설치"</b> 또는 <b>"홈 화면에 추가"</b>를 누르세요.<br>③ <b>"설치"</b>를 누르면 끝이에요.</div>`+GALAXY_TIP;
   else steps=`<div class="note">휴대폰에서 이 주소를 열면 바탕화면에 앱처럼 설치할 수 있어요.</div>`;
   oroot().innerHTML=`<div class="overlay"><div class="sheet"><button class="quickx" onclick="closeOverlay()">✕</button><h3>📲 휴대폰 바탕화면에 설치하기</h3>
     <div class="subt">한 번 설치해두면 다음부터 아이콘만 누르면 바로 열려요. 서두르실 필요 없이 천천히 따라 해보세요.</div>
@@ -5510,7 +5512,7 @@ function installHelpSheet(backFn){
   q('#ihClose').onclick=()=>{closeOverlay();if(backFn)backFn();};
   q('#ihCopy').onclick=async()=>{try{await navigator.clipboard.writeText(url);toast('주소를 복사했어요. 카톡·메모 등에 길게 눌러 붙여넣으세요.');}catch(err){prompt('아래 주소를 길게 눌러 복사하세요:',url);}};
   if(q('#ihChrome'))q('#ihChrome').onclick=openInChrome;
-  if(q('#ihInstall'))q('#ihInstall').onclick=async()=>{const p=deferredInstallPrompt;if(!p)return;p.prompt();await p.userChoice;deferredInstallPrompt=null;closeOverlay();if(backFn)backFn();};
+  if(q('#ihInstall'))q('#ihInstall').onclick=async()=>{const p=deferredInstallPrompt;if(!p)return;p.prompt();const r=await p.userChoice;deferredInstallPrompt=null;closeOverlay();if(backFn)backFn();if(r&&r.outcome==='accepted')toast('설치를 시작했어요. 바탕화면에 아이콘이 안 보이면 화면을 위로 쓸어 올려 앱 목록에서 "강남민화연구소"를 찾아주세요.');};
 }
 function installCardHTML(){
   if(isStandaloneApp())return '';
